@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 
-const URL = 'https://llnmrlylpmswptancysq.supabase.co';
-const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm1ybHlscG1zd3B0YW5jeXNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDA0MTcsImV4cCI6MjA5ODgxNjQxN30.kWCc_vxwxK0RpZWLMTKud-o3-cW4ZkHcK5ggV-5mo7s';
+// La clé se lit depuis l'environnement pour ne rien committer de sensible :
+//   SUPABASE_URL=... SUPABASE_KEY=<clé> node scripts/seed.mjs
+// Repli sur la clé publishable (publique) si non fournie.
+const URL = process.env.SUPABASE_URL || 'https://llnmrlylpmswptancysq.supabase.co';
+const KEY = process.env.SUPABASE_KEY || 'sb_publishable_oKTwjR1moLiwLMNxMPBV_g_cMe9cFDk';
 const sb = createClient(URL, KEY, { auth: { persistSession: false } });
 const author = 'admin@boulangerie.com';
 const F = (base) => (base === 'unite' ? 1 : 1000);

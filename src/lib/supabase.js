@@ -9,9 +9,11 @@ import { createClient } from '@supabase/supabase-js';
 const ENV = (typeof import.meta !== 'undefined' && import.meta.env) || {};
 const SUPABASE_URL =
   ENV.VITE_SUPABASE_URL || 'https://llnmrlylpmswptancysq.supabase.co';
+// Clé PUBLISHABLE (publique par conception, protégée côté base par RLS).
+// Ne JAMAIS mettre ici la clé « secret » (sb_secret_…) : elle donne un accès
+// administrateur total et n'a rien à faire dans un bundle navigateur.
 const SUPABASE_ANON_KEY =
-  ENV.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxsbm1ybHlscG1zd3B0YW5jeXNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyNDA0MTcsImV4cCI6MjA5ODgxNjQxN30.kWCc_vxwxK0RpZWLMTKud-o3-cW4ZkHcK5ggV-5mo7s';
+  ENV.VITE_SUPABASE_ANON_KEY || 'sb_publishable_oKTwjR1moLiwLMNxMPBV_g_cMe9cFDk';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false }
