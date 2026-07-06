@@ -222,13 +222,30 @@ end; $$;
 --    données. Suffisant pour une démo / un petit atelier de confiance.
 --    Étape suivante recommandée pour la production : activer Supabase Auth
 --    et restreindre par rôle (admin/opérateur) — le schéma le prévoit déjà.
-do $$
-declare t text;
-begin
-  foreach t in array array['ingredients','products','recipes','purchases','productions','production_lines','stock_movements','sales']
-  loop
-    execute format('alter table %I enable row level security;', t);
-    execute format('drop policy if exists anon_all on %I;', t);
-    execute format('create policy anon_all on %I for all to anon, authenticated using (true) with check (true);', t);
-  end loop;
-end $$;
+-- (Lignes simples, sans « dollar-quoting », pour un copier-coller sans risque.)
+alter table ingredients      enable row level security;
+alter table products         enable row level security;
+alter table recipes          enable row level security;
+alter table purchases        enable row level security;
+alter table productions      enable row level security;
+alter table production_lines enable row level security;
+alter table stock_movements  enable row level security;
+alter table sales            enable row level security;
+
+drop policy if exists anon_all on ingredients;
+drop policy if exists anon_all on products;
+drop policy if exists anon_all on recipes;
+drop policy if exists anon_all on purchases;
+drop policy if exists anon_all on productions;
+drop policy if exists anon_all on production_lines;
+drop policy if exists anon_all on stock_movements;
+drop policy if exists anon_all on sales;
+
+create policy anon_all on ingredients      for all to anon, authenticated using (true) with check (true);
+create policy anon_all on products         for all to anon, authenticated using (true) with check (true);
+create policy anon_all on recipes          for all to anon, authenticated using (true) with check (true);
+create policy anon_all on purchases        for all to anon, authenticated using (true) with check (true);
+create policy anon_all on productions      for all to anon, authenticated using (true) with check (true);
+create policy anon_all on production_lines for all to anon, authenticated using (true) with check (true);
+create policy anon_all on stock_movements  for all to anon, authenticated using (true) with check (true);
+create policy anon_all on sales            for all to anon, authenticated using (true) with check (true);
