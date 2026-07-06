@@ -66,13 +66,13 @@ export default function Purchases() {
     }
   };
 
-  const remove = (p) => {
+  const remove = async (p) => {
     if (!window.confirm(t('common.confirmDelete'))) return;
     try {
-      deletePurchase(p.id);
+      await deletePurchase(p.id);
     } catch (err) {
       // Message explicite : « Stock déjà consommé en production… » (n°12)
-      window.alert(t(err.message));
+      window.alert(t(err.message) === err.message ? err.message : t(err.message));
     }
   };
 

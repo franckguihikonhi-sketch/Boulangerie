@@ -1,9 +1,16 @@
-import { useSyncExternalStore } from 'react';
-import { getState, subscribe } from './db';
+import { useEffect, useSyncExternalStore } from 'react';
+import { ensureHydrated, getState, getStatus, subscribe } from './db';
 
-// Abonnement React à la couche de données : chaque mutation notifie les
-// composants, qui relisent l'état à jour (pas de cache intermédiaire —
-// principe qui corrige l'anomalie n°2).
+// Abonnement React au cache de données (hydraté depuis Supabase).
 export function useStore() {
   return useSyncExternalStore(subscribe, getState);
+}
+
+// État de connexion à la base (loading / ready / error) + déclenchement de
+// l'hydratation initiale.
+export function useDbStatus() {
+  useEffect(() => {
+    ensureHydrated();
+  }, []);
+  return useSyncExternalStore(subscribe, getStatus);
 }
