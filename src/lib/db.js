@@ -29,7 +29,13 @@ let state = null;
 const listeners = new Set();
 
 export function uid() {
-  return crypto.randomUUID();
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  // Repli UUID v4 pour les navigateurs mobiles plus anciens (iOS < 15.4,
+  // vieux Android) qui n'ont pas crypto.randomUUID.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
 }
 
 function emptyState() {
