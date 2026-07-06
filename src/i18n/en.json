@@ -206,6 +206,13 @@
   "reports.consumed": "Quantity consumed",
   "reports.consumptionNote": "Aggregated by ingredient identifier (not by displayed name).",
 
+  "db.loading": "Loading data…",
+  "db.errorTitle": "Unable to load data",
+  "db.notReadyTitle": "Database needs setup",
+  "db.notReadyHelp": "The Supabase connection works, but the tables are not created yet. Run supabase/setup.sql in Supabase (SQL Editor), then retry.",
+  "db.retry": "Retry",
+
+  "errors.dbNotReady": "Database not initialized.",
   "errors.nameRequired": "Name is required.",
   "errors.notFound": "Item not found.",
   "errors.badQuantity": "Invalid quantity.",

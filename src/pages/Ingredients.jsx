@@ -40,12 +40,16 @@ export default function Ingredients() {
     }
   };
 
-  const submit = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setError('');
     try {
       if (modal === 'new') {
-        addIngredient({
+        await addIngredient({
           name: form.name,
           type: form.type,
           baseUnit: form.baseUnit,
@@ -55,7 +59,7 @@ export default function Ingredients() {
           author: user.email
         });
       } else {
-        updateIngredient(modal.id, {
+        await updateIngredient(modal.id, {
           name: form.name,
           minThreshold: Number(form.minThreshold) || 0,
           unitCost: Number(form.unitCost) || 0
@@ -64,13 +68,15 @@ export default function Ingredients() {
       setModal(null);
     } catch (err) {
       setError(t(err.message));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const remove = (ing) => {
+  const remove = async (ing) => {
     if (!window.confirm(t('common.confirmDelete'))) return;
     try {
-      deleteIngredient(ing.id);
+      await deleteIngredient(ing.id);
     } catch (err) {
       window.alert(t(err.message));
     }
@@ -192,7 +198,7 @@ export default function Ingredients() {
             <ErrorNote>{error}</ErrorNote>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setModal(null)}>{t('common.cancel')}</Button>
-              <Button type="submit">{t('common.save')}</Button>
+              <Button type="submit" disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
             </div>
           </form>
         </Modal>

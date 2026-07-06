@@ -35,13 +35,13 @@ export default function Sales() {
 
   const selected = available.find((x) => x.product.id === productId);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
     setError('');
     try {
-      recordSale({
+      await recordSale({
         productId,
         quantity: Number(qty),
         unitPrice: Number(unitPrice),
@@ -57,7 +57,7 @@ export default function Sales() {
       setNote('');
       setIdemKey(uid());
     } catch (err) {
-      setError(t(err.message));
+      setError(t(err.message) === err.message ? err.message : t(err.message));
     } finally {
       setSaving(false);
     }

@@ -44,12 +44,16 @@ export default function Stock() {
     [s]
   );
 
-  const submitAdjust = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const submitAdjust = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setError('');
     try {
       const changeBase = toBase(Number(adjForm.qty), adjForm.unit, adjust.baseUnit);
-      adjustStock({
+      await adjustStock({
         ingredientId: adjust.id,
         changeBase,
         reason: adjForm.reason,
@@ -59,6 +63,8 @@ export default function Stock() {
       setAdjust(null);
     } catch (err) {
       setError(t(err.message) === err.message ? err.message : t(err.message));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -198,7 +204,7 @@ export default function Stock() {
             <ErrorNote>{error}</ErrorNote>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setAdjust(null)}>{t('common.cancel')}</Button>
-              <Button type="submit">{t('common.save')}</Button>
+              <Button type="submit" disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
             </div>
           </form>
         </Modal>

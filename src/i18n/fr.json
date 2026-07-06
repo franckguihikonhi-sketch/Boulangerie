@@ -206,6 +206,13 @@
   "reports.consumed": "Quantité consommée",
   "reports.consumptionNote": "Agrégée par identifiant d'ingrédient (pas par nom affiché).",
 
+  "db.loading": "Chargement des données…",
+  "db.errorTitle": "Impossible de charger les données",
+  "db.notReadyTitle": "Base de données à initialiser",
+  "db.notReadyHelp": "La connexion à Supabase fonctionne, mais les tables ne sont pas encore créées. Exécutez le script supabase/setup.sql dans Supabase (SQL Editor), puis réessayez.",
+  "db.retry": "Réessayer",
+
+  "errors.dbNotReady": "Base de données non initialisée.",
   "errors.nameRequired": "Le nom est obligatoire.",
   "errors.notFound": "Élément introuvable.",
   "errors.badQuantity": "Quantité invalide.",

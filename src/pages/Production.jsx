@@ -30,21 +30,22 @@ export default function Production() {
     [s, productId, qty]
   );
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     if (saving) return;
     setSaving(true); // bouton désactivé dès le premier clic (anomalie n°4)
     setError('');
     setDone(null);
+    const snapshot = { product: preview.product.name, qty: Number(qty), cost: preview.totalCost };
     try {
-      recordProduction({
+      await recordProduction({
         productId,
         quantity: Number(qty),
         note,
         idempotencyKey: idemKey,
         author: user.email
       });
-      setDone({ product: preview.product.name, qty: Number(qty), cost: preview.totalCost });
+      setDone(snapshot);
       setProductId('');
       setQty('');
       setNote('');
@@ -57,7 +58,7 @@ export default function Production() {
             .join(' ')
         );
       } else {
-        setError(t(err.message));
+        setError(t(err.message) === err.message ? err.message : t(err.message));
       }
     } finally {
       setSaving(false);

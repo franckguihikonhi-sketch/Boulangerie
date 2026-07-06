@@ -64,17 +64,23 @@ function RecipeEditor({ s, product, onClose }) {
     }, 0)
   );
 
-  const submit = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setError('');
     try {
-      saveRecipe(
+      await saveRecipe(
         product.id,
         parsed.filter((l) => l.ingredient).map((l) => ({ ingredientId: l.ingredientId, qtyBase: l.qtyBase }))
       );
       onClose();
     } catch (err) {
       setError(t(err.message));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -148,7 +154,7 @@ function RecipeEditor({ s, product, onClose }) {
         <ErrorNote>{error}</ErrorNote>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>{t('common.cancel')}</Button>
-          <Button type="submit">{t('common.save')}</Button>
+          <Button type="submit" disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
         </div>
       </form>
     </Modal>
@@ -169,11 +175,15 @@ export default function Products() {
     setModal(p || 'new');
   };
 
-  const submit = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
     e.preventDefault();
+    if (saving) return;
+    setSaving(true);
     setError('');
     try {
-      saveProduct({
+      await saveProduct({
         id: modal === 'new' ? undefined : modal.id,
         name: form.name,
         category: form.category,
@@ -182,13 +192,15 @@ export default function Products() {
       setModal(null);
     } catch (err) {
       setError(t(err.message));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const remove = (p) => {
+  const remove = async (p) => {
     if (!window.confirm(t('common.confirmDelete'))) return;
     try {
-      deleteProduct(p.id);
+      await deleteProduct(p.id);
     } catch (err) {
       window.alert(t(err.message));
     }
@@ -282,7 +294,7 @@ export default function Products() {
             <ErrorNote>{error}</ErrorNote>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={() => setModal(null)}>{t('common.cancel')}</Button>
-              <Button type="submit">{t('common.save')}</Button>
+              <Button type="submit" disabled={saving}>{saving ? t('common.saving') : t('common.save')}</Button>
             </div>
           </form>
         </Modal>

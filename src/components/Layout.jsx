@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
+import DbGate from './DbGate';
 
 // Menu latéral : les 9 modules dans le MÊME ordre sur desktop et mobile,
 // avec le libellé unique « Ventes » (anomalie n°13). Le rôle Opérateur ne
@@ -161,7 +162,9 @@ export default function Layout() {
 
       <main className="px-3 py-5 sm:px-5 lg:pl-64">
         <div className="mx-auto max-w-6xl lg:pl-4">
-          <Outlet />
+          <DbGate>
+            <Outlet />
+          </DbGate>
         </div>
       </main>
     </div>
