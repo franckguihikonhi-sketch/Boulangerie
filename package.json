@@ -1,15 +1,18 @@
 {
-  "name": "boulange-erp",
+  "name": "boulangerie-erp",
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "vite build && electron .",
+    "dist": "vite build && electron-builder --win --publish never"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.0",
+    "better-sqlite3": "^11.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0"
@@ -17,8 +20,33 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "electron": "^32.1.2",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.6",
     "vite": "^5.3.4"
+  },
+  "build": {
+    "appId": "com.boulangerie.erp",
+    "productName": "Boulangerie ERP",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Boulangerie ERP"
+    }
   }
 }

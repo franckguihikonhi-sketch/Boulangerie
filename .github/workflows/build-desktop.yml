@@ -1,0 +1,50 @@
+name: Construire le logiciel Windows (.exe)
+
+on:
+  push:
+    branches:
+      - version-bureau
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Construire l'interface + l'installeur Windows
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # L'installeur téléchargeable depuis la page du run (onglet Actions).
+      - name: Publier l'installeur comme artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boulangerie-ERP-installateur
+          path: release/*.exe
+          if-no-files-found: error
+
+      # Publie aussi l'installeur dans une "Release" permanente et facile à
+      # trouver (page Releases du dépôt).
+      - name: Publier dans une Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bureau-derniere-version
+          name: Boulangerie ERP — logiciel Windows
+          body: >
+            Installeur Windows de Boulangerie ERP (version bureau, hors-ligne,
+            base de données locale). Téléchargez le fichier .exe ci-dessous,
+            double-cliquez pour installer.
+          files: release/*.exe
+          prerelease: true

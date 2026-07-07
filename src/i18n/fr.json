@@ -209,10 +209,12 @@
   "db.loading": "Chargement des données…",
   "db.errorTitle": "Impossible de charger les données",
   "db.notReadyTitle": "Base de données à initialiser",
-  "db.notReadyHelp": "La connexion à Supabase fonctionne, mais les tables ne sont pas encore créées. Exécutez le script supabase/setup.sql dans Supabase (SQL Editor), puis réessayez.",
+  "db.notReadyHelp": "La base de données locale n'a pas pu être ouverte. Fermez puis rouvrez le logiciel Boulangerie ERP, ou réessayez.",
   "db.retry": "Réessayer",
 
   "errors.dbNotReady": "Base de données non initialisée.",
+  "errors.desktopOnly": "Cette version doit être lancée depuis le logiciel Boulangerie ERP.",
+  "errors.generic": "Une erreur est survenue.",
   "errors.nameRequired": "Le nom est obligatoire.",
   "errors.notFound": "Élément introuvable.",
   "errors.badQuantity": "Quantité invalide.",
