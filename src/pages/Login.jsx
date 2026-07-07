@@ -50,7 +50,7 @@ export default function Login() {
             </div>
           </div>
           <div className="flex overflow-hidden rounded-lg border border-stone-300 text-xs font-semibold">
-            {['fr', 'en'].map((l) => (
+            {['fr', 'en', 'ar'].map((l) => (
               <button
                 key={l}
                 onClick={() => setLocale(l)}

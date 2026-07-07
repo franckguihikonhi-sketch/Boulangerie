@@ -87,8 +87,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Barre latérale desktop */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-stone-200 bg-white lg:flex">
+      {/* Barre latérale desktop (passe à droite en mode arabe RTL) */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-stone-200 bg-white lg:flex rtl:left-auto rtl:right-0 rtl:border-l rtl:border-r-0">
         <Brand />
         <div className="flex-1 overflow-y-auto py-2">
           <NavList />
@@ -100,7 +100,7 @@ export default function Layout() {
       </aside>
 
       {/* Barre supérieure */}
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-stone-200 bg-white px-3 sm:px-5 lg:pl-64">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-stone-200 bg-white px-3 sm:px-5 lg:pl-64 rtl:lg:pl-3 rtl:lg:pr-64">
         <div className="flex items-center gap-2">
           <button
             className="rounded-lg p-2 text-stone-600 hover:bg-stone-100 lg:hidden"
@@ -115,7 +115,7 @@ export default function Layout() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex overflow-hidden rounded-lg border border-stone-300 text-xs font-semibold">
-            {['fr', 'en'].map((l) => (
+            {['fr', 'en', 'ar'].map((l) => (
               <button
                 key={l}
                 onClick={() => setLocale(l)}
@@ -138,7 +138,7 @@ export default function Layout() {
       {menuOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl rtl:left-auto rtl:right-0">
             <div className="flex items-center justify-between pr-3">
               <Brand />
               <button
@@ -162,8 +162,8 @@ export default function Layout() {
         </div>
       )}
 
-      <main className="px-3 py-5 sm:px-5 lg:pl-64">
-        <div className="mx-auto max-w-6xl lg:pl-4">
+      <main className="px-3 py-5 sm:px-5 lg:pl-64 rtl:lg:pl-3 rtl:lg:pr-64">
+        <div className="mx-auto max-w-6xl lg:pl-4 rtl:lg:pl-0 rtl:lg:pr-4">
           <DbGate>
             <Outlet />
           </DbGate>
