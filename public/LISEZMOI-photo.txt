@@ -1,0 +1,19 @@
+PHOTO DU CONCEPTEUR (page « À propos »)
+=======================================
+
+Pour afficher votre photo sur la page « À propos » du logiciel :
+
+1. Renommez votre photo en exactement :  concepteur.jpg
+   (format JPG, de préférence carrée, ex. 400 x 400 pixels)
+
+2. Déposez-la dans ce dossier « public/ » du dépôt, sur la branche
+   « version-bureau » :
+   - Sur GitHub : ouvrez le dépôt → branche « version-bureau » → dossier
+     « public » → bouton « Add file » → « Upload files » → glissez votre
+     fichier concepteur.jpg → « Commit changes ».
+
+3. Le logiciel Windows (.exe) sera reconstruit automatiquement avec votre
+   photo. Récupérez le nouvel installeur dans la page « Releases ».
+
+Tant qu'aucune photo n'est déposée, un médaillon avec les initiales « FK »
+s'affiche à la place.

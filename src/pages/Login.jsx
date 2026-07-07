@@ -107,16 +107,6 @@ export default function Login() {
             {mode === 'login' ? t('auth.createAccount') : t('auth.backToLogin')}
           </button>
         </form>
-
-        <div className="mt-4 rounded-xl border border-stone-200 bg-white/70 p-4 text-xs text-stone-600">
-          <p className="mb-1 font-semibold text-stone-700">{t('auth.demoAccounts')}</p>
-          <p>
-            <span className="font-medium">{t('auth.adminAccount')}</span> : admin@boulangerie.com / admin123
-          </p>
-          <p>
-            <span className="font-medium">{t('auth.operatorAccount')}</span> : vendeur@boulangerie.com / vendeur123
-          </p>
-        </div>
       </div>
     </div>
   );
