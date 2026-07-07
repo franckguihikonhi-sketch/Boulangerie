@@ -149,6 +149,7 @@ export async function hydrate() {
   try {
     state = await fetchAll();
     setStatus('ready');
+    setupSync(); // synchronisation multi-appareils (temps réel + retour d'onglet)
   } catch (err) {
     setStatus('error', describeError(err));
   }
@@ -164,6 +165,50 @@ export function ensureHydrated() {
 async function refresh() {
   state = await fetchAll();
   notify();
+}
+
+// -------------------------- Synchronisation multi-appareils ----------------
+// Fait en sorte qu'une vente/production/achat enregistré sur un appareil
+// apparaisse sur les autres sans recharger la page.
+let syncSetup = false;
+let refreshTimer = null;
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refresh().catch(() => {});
+  }, 250); // petit regroupement pour éviter les rafraîchissements multiples
+}
+
+function setupSync() {
+  if (syncSetup) return;
+  syncSetup = true;
+
+  // 1) Temps réel : si la réplication Realtime est activée côté Supabase,
+  //    tout changement en base déclenche un rafraîchissement immédiat.
+  try {
+    const channel = supabase.channel('boulange-sync');
+    const tables = ['ingredients', 'products', 'recipes', 'purchases',
+      'productions', 'production_lines', 'stock_movements', 'sales'];
+    for (const table of tables) {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
+    }
+    channel.subscribe();
+  } catch {
+    /* Realtime indisponible : le repli ci-dessous prend le relais. */
+  }
+
+  // 2) Repli sans configuration : rafraîchit au retour sur l'onglet/fenêtre
+  //    et périodiquement, pour rester à jour même si le temps réel est off.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus', scheduleRefresh);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) scheduleRefresh();
+    });
+    setInterval(() => {
+      if (!document.hidden) scheduleRefresh();
+    }, 20000);
+  }
 }
 
 function rpcError(err) {
