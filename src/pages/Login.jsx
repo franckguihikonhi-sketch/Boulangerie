@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
 import { Button, ErrorNote, Field, inputClass } from '../components/ui';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const { t, locale, setLocale } = useI18n();
@@ -42,7 +43,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-2xl shadow">🥖</span>
+            <Logo size={44} rounded="rounded-xl" className="shadow" />
             <div>
               <h1 className="text-lg font-bold text-stone-900">{t('app.name')}</h1>
               <p className="text-xs text-stone-500">{t('app.tagline')}</p>

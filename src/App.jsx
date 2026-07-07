@@ -11,6 +11,7 @@ import Sales from './pages/Sales';
 import Stock from './pages/Stock';
 import History from './pages/History';
 import Reports from './pages/Reports';
+import About from './pages/About';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/stocks" element={<RequireAdmin><Stock /></RequireAdmin>} />
         <Route path="/historique" element={<RequireAdmin><History /></RequireAdmin>} />
         <Route path="/rapports" element={<RequireAdmin><Reports /></RequireAdmin>} />
+        <Route path="/a-propos" element={<About />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
