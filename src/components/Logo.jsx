@@ -9,7 +9,7 @@ export default function Logo({ size = 40, rounded = 'rounded-lg', className = ''
   if (ok) {
     return (
       <img
-        src="./logo.png"
+        src="./logo.jpg"
         alt="Boulangerie ERP"
         onError={() => setOk(false)}
         style={style}
