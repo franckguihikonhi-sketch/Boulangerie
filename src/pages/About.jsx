@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useI18n } from '../i18n/I18nContext';
 import { Card, PageTitle } from '../components/ui';
+import Logo from '../components/Logo';
 
 // Page « À propos » : présentation du logiciel, bienfaits, et informations
 // sur le concepteur. La photo se charge depuis /concepteur.jpg (dossier
@@ -19,7 +20,7 @@ export default function About() {
       {/* Présentation du logiciel */}
       <Card className="mb-5 overflow-hidden">
         <div className="flex items-center gap-4 border-b border-stone-100 bg-gradient-to-r from-brand-50 to-white p-5">
-          <span className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-brand-600 text-3xl shadow">🥖</span>
+          <Logo size={56} rounded="rounded-2xl" className="shadow" />
           <div>
             <h2 className="text-xl font-bold text-stone-900">Boulangerie ERP</h2>
             <p className="text-sm text-stone-600">{t('about.tagline')}</p>

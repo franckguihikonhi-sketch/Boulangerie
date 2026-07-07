@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
 import DbGate from './DbGate';
+import Logo from './Logo';
 
 // Menu latéral : les 9 modules dans le MÊME ordre sur desktop et mobile,
 // avec le libellé unique « Ventes » (anomalie n°13). Le rôle Opérateur ne
@@ -64,7 +65,7 @@ function Brand() {
   const { t } = useI18n();
   return (
     <div className="flex items-center gap-2.5 px-4 py-4">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-lg">🥖</span>
+      <Logo size={40} />
       <div>
         <p className="text-sm font-bold text-stone-900">{t('app.name')}</p>
         <p className="text-[11px] text-stone-500">{t('app.tagline')}</p>
