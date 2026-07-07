@@ -1,14 +1,25 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import fr from './fr.json';
 import en from './en.json';
+import ar from './ar.json';
 
-// Interface bilingue FR/EN exclusivement via fichiers statiques : aucune
-// traduction automatique du contenu saisi par l'utilisateur (section 9).
-const DICTS = { fr, en };
+// Interface trilingue FR/EN/AR via fichiers statiques : aucune traduction
+// automatique du contenu saisi par l'utilisateur (section 9). L'arabe s'écrit
+// de droite à gauche : la direction du document bascule automatiquement.
+const DICTS = { fr, en, ar };
+const RTL_LOCALES = ['ar'];
 const I18nContext = createContext(null);
 
 export function I18nProvider({ children }) {
   const [locale, setLocale] = useState(() => localStorage.getItem('boulange-locale') || 'fr');
+
+  // Applique la langue et le sens de lecture au document (html lang/dir) :
+  // « rtl » pour l'arabe, « ltr » pour le français et l'anglais.
+  useEffect(() => {
+    const dir = RTL_LOCALES.includes(locale) ? 'rtl' : 'ltr';
+    document.documentElement.setAttribute('lang', locale);
+    document.documentElement.setAttribute('dir', dir);
+  }, [locale]);
 
   const t = useCallback(
     (key, vars) => {
