@@ -1,0 +1,8 @@
+{
+  "appId": "com.boulangerie.erp",
+  "appName": "Boulangerie ERP",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

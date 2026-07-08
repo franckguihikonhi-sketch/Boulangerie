@@ -1,0 +1,83 @@
+name: Construire l'application Android (.apk)
+
+on:
+  push:
+    branches:
+      - version-android
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Installer Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Préparer le SDK Android
+        uses: android-actions/setup-android@v3
+
+      - name: Installer les composants du SDK Android
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Construire l'interface web
+        run: npm run build
+
+      - name: Ajouter la plateforme Android
+        run: npx cap add android
+
+      - name: Générer l'icône et l'écran de démarrage
+        run: npx capacitor-assets generate --android
+
+      - name: Synchroniser les fichiers web
+        run: npx cap sync android
+
+      - name: Compiler l'APK (debug, installable)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Renommer l'APK
+        run: |
+          mkdir -p dist-apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk "dist-apk/Boulangerie-ERP.apk"
+
+      # Téléchargeable depuis la page du run (onglet Actions).
+      - name: Publier l'APK comme artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Boulangerie-ERP-android
+          path: dist-apk/Boulangerie-ERP.apk
+          if-no-files-found: error
+
+      # Publie aussi l'APK dans une Release permanente (page Releases).
+      - name: Publier dans une Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-derniere-version
+          name: Boulangerie ERP — application Android
+          body: >
+            Application Android de Boulangerie ERP (version en ligne, données
+            synchronisées avec le site web). Téléchargez le fichier .apk
+            ci-dessous sur votre téléphone, ouvrez-le puis autorisez
+            l'installation depuis cette source pour installer l'application.
+          files: dist-apk/Boulangerie-ERP.apk
+          prerelease: true
