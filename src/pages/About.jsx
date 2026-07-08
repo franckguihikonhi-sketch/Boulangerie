@@ -69,7 +69,6 @@ export default function About() {
           <div className="text-center sm:text-left">
             <p className="text-lg font-bold text-stone-900">Mr Franck G. KONHI</p>
             <ul className="mt-2 space-y-1 text-sm text-stone-600">
-              <li>{t('about.role1')}</li>
               <li>{t('about.role2')}</li>
               <li>{t('about.role3')}</li>
             </ul>
