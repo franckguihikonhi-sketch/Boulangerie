@@ -38,6 +38,16 @@
   "demo.subtitle": "جرّب التطبيق ببيانات نموذجية، دون إنشاء حساب.",
   "demo.expired": "انتهت جلستك التجريبية التي مدتها 30 دقيقة. ابدأ نسخة تجريبية جديدة للمتابعة.",
 
+  "activation.title": "تفعيل التطبيق",
+  "activation.subtitle": "أدخل رمز التفعيل لاستخدام Boulangerie ERP على هذا الهاتف.",
+  "activation.codeLabel": "رمز التفعيل",
+  "activation.activate": "تفعيل",
+  "activation.checking": "جارٍ التحقق…",
+  "activation.note": "بعد التفعيل، يبقى هذا الرمز مرتبطاً بهذا الهاتف.",
+  "activation.errorInvalid": "رمز تفعيل غير صالح.",
+  "activation.errorOtherDevice": "هذا الرمز مستخدم بالفعل على هاتف آخر.",
+  "activation.errorService": "الخدمة غير متوفرة. تحقّق من اتصالك بالإنترنت وأعد المحاولة.",
+
   "auth.title": "تسجيل الدخول",
   "auth.subtitle": "ادخل إلى مساحة الإدارة الخاصة بك",
   "auth.email": "البريد الإلكتروني",

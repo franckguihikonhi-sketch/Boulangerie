@@ -38,6 +38,16 @@
   "demo.subtitle": "Testez l'application avec des données d'exemple, sans créer de compte.",
   "demo.expired": "Votre session de démonstration de 30 minutes est terminée. Relancez une démo pour continuer.",
 
+  "activation.title": "Activation de l'application",
+  "activation.subtitle": "Saisissez votre code d'activation pour utiliser Boulangerie ERP sur ce téléphone.",
+  "activation.codeLabel": "Code d'activation",
+  "activation.activate": "Activer",
+  "activation.checking": "Vérification…",
+  "activation.note": "Une fois activé, ce code reste lié à ce téléphone.",
+  "activation.errorInvalid": "Code d'activation invalide.",
+  "activation.errorOtherDevice": "Ce code est déjà utilisé sur un autre téléphone.",
+  "activation.errorService": "Service indisponible. Vérifiez votre connexion internet et réessayez.",
+
   "auth.title": "Connexion",
   "auth.subtitle": "Accédez à votre espace de gestion",
   "auth.email": "Adresse email",

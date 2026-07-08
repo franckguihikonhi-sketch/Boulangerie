@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
+import ActivationGate from './components/ActivationGate';
 import { useAuth } from './lib/auth';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -36,7 +37,9 @@ export default function App() {
       <Route
         element={
           <RequireAuth>
-            <Layout />
+            <ActivationGate>
+              <Layout />
+            </ActivationGate>
           </RequireAuth>
         }
       >
