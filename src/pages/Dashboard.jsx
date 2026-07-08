@@ -6,6 +6,7 @@ import { currentQty } from '../lib/db';
 import { formatFCFA } from '../lib/money';
 import { formatQty } from '../lib/units';
 import BarChart from '../components/BarChart';
+import ProductTicker from '../components/ProductTicker';
 import { Badge, Card, InfoNote, PageTitle, StatCard } from '../components/ui';
 
 const PERIODS = { today: 0, week: 6, month: 29 };
@@ -69,6 +70,9 @@ export default function Dashboard() {
       >
         {t('dashboard.title')}
       </PageTitle>
+
+      {/* Bandeau défilant de tous les produits (rouge, continu). */}
+      <ProductTicker />
 
       {/* Indicateurs financiers : chaque carte porte sa formule en info-bulle
           (anomalie n°15 : deux vérités financières, désormais expliquées). */}
