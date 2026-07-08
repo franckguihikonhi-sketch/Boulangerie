@@ -5,3 +5,30 @@
 html {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/* Bandeau défilant des produits (ticker). Animation CSS pure : deux copies
+   de la liste se suivent et l'ensemble glisse de la moitié de sa largeur,
+   ce qui donne un défilement continu et sans à-coups. */
+@keyframes product-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.product-ticker__track {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  will-change: transform;
+  animation: product-ticker 40s linear infinite;
+}
+.product-ticker:hover .product-ticker__track {
+  animation-play-state: paused;
+}
+[dir='rtl'] .product-ticker__track {
+  animation-direction: reverse;
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-ticker__track {
+    animation: none;
+    transform: none;
+  }
+}
