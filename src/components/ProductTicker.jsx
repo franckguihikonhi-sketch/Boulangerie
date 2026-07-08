@@ -3,10 +3,14 @@ import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { productStock } from '../lib/db';
 
+// Seuil d'alerte du stock de produits finis : la pastille passe au rouge dès
+// qu'il reste STRICTEMENT MOINS que ce nombre d'unités. Modifiable ici.
+const SEUIL_ALERTE = 10;
+
 // Bandeau défilant façon « ticker » : la liste de tous les produits actifs
 // défile en continu. Écriture en noir ; une pastille indique l'état du stock
-// du produit fini — verte quand il reste du stock, rouge en rupture (seuil
-// d'alerte atteint). Animation 100 % CSS (aucun timer, aucune requête).
+// du produit fini — verte quand le stock est suffisant, rouge quand il reste
+// moins de SEUIL_ALERTE unités. Animation 100 % CSS (aucun timer, aucune requête).
 export default function ProductTicker() {
   const s = useStore();
   const { locale } = useI18n();
@@ -22,7 +26,7 @@ export default function ProductTicker() {
 
   const renderHalf = (prefix) =>
     half.map((p, i) => {
-      const alert = productStock(s, p.id) <= 0; // seuil d'alerte atteint = rupture
+      const alert = productStock(s, p.id) < SEUIL_ALERTE; // moins de X unités = alerte
       return (
         <span key={`${prefix}-${i}-${p.id}`} className="mx-5 inline-flex items-center gap-2">
           <span
