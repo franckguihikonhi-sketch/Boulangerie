@@ -18,6 +18,13 @@ export const MOVEMENT_REASONS = ['achat', 'production', 'ajustement', 'perte'];
 
 // --------------------------- Cache & abonnement ----------------------------
 
+// Durée d'une session de démonstration (accès invité). Le compte à rebours
+// démarre à la connexion et l'application se verrouille au bout de 30 minutes.
+export const DEMO_MS = 30 * 60 * 1000;
+const DEMO_STATE_KEY = 'boulange-demo-state';
+const SESSION_KEY = 'boulange-session';
+let demoMode = false;
+
 let state = emptyState();
 let status = 'idle'; // idle | loading | ready | error
 let lastError = null;
@@ -61,6 +68,292 @@ export function getState() {
 
 export function getStatus() {
   return statusSnapshot;
+}
+
+// ===========================================================================
+// MODE DÉMONSTRATION (accès invité)
+// ---------------------------------------------------------------------------
+// Chaque visiteur invité travaille dans un bac à sable ENTIÈREMENT LOCAL :
+// des données d'exemple sont générées en mémoire (jamais envoyées à Supabase)
+// et conservées dans sessionStorage le temps de la session. Toute la logique
+// métier (CMP, coût figé, stock dérivé, idempotence) est identique à celle du
+// serveur. Ainsi un recruteur peut tout essayer sans jamais affecter la base
+// partagée, et le bac à sable repart à zéro à chaque nouvelle visite.
+// ===========================================================================
+
+export function isDemoMode() {
+  return demoMode;
+}
+
+function seededState() {
+  const s = emptyState();
+  seedDemo(s);
+  return s;
+}
+
+function persistDemo() {
+  try {
+    sessionStorage.setItem(DEMO_STATE_KEY, JSON.stringify(state));
+  } catch {
+    /* quota / mode privé : on garde l'état en mémoire */
+  }
+}
+
+// Transaction locale : fn reçoit une copie profonde ; en cas d'exception,
+// l'état courant reste intact (aucune écriture partielle).
+function demoMutate(fn) {
+  const draft = JSON.parse(JSON.stringify(state));
+  const result = fn(draft);
+  state = draft;
+  persistDemo();
+  notify();
+  return result;
+}
+
+// Démarre une session de démo fraîche (bouton « Accès invité »).
+export function startDemo() {
+  demoMode = true;
+  hydratePromise = Promise.resolve(); // neutralise toute hydratation Supabase
+  state = seededState();
+  persistDemo();
+  setStatus('ready');
+  notify();
+}
+
+// Termine la session de démo et nettoie le bac à sable.
+export function stopDemo() {
+  demoMode = false;
+  hydratePromise = null;
+  try {
+    sessionStorage.removeItem(DEMO_STATE_KEY);
+  } catch {
+    /* ignore */
+  }
+  state = emptyState();
+  setStatus('idle');
+}
+
+// Au chargement du module : si une session invité valide existe déjà (rafraî-
+// chissement de page pendant les 30 minutes), on restaure le bac à sable AVANT
+// toute tentative d'hydratation Supabase.
+function guestSessionActive() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if (s && s.guest && s.demoStart && Date.now() < s.demoStart + DEMO_MS) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+(function restoreDemoOnLoad() {
+  if (typeof window === 'undefined' || !guestSessionActive()) return;
+  demoMode = true;
+  hydratePromise = Promise.resolve();
+  let restored = null;
+  try {
+    restored = JSON.parse(sessionStorage.getItem(DEMO_STATE_KEY));
+  } catch {
+    /* ignore */
+  }
+  state = restored && Array.isArray(restored.ingredients) ? restored : seededState();
+  persistDemo();
+  setStatus('ready');
+})();
+
+// --------------------- Mutations locales (mode démo) -----------------------
+
+function demoAddIngredient({ name, type, baseUnit, minThreshold, unitCost, initialQty = 0, author }) {
+  if (!name?.trim()) throw new Error('errors.nameRequired');
+  return demoMutate((s) => {
+    const id = uid();
+    const iso = new Date().toISOString();
+    s.ingredients.push({
+      id, name: name.trim(), type, baseUnit,
+      minThreshold: roundQty(minThreshold) || 0, unitCost: roundFCFA(unitCost),
+      createdAt: iso, updatedAt: iso
+    });
+    if (initialQty > 0) {
+      s.stockMovements.push({
+        id: uid(), ingredientId: id, changeBase: roundQty(initialQty),
+        reason: 'ajustement', referenceId: null, note: 'Stock initial', createdAt: iso, author
+      });
+    }
+    return id;
+  });
+}
+
+function demoUpdateIngredient(id, { name, minThreshold, unitCost }) {
+  demoMutate((s) => {
+    const ing = s.ingredients.find((i) => i.id === id);
+    if (!ing) throw new Error('errors.notFound');
+    if (name?.trim()) ing.name = name.trim();
+    if (minThreshold !== undefined) ing.minThreshold = roundQty(minThreshold);
+    if (unitCost !== undefined) ing.unitCost = roundFCFA(unitCost);
+    ing.updatedAt = new Date().toISOString();
+  });
+}
+
+function demoDeleteIngredient(id) {
+  demoMutate((s) => {
+    const used = s.recipes.some((r) => r.ingredientId === id) ||
+      s.stockMovements.some((m) => m.ingredientId === id);
+    if (used) throw new Error('errors.ingredientInUse');
+    s.ingredients = s.ingredients.filter((i) => i.id !== id);
+  });
+}
+
+function demoAdjustStock({ ingredientId, changeBase, reason, note, author }) {
+  if (!MOVEMENT_REASONS.includes(reason)) throw new Error('errors.badReason');
+  demoMutate((s) => {
+    const ing = s.ingredients.find((i) => i.id === ingredientId);
+    if (!ing) throw new Error('errors.notFound');
+    if (currentQty(s, ingredientId) + changeBase < 0) throw new Error('errors.negativeStock');
+    s.stockMovements.push({
+      id: uid(), ingredientId, changeBase: roundQty(changeBase),
+      reason, referenceId: null, note: note || '', createdAt: new Date().toISOString(), author
+    });
+  });
+}
+
+function demoSaveProduct({ id, name, category, sellingPrice, isActive = true }) {
+  if (!name?.trim()) throw new Error('errors.nameRequired');
+  if (!CATEGORIES.includes(category)) throw new Error('errors.badCategory');
+  return demoMutate((s) => {
+    if (id) {
+      const p = s.products.find((x) => x.id === id);
+      if (!p) throw new Error('errors.notFound');
+      Object.assign(p, { name: name.trim(), category, sellingPrice: roundFCFA(sellingPrice), isActive });
+      return id;
+    }
+    const newId = uid();
+    s.products.push({
+      id: newId, name: name.trim(), category, sellingPrice: roundFCFA(sellingPrice),
+      isActive, createdAt: new Date().toISOString()
+    });
+    return newId;
+  });
+}
+
+function demoDeleteProduct(id) {
+  demoMutate((s) => {
+    const used = s.productions.some((p) => p.productId === id) || s.sales.some((v) => v.productId === id);
+    if (used) throw new Error('errors.productInUse');
+    s.products = s.products.filter((p) => p.id !== id);
+    s.recipes = s.recipes.filter((r) => r.productId !== id);
+  });
+}
+
+function demoSaveRecipe(productId, lines) {
+  const seen = new Set();
+  for (const l of lines) {
+    if (seen.has(l.ingredientId)) throw new Error('errors.duplicateRecipeLine');
+    seen.add(l.ingredientId);
+    if (!(l.qtyBase > 0)) throw new Error('errors.badQuantity');
+  }
+  demoMutate((s) => {
+    s.recipes = s.recipes.filter((r) => r.productId !== productId);
+    for (const l of lines) {
+      s.recipes.push({ id: uid(), productId, ingredientId: l.ingredientId, qtyBase: roundQty(l.qtyBase) });
+    }
+  });
+}
+
+function demoRecordPurchase({ ingredientId, qtyBase, unitCost, supplier, note, idempotencyKey, author, at }) {
+  if (!(qtyBase > 0)) throw new Error('errors.badQuantity');
+  if (!(unitCost >= 0)) throw new Error('errors.badCost');
+  return demoMutate((s) => {
+    const existing = s.purchases.find((p) => p.idempotencyKey === idempotencyKey);
+    if (existing) return existing.id;
+    const ing = s.ingredients.find((i) => i.id === ingredientId);
+    if (!ing) throw new Error('errors.notFound');
+    const factor = stockUnitFactor(ing.baseUnit);
+    const qty = roundQty(qtyBase);
+    const cost = roundFCFA(unitCost);
+    const qtyBefore = currentQty(s, ingredientId) / factor;
+    const valueBefore = qtyBefore * ing.unitCost;
+    const qtyPurchased = qty / factor;
+    const denominator = qtyBefore + qtyPurchased;
+    ing.unitCost = denominator > 0
+      ? roundFCFA((valueBefore + qtyPurchased * cost) / denominator)
+      : cost;
+    ing.updatedAt = new Date().toISOString();
+    const id = uid();
+    const when = at || new Date().toISOString();
+    s.purchases.push({
+      id, ingredientId, qtyBase: qty, unitCost: cost, totalCost: roundFCFA(qtyPurchased * cost),
+      supplier: supplier || '', note: note || '', purchasedAt: when, idempotencyKey, author
+    });
+    s.stockMovements.push({
+      id: uid(), ingredientId, changeBase: qty, reason: 'achat',
+      referenceId: id, note: '', createdAt: when, author
+    });
+    return id;
+  });
+}
+
+function demoDeletePurchase(purchaseId) {
+  demoMutate((s) => {
+    const purchase = s.purchases.find((p) => p.id === purchaseId);
+    if (!purchase) throw new Error('errors.notFound');
+    if (currentQty(s, purchase.ingredientId) - purchase.qtyBase < 0) {
+      throw new Error('errors.stockAlreadyConsumed');
+    }
+    s.purchases = s.purchases.filter((p) => p.id !== purchaseId);
+    s.stockMovements = s.stockMovements.filter(
+      (m) => !(m.reason === 'achat' && m.referenceId === purchaseId)
+    );
+  });
+}
+
+function demoRecordProduction({ productId, quantity, note, idempotencyKey, author, at }) {
+  if (!(quantity > 0)) throw new Error('errors.badQuantity');
+  return demoMutate((s) => {
+    const existing = s.productions.find((p) => p.idempotencyKey === idempotencyKey);
+    if (existing) return existing.id;
+    const preview = productionPreview(s, productId, quantity);
+    if (!preview) throw new Error('errors.notFound');
+    if (preview.lines.length === 0) throw new Error('errors.noRecipe');
+    if (preview.shortages.length > 0) {
+      const err = new Error('errors.insufficientStock');
+      err.shortages = preview.shortages.map((x) => ({
+        name: x.ingredient.name, baseUnit: x.ingredient.baseUnit, missing: x.missing
+      }));
+      throw err;
+    }
+    const id = uid();
+    const when = at || new Date().toISOString();
+    s.productions.push({
+      id, productId, quantityProduced: quantity, note: note || '', producedAt: when,
+      totalCost: preview.totalCost, idempotencyKey, author,
+      lines: preview.lines.map((l) => ({ ingredientId: l.ingredient.id, qtyBase: l.needed, cost: l.cost }))
+    });
+    for (const l of preview.lines) {
+      s.stockMovements.push({
+        id: uid(), ingredientId: l.ingredient.id, changeBase: -l.needed,
+        reason: 'production', referenceId: id, note: '', createdAt: when, author
+      });
+    }
+    return id;
+  });
+}
+
+function demoRecordSale({ productId, quantity, unitPrice, client, note, idempotencyKey, author, at }) {
+  if (!(quantity > 0)) throw new Error('errors.badQuantity');
+  return demoMutate((s) => {
+    const existing = s.sales.find((v) => v.idempotencyKey === idempotencyKey);
+    if (existing) return existing.id;
+    const product = s.products.find((p) => p.id === productId);
+    if (!product) throw new Error('errors.notFound');
+    if (productStock(s, productId) < quantity) throw new Error('errors.insufficientProductStock');
+    const price = roundFCFA(unitPrice);
+    const id = uid();
+    s.sales.push({
+      id, productId, quantity, unitPrice: price, total: roundFCFA(price * quantity),
+      client: client || '', note: note || '', soldAt: at || new Date().toISOString(), idempotencyKey, author
+    });
+    return id;
+  });
 }
 
 // --------------------------- Mappage lignes ↔ objets -----------------------
@@ -144,6 +437,7 @@ async function fetchAll() {
 }
 
 export async function hydrate() {
+  if (demoMode) { setStatus('ready'); notify(); return; }
   setStatus('loading');
   notify();
   try {
@@ -158,6 +452,7 @@ export async function hydrate() {
 
 // Lance l'hydratation une seule fois (au premier montage).
 export function ensureHydrated() {
+  if (demoMode) return Promise.resolve();
   if (!hydratePromise) hydratePromise = hydrate();
   return hydratePromise;
 }
@@ -251,6 +546,7 @@ export function lastPurchaseAt(s, ingredientId) {
 // ------------------------------ Ingrédients --------------------------------
 
 export async function addIngredient({ name, type, baseUnit, minThreshold, unitCost, initialQty = 0, author }) {
+  if (demoMode) return demoAddIngredient({ name, type, baseUnit, minThreshold, unitCost, initialQty, author });
   if (!name?.trim()) throw new Error('errors.nameRequired');
   const { data, error } = await supabase.from('ingredients').insert({
     name: name.trim(), type, base_unit: baseUnit,
@@ -269,6 +565,7 @@ export async function addIngredient({ name, type, baseUnit, minThreshold, unitCo
 }
 
 export async function updateIngredient(id, { name, minThreshold, unitCost }) {
+  if (demoMode) return demoUpdateIngredient(id, { name, minThreshold, unitCost });
   const patch = { updated_at: new Date().toISOString() };
   if (name?.trim()) patch.name = name.trim();
   if (minThreshold !== undefined) patch.min_threshold = roundQty(minThreshold);
@@ -279,6 +576,7 @@ export async function updateIngredient(id, { name, minThreshold, unitCost }) {
 }
 
 export async function deleteIngredient(id) {
+  if (demoMode) return demoDeleteIngredient(id);
   const used =
     state.recipes.some((r) => r.ingredientId === id) ||
     state.stockMovements.some((m) => m.ingredientId === id);
@@ -289,6 +587,7 @@ export async function deleteIngredient(id) {
 }
 
 export async function adjustStock({ ingredientId, changeBase, reason, note, author }) {
+  if (demoMode) return demoAdjustStock({ ingredientId, changeBase, reason, note, author });
   if (!MOVEMENT_REASONS.includes(reason)) throw new Error('errors.badReason');
   if (currentQty(state, ingredientId) + changeBase < 0) throw new Error('errors.negativeStock');
   const { error } = await supabase.from('stock_movements').insert({
@@ -302,6 +601,7 @@ export async function adjustStock({ ingredientId, changeBase, reason, note, auth
 // --------------------------- Produits & recettes ---------------------------
 
 export async function saveProduct({ id, name, category, sellingPrice, isActive = true }) {
+  if (demoMode) return demoSaveProduct({ id, name, category, sellingPrice, isActive });
   if (!name?.trim()) throw new Error('errors.nameRequired');
   if (!CATEGORIES.includes(category)) throw new Error('errors.badCategory');
   const row = { name: name.trim(), category, selling_price: roundFCFA(sellingPrice), is_active: isActive };
@@ -319,6 +619,7 @@ export async function saveProduct({ id, name, category, sellingPrice, isActive =
 }
 
 export async function deleteProduct(id) {
+  if (demoMode) return demoDeleteProduct(id);
   const used = state.productions.some((p) => p.productId === id) || state.sales.some((v) => v.productId === id);
   if (used) throw new Error('errors.productInUse');
   const { error } = await supabase.from('products').delete().eq('id', id);
@@ -327,6 +628,7 @@ export async function deleteProduct(id) {
 }
 
 export async function saveRecipe(productId, lines) {
+  if (demoMode) return demoSaveRecipe(productId, lines);
   const seen = new Set();
   for (const l of lines) {
     if (seen.has(l.ingredientId)) throw new Error('errors.duplicateRecipeLine');
@@ -347,6 +649,7 @@ export async function saveRecipe(productId, lines) {
 // ------------------------------ Achats -------------------------------------
 
 export async function recordPurchase({ ingredientId, qtyBase, unitCost, supplier, note, idempotencyKey, author }) {
+  if (demoMode) return demoRecordPurchase({ ingredientId, qtyBase, unitCost, supplier, note, idempotencyKey, author });
   if (!(qtyBase > 0)) throw new Error('errors.badQuantity');
   if (!(unitCost >= 0)) throw new Error('errors.badCost');
   const { data, error } = await supabase.rpc('record_purchase', {
@@ -359,6 +662,7 @@ export async function recordPurchase({ ingredientId, qtyBase, unitCost, supplier
 }
 
 export async function deletePurchase(purchaseId) {
+  if (demoMode) return demoDeletePurchase(purchaseId);
   const { error } = await supabase.rpc('delete_purchase', { p_purchase: purchaseId });
   if (error) throw rpcError(error);
   await refresh();
@@ -388,6 +692,7 @@ export function productionPreview(s, productId, quantity) {
 }
 
 export async function recordProduction({ productId, quantity, note, idempotencyKey, author }) {
+  if (demoMode) return demoRecordProduction({ productId, quantity, note, idempotencyKey, author });
   if (!(quantity > 0)) throw new Error('errors.badQuantity');
   const preview = productionPreview(state, productId, quantity);
   if (!preview) throw new Error('errors.notFound');
@@ -411,6 +716,7 @@ export async function recordProduction({ productId, quantity, note, idempotencyK
 // ------------------------------- Ventes ------------------------------------
 
 export async function recordSale({ productId, quantity, unitPrice, client, note, idempotencyKey, author }) {
+  if (demoMode) return demoRecordSale({ productId, quantity, unitPrice, client, note, idempotencyKey, author });
   if (!(quantity > 0)) throw new Error('errors.badQuantity');
   if (productStock(state, productId) < quantity) throw new Error('errors.insufficientProductStock');
   const { data, error } = await supabase.rpc('record_sale', {
@@ -420,4 +726,143 @@ export async function recordSale({ productId, quantity, unitPrice, client, note,
   if (error) throw rpcError(error);
   await refresh();
   return data;
+}
+
+// ----------------------- Données d'exemple (mode démo) ---------------------
+// Génère une semaine d'activité réaliste (ingrédients, recettes, achats,
+// productions, ventes) pour que le bac à sable invité soit immédiatement
+// parlant : tableau de bord rempli, marges, stock, rapports.
+
+function seedDemo(s) {
+  const author = 'invite@boulangerie-demo.app';
+  const now = Date.now();
+
+  const mk = (name, type, baseUnit, minThreshold, unitCost) => {
+    const id = uid();
+    s.ingredients.push({
+      id, name, type, baseUnit, minThreshold, unitCost: roundFCFA(unitCost),
+      createdAt: new Date(now - 12 * 86400000).toISOString(),
+      updatedAt: new Date(now - 12 * 86400000).toISOString()
+    });
+    return id;
+  };
+
+  const farine = mk('Farine de blé', 'matiere_premiere', 'g', 20000, 400);
+  const sel = mk('Sel', 'matiere_premiere', 'g', 2000, 650);
+  const sucre = mk('Sucre', 'matiere_premiere', 'g', 5000, 800);
+  const beurre = mk('Beurre', 'matiere_premiere', 'g', 3000, 3500);
+  const levure = mk('Levure boulangère', 'matiere_premiere', 'g', 1000, 2500);
+  const glacage = mk('Glaçage', 'matiere_premiere', 'g', 500, 2000);
+  const lait = mk('Lait', 'matiere_premiere', 'ml', 5000, 500);
+  const chocolat = mk('Chocolat pâtissier', 'matiere_premiere', 'g', 1000, 4000);
+  const eau = mk('Eau', 'charge_utilite', 'ml', 10000, 1);
+  const electricite = mk('Électricité (kWh)', 'charge_utilite', 'unite', 20, 150);
+
+  const mkProduct = (name, category, sellingPrice) => {
+    const id = uid();
+    s.products.push({ id, name, category, sellingPrice, isActive: true, createdAt: new Date(now - 12 * 86400000).toISOString() });
+    return id;
+  };
+  const baguette = mkProduct('Baguette', 'pain', 150);
+  const painComplet = mkProduct('Pain complet', 'pain', 250);
+  const croissant = mkProduct('Croissant', 'viennoiserie', 300);
+  const painChoco = mkProduct('Pain au chocolat', 'viennoiserie', 350);
+  const gateau = mkProduct('Gâteau vanille', 'patisserie', 2500);
+
+  const addRecipe = (productId, lines) => {
+    for (const [ingredientId, qtyBase] of lines) {
+      s.recipes.push({ id: uid(), productId, ingredientId, qtyBase });
+    }
+  };
+  addRecipe(baguette, [[farine, 250], [sel, 5], [levure, 3], [eau, 150], [electricite, 0.1]]);
+  addRecipe(painComplet, [[farine, 400], [sel, 8], [levure, 5], [eau, 220], [electricite, 0.15]]);
+  addRecipe(croissant, [[farine, 80], [beurre, 30], [sucre, 10], [levure, 2], [lait, 30], [electricite, 0.1]]);
+  addRecipe(painChoco, [[farine, 80], [beurre, 30], [chocolat, 25], [sucre, 10], [levure, 2], [electricite, 0.1]]);
+  addRecipe(gateau, [[farine, 300], [sucre, 250], [beurre, 200], [lait, 150], [glacage, 100], [electricite, 0.5]]);
+
+  const purchase = (ingredientId, qtyBase, unitCost, supplier, daysAgo) => {
+    const ing = s.ingredients.find((i) => i.id === ingredientId);
+    const factor = stockUnitFactor(ing.baseUnit);
+    const qtyBefore = currentQty(s, ingredientId) / factor;
+    const valueBefore = qtyBefore * ing.unitCost;
+    const qtyPurchased = qtyBase / factor;
+    const denominator = qtyBefore + qtyPurchased;
+    ing.unitCost = denominator > 0
+      ? roundFCFA((valueBefore + qtyPurchased * unitCost) / denominator)
+      : roundFCFA(unitCost);
+    const id = uid();
+    const when = new Date(now - daysAgo * 86400000).toISOString();
+    s.purchases.push({
+      id, ingredientId, qtyBase: roundQty(qtyBase), unitCost: roundFCFA(unitCost),
+      totalCost: roundFCFA(qtyPurchased * unitCost),
+      supplier, note: '', purchasedAt: when, idempotencyKey: uid(), author
+    });
+    s.stockMovements.push({
+      id: uid(), ingredientId, changeBase: roundQty(qtyBase), reason: 'achat',
+      referenceId: id, note: '', createdAt: when, author
+    });
+  };
+
+  purchase(farine, 100000, 400, 'Moulins d’Abidjan', 9);
+  purchase(sel, 19000, 650, 'Marché central', 9);
+  purchase(sucre, 25000, 800, 'Marché central', 8);
+  purchase(beurre, 10000, 3500, 'Laiterie Ivoire', 8);
+  purchase(levure, 5000, 2500, 'Moulins d’Abidjan', 8);
+  purchase(glacage, 2000, 2000, 'Pâtis-Fournitures', 7);
+  purchase(lait, 20000, 500, 'Laiterie Ivoire', 7);
+  purchase(chocolat, 5000, 4000, 'Pâtis-Fournitures', 7);
+  purchase(eau, 150000, 1, 'SODECI', 9);
+  purchase(electricite, 150, 150, 'CIE', 9);
+  purchase(farine, 50000, 420, 'Moulins d’Abidjan', 3);
+  purchase(beurre, 5000, 3600, 'Laiterie Ivoire', 2);
+
+  const produce = (productId, quantity, daysAgo, hour) => {
+    const when = new Date(now - daysAgo * 86400000);
+    when.setHours(hour, 15, 0, 0);
+    const iso = when.toISOString();
+    let totalCost = 0;
+    const lines = [];
+    for (const r of s.recipes.filter((x) => x.productId === productId)) {
+      const ing = s.ingredients.find((i) => i.id === r.ingredientId);
+      const needed = roundQty(r.qtyBase * quantity);
+      const cost = roundFCFA((needed / stockUnitFactor(ing.baseUnit)) * ing.unitCost);
+      totalCost += cost;
+      lines.push({ ingredientId: ing.id, qtyBase: needed, cost });
+    }
+    const id = uid();
+    s.productions.push({
+      id, productId, quantityProduced: quantity, note: '', producedAt: iso,
+      totalCost: roundFCFA(totalCost), idempotencyKey: uid(), author, lines
+    });
+    for (const l of lines) {
+      s.stockMovements.push({
+        id: uid(), ingredientId: l.ingredientId, changeBase: -l.qtyBase,
+        reason: 'production', referenceId: id, note: '', createdAt: iso, author
+      });
+    }
+  };
+
+  const sell = (productId, quantity, unitPrice, daysAgo, hour, client = '') => {
+    const when = new Date(now - daysAgo * 86400000);
+    when.setHours(hour, 30, 0, 0);
+    s.sales.push({
+      id: uid(), productId, quantity, unitPrice: roundFCFA(unitPrice),
+      total: roundFCFA(unitPrice * quantity), client, note: '',
+      soldAt: when.toISOString(), idempotencyKey: uid(), author
+    });
+  };
+
+  for (let d = 6; d >= 0; d--) {
+    produce(baguette, 40 + (6 - d) * 5, d, 5);
+    produce(croissant, 24, d, 6);
+    if (d % 2 === 0) produce(painComplet, 15, d, 6);
+    if (d % 2 === 1) produce(painChoco, 18, d, 7);
+    if (d === 2) produce(gateau, 3, d, 9);
+
+    sell(baguette, 37 + (6 - d) * 5, 150, d, 12);
+    sell(croissant, 22, 300, d, 10);
+    if (d % 2 === 0) sell(painComplet, 13, 250, d, 13);
+    if (d % 2 === 1) sell(painChoco, 16, 350, d, 11);
+    if (d === 2) sell(gateau, 2, 2500, d, 16, 'Hôtel Riviera');
+  }
 }

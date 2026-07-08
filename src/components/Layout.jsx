@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
 import DbGate from './DbGate';
 import Logo from './Logo';
+import DemoCountdown from './DemoCountdown';
 
 // Menu latéral : les 9 modules dans le MÊME ordre sur desktop et mobile,
 // avec le libellé unique « Ventes » (anomalie n°13). Le rôle Opérateur ne
@@ -114,6 +115,7 @@ export default function Layout() {
           <span className="text-sm font-semibold text-stone-800 lg:hidden">{t('app.name')}</span>
         </div>
         <div className="flex items-center gap-2">
+          <DemoCountdown />
           <div className="flex overflow-hidden rounded-lg border border-stone-300 text-xs font-semibold">
             {['fr', 'en', 'ar'].map((l) => (
               <button

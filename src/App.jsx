@@ -12,6 +12,7 @@ import Stock from './pages/Stock';
 import History from './pages/History';
 import Reports from './pages/Reports';
 import About from './pages/About';
+import DemoEntry from './pages/DemoEntry';
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/demo" element={<DemoEntry />} />
       <Route
         element={
           <RequireAuth>

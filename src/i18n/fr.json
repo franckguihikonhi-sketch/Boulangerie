@@ -33,6 +33,11 @@
   "about.phone": "Tél",
   "about.rights": "Tous droits réservés.",
 
+  "demo.title": "Démonstration",
+  "demo.guest": "Accès invité — Démo (30 min)",
+  "demo.subtitle": "Testez l'application avec des données d'exemple, sans créer de compte.",
+  "demo.expired": "Votre session de démonstration de 30 minutes est terminée. Relancez une démo pour continuer.",
+
   "auth.title": "Connexion",
   "auth.subtitle": "Accédez à votre espace de gestion",
   "auth.email": "Adresse email",

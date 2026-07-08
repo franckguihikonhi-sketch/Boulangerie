@@ -33,6 +33,11 @@
   "about.phone": "Phone",
   "about.rights": "All rights reserved.",
 
+  "demo.title": "Demo",
+  "demo.guest": "Guest access — Demo (30 min)",
+  "demo.subtitle": "Try the app with sample data, no account required.",
+  "demo.expired": "Your 30-minute demo session has ended. Start a new demo to continue.",
+
   "auth.title": "Sign in",
   "auth.subtitle": "Access your management workspace",
   "auth.email": "Email address",

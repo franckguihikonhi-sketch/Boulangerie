@@ -7,13 +7,29 @@ import Logo from '../components/Logo';
 
 export default function Login() {
   const { t, locale, setLocale } = useI18n();
-  const { login, register, user, isAdmin } = useAuth();
+  const { login, register, startGuest, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [demoExpired] = useState(() => {
+    try {
+      if (sessionStorage.getItem('boulange-demo-expired')) {
+        sessionStorage.removeItem('boulange-demo-expired');
+        return true;
+      }
+    } catch {
+      /* ignore */
+    }
+    return false;
+  });
+
+  const goDemo = () => {
+    startGuest();
+    navigate('/', { replace: true });
+  };
 
   if (user) {
     navigate(isAdmin ? '/' : '/ventes', { replace: true });
@@ -62,6 +78,12 @@ export default function Login() {
           </div>
         </div>
 
+        {demoExpired && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-xs font-medium text-amber-800">
+            {t('demo.expired')}
+          </div>
+        )}
+
         <form onSubmit={submit} className="space-y-4 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
           <div>
             <h2 className="text-lg font-semibold text-stone-900">
@@ -108,6 +130,20 @@ export default function Login() {
             {mode === 'login' ? t('auth.createAccount') : t('auth.backToLogin')}
           </button>
         </form>
+
+        {/* Accès invité : lance une démo isolée de 30 minutes, sans compte. */}
+        <button
+          type="button"
+          onClick={goDemo}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-600 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-800 transition hover:bg-brand-100"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+            <path d="M5 3l14 9-14 9V3z" />
+          </svg>
+          {t('demo.guest')}
+        </button>
+        <p className="mt-1.5 text-center text-xs text-stone-500">{t('demo.subtitle')}</p>
 
         <div className="mt-4 rounded-xl border border-stone-200 bg-white/70 p-4 text-xs text-stone-600">
           <p className="mb-1 font-semibold text-stone-700">{t('auth.demoAccounts')}</p>
