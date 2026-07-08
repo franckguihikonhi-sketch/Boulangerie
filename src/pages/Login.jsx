@@ -144,16 +144,6 @@ export default function Login() {
           {t('demo.guest')}
         </button>
         <p className="mt-1.5 text-center text-xs text-stone-500">{t('demo.subtitle')}</p>
-
-        <div className="mt-4 rounded-xl border border-stone-200 bg-white/70 p-4 text-xs text-stone-600">
-          <p className="mb-1 font-semibold text-stone-700">{t('auth.demoAccounts')}</p>
-          <p>
-            <span className="font-medium">{t('auth.adminAccount')}</span> : admin@boulangerie.com / admin123
-          </p>
-          <p>
-            <span className="font-medium">{t('auth.operatorAccount')}</span> : vendeur@boulangerie.com / vendeur123
-          </p>
-        </div>
       </div>
     </div>
   );
