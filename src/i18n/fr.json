@@ -1,6 +1,7 @@
 {
   "app.name": "Boulangerie ERP",
   "app.tagline": "Gestion complète de votre boulangerie",
+
   "nav.dashboard": "Tableau de bord",
   "nav.ingredients": "Ingrédients",
   "nav.products": "Produits",
@@ -12,6 +13,7 @@
   "nav.reports": "Rapports",
   "nav.about": "À propos",
   "nav.logout": "Se déconnecter",
+
   "about.title": "À propos",
   "about.tagline": "Logiciel de gestion complète pour boulangerie — stocks, achats, production, ventes et rapports.",
   "about.benefitsTitle": "Pourquoi Boulangerie ERP ?",
@@ -30,6 +32,7 @@
   "about.role3": "Développeur d'applications de gestion",
   "about.phone": "Tél",
   "about.rights": "Tous droits réservés.",
+
   "auth.title": "Connexion",
   "auth.subtitle": "Accédez à votre espace de gestion",
   "auth.email": "Adresse email",
@@ -44,8 +47,10 @@
   "auth.demoAccounts": "Comptes de démonstration",
   "auth.adminAccount": "Administrateur",
   "auth.operatorAccount": "Opérateur (ventes et production)",
+
   "role.admin": "Administrateur",
   "role.operateur": "Opérateur",
+
   "common.save": "Enregistrer",
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",
@@ -71,17 +76,21 @@
   "common.thisWeek": "7 derniers jours",
   "common.thisMonth": "Ce mois",
   "common.resetDemo": "Réinitialiser les données de démo",
+
   "category.pain": "Pain",
   "category.viennoiserie": "Viennoiserie",
   "category.patisserie": "Pâtisserie",
   "category.boisson": "Boisson",
   "category.autre": "Autre",
+
   "ingredientType.matiere_premiere": "Matière première",
   "ingredientType.charge_utilite": "Charge / utilité",
+
   "reason.achat": "Achat",
   "reason.production": "Production",
   "reason.ajustement": "Ajustement",
   "reason.perte": "Perte",
+
   "dashboard.title": "Tableau de bord",
   "dashboard.revenue": "Chiffre d'affaires",
   "dashboard.revenueTip": "Somme des ventes de la période.",
@@ -100,6 +109,7 @@
   "dashboard.lowStock": "Stock faible",
   "dashboard.lowStockEmpty": "Aucune alerte de stock. 👍",
   "dashboard.methodNote": "Bénéfice (CA − Dépenses) et Marge brute (CA − COGS) mesurent deux réalités différentes : le premier suit la trésorerie, la seconde la rentabilité des produits fabriqués. Il est normal qu'ils diffèrent.",
+
   "ingredients.title": "Ingrédients",
   "ingredients.add": "Ajouter un ingrédient",
   "ingredients.edit": "Modifier l'ingrédient",
@@ -114,6 +124,7 @@
   "ingredients.initialQty": "Stock initial",
   "ingredients.lowBadge": "Stock faible",
   "ingredients.cmpNote": "Le coût unitaire est le coût moyen pondéré (CMP), recalculé automatiquement à chaque achat et arrondi à l'entier FCFA.",
+
   "products.title": "Produits & recettes",
   "products.add": "Ajouter un produit",
   "products.edit": "Modifier le produit",
@@ -130,6 +141,7 @@
   "products.recipeWarning": "⚠ {name} : {qty} pour une seule unité semble disproportionné. Vérifiez l'unité saisie (g et non kg ?).",
   "products.stock": "Stock fini",
   "products.active": "Actif",
+
   "purchases.title": "Achats",
   "purchases.record": "Enregistrer un achat",
   "purchases.ingredient": "Ingrédient",
@@ -140,6 +152,7 @@
   "purchases.deleteBlocked": "Stock déjà consommé en production, suppression impossible.",
   "purchases.deleteInfo": "La suppression retire aussi le mouvement de stock associé et décrémente le stock, dans la même transaction.",
   "purchases.cmpPreview": "Nouveau CMP après achat : {cmp}",
+
   "production.title": "Production",
   "production.record": "Enregistrer une production",
   "production.product": "Produit",
@@ -155,6 +168,7 @@
   "production.missing": "Stock insuffisant : {name} — il manque {qty}.",
   "production.frozenNote": "Le coût affiché ici est figé à la validation : il sera identique dans l'Historique et les Rapports.",
   "production.noRecipe": "Ce produit n'a pas de recette. Définissez-la d'abord dans Produits.",
+
   "sales.title": "Ventes",
   "sales.record": "Enregistrer une vente",
   "sales.product": "Produit",
@@ -164,6 +178,7 @@
   "sales.history": "Historique des ventes",
   "sales.noStock": "Aucun produit avec du stock disponible. Lancez d'abord une production.",
   "sales.stockNote": "Seuls les produits avec un stock fini strictement positif sont proposés. La vente ne décrémente que le stock de produits finis.",
+
   "stock.title": "Gestion des stocks",
   "stock.rawTab": "Matières premières",
   "stock.finishedTab": "Produits finis",
@@ -181,6 +196,7 @@
   "stock.potentialRevenue": "CA potentiel",
   "stock.outOfStock": "Rupture",
   "stock.consistencyNote": "Les cartes de synthèse sont calculées à partir des lignes du tableau affiché — jamais depuis un champ mis en cache.",
+
   "history.title": "Historique",
   "history.productions": "Productions récentes",
   "history.movements": "Mouvements de stock",
@@ -192,6 +208,7 @@
   "history.reason": "Motif",
   "history.change": "Variation",
   "history.author": "Auteur",
+
   "reports.title": "Rapports",
   "reports.financial": "Synthèse financière",
   "reports.revenue": "Chiffre d'affaires",
@@ -208,11 +225,13 @@
   "reports.consumption": "Consommation par ingrédient",
   "reports.consumed": "Quantité consommée",
   "reports.consumptionNote": "Agrégée par identifiant d'ingrédient (pas par nom affiché).",
+
   "db.loading": "Chargement des données…",
   "db.errorTitle": "Impossible de charger les données",
   "db.notReadyTitle": "Base de données à initialiser",
   "db.notReadyHelp": "La connexion à Supabase fonctionne, mais les tables ne sont pas encore créées. Exécutez le script supabase/setup.sql dans Supabase (SQL Editor), puis réessayez.",
   "db.retry": "Réessayer",
+
   "errors.dbNotReady": "Base de données non initialisée.",
   "errors.desktopOnly": "Cette version doit être lancée depuis le logiciel Boulangerie ERP.",
   "errors.generic": "Une erreur est survenue.",
