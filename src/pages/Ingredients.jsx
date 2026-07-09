@@ -7,7 +7,10 @@ import {
   INGREDIENT_TYPES
 } from '../lib/db';
 import { formatFCFA } from '../lib/money';
-import { BASE_UNITS, formatQty, stockUnitLabel } from '../lib/units';
+import {
+  REF_UNITS, refUnitLabel, baseOfRef, refFactor, humanUnit, humanFactor,
+  formatQty, stockUnitLabel
+} from '../lib/units';
 import {
   Badge, Button, Card, ErrorNote, Field, InfoNote, Modal, PageTitle,
   TableWrap, inputClass, td, th
@@ -25,17 +28,18 @@ export default function Ingredients() {
   const open = (ing) => {
     setError('');
     if (ing) {
+      // À l'édition, le seuil est saisi/affiché dans la grande unité (kg/L/unité).
       setForm({
         name: ing.name,
         type: ing.type,
         baseUnit: ing.baseUnit,
-        minThreshold: ing.minThreshold,
+        minThreshold: ing.minThreshold / humanFactor(ing.baseUnit),
         unitCost: ing.unitCost,
         initialQty: ''
       });
       setModal(ing);
     } else {
-      setForm({ name: '', type: 'matiere_premiere', baseUnit: 'g', minThreshold: 0, unitCost: 0, initialQty: '' });
+      setForm({ name: '', type: 'matiere_premiere', refUnit: 'kg', minThreshold: 0, unitCost: 0, initialQty: '' });
       setModal('new');
     }
   };
@@ -49,19 +53,22 @@ export default function Ingredients() {
     setError('');
     try {
       if (modal === 'new') {
+        // Conversion de l'unité de référence choisie (kg/L…) vers la petite
+        // unité de stockage (g/ml/unité).
+        const factor = refFactor(form.refUnit);
         await addIngredient({
           name: form.name,
           type: form.type,
-          baseUnit: form.baseUnit,
-          minThreshold: Number(form.minThreshold) || 0,
+          baseUnit: baseOfRef(form.refUnit),
+          minThreshold: (Number(form.minThreshold) || 0) * factor,
           unitCost: Number(form.unitCost) || 0,
-          initialQty: Number(form.initialQty) || 0,
+          initialQty: (Number(form.initialQty) || 0) * factor,
           author: user.email
         });
       } else {
         await updateIngredient(modal.id, {
           name: form.name,
-          minThreshold: Number(form.minThreshold) || 0,
+          minThreshold: (Number(form.minThreshold) || 0) * humanFactor(modal.baseUnit),
           unitCost: Number(form.unitCost) || 0
         });
       }
@@ -176,22 +183,22 @@ export default function Ingredients() {
                   </select>
                 </Field>
                 <Field label={t('ingredients.baseUnit')} help={t('ingredients.baseUnitHelp')}>
-                  <select className={inputClass} value={form.baseUnit} onChange={(e) => setForm({ ...form, baseUnit: e.target.value })}>
-                    {BASE_UNITS.map((u) => (
-                      <option key={u} value={u}>{u === 'unite' ? 'unité' : u}</option>
+                  <select className={inputClass} value={form.refUnit} onChange={(e) => setForm({ ...form, refUnit: e.target.value })}>
+                    {REF_UNITS.map((u) => (
+                      <option key={u} value={u}>{refUnitLabel(u)}</option>
                     ))}
                   </select>
                 </Field>
-                <Field label={`${t('ingredients.initialQty')} (${form.baseUnit === 'unite' ? 'unité' : form.baseUnit})`}>
+                <Field label={`${t('ingredients.initialQty')} (${refUnitLabel(form.refUnit)})`}>
                   <input type="number" step="any" min="0" className={inputClass} value={form.initialQty} onChange={(e) => setForm({ ...form, initialQty: e.target.value })} />
                 </Field>
               </>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <Field label={`${t('ingredients.threshold')} (${form.baseUnit === 'unite' ? 'unité' : form.baseUnit})`}>
+              <Field label={`${t('ingredients.threshold')} (${modal === 'new' ? refUnitLabel(form.refUnit) : humanUnit(modal.baseUnit)})`}>
                 <input type="number" step="any" min="0" className={inputClass} value={form.minThreshold} onChange={(e) => setForm({ ...form, minThreshold: e.target.value })} required />
               </Field>
-              <Field label={t('ingredients.unitCost', { unit: stockUnitLabel(form.baseUnit) })}>
+              <Field label={t('ingredients.unitCost', { unit: modal === 'new' ? stockUnitLabel(baseOfRef(form.refUnit)) : stockUnitLabel(modal.baseUnit) })}>
                 <input type="number" step="1" min="0" className={inputClass} value={form.unitCost} onChange={(e) => setForm({ ...form, unitCost: e.target.value })} required />
               </Field>
             </div>

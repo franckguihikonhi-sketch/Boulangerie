@@ -19,6 +19,29 @@ export function unitsForBase(baseUnit) {
   return Object.keys(UNIT_DEFS).filter((u) => UNIT_DEFS[u].base === baseUnit);
 }
 
+// Unités de référence proposées à la création d'un ingrédient (kg en tête,
+// car c'est l'unité la plus naturelle en boulangerie). En interne, tout reste
+// stocké dans la petite unité (g/ml/unité) pour garder la précision.
+export const REF_UNITS = ['kg', 'g', 'L', 'ml', 'unite'];
+export function refUnitLabel(u) {
+  return u === 'unite' ? 'unité' : u;
+}
+export function baseOfRef(u) {
+  return UNIT_DEFS[u]?.base || 'g';
+}
+export function refFactor(u) {
+  return UNIT_DEFS[u]?.factor || 1;
+}
+
+// Pour l'édition : « grande » unité humaine d'une unité de base, et son
+// facteur (g→kg = 1000). Sert à afficher/saisir les seuils en kg/L/unité.
+export function humanUnit(baseUnit) {
+  return baseUnit === 'g' ? 'kg' : baseUnit === 'ml' ? 'L' : 'unité';
+}
+export function humanFactor(baseUnit) {
+  return baseUnit === 'unite' ? 1 : 1000;
+}
+
 // Convertit une quantité saisie (qty, unit) vers l'unité de base attendue.
 // Lève une erreur si l'unité est incompatible avec l'ingrédient : une
 // recette ne peut pas saisir des "L" pour de la farine stockée en grammes.
