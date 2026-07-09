@@ -53,6 +53,12 @@
 
   "products.active": "Actif",
 
+  "family.poissons": "Poissons",
+  "family.viandes": "Viandes",
+  "family.frites": "Frites surgelées",
+  "family.laitier": "Produit laitier",
+  "family.autres": "Autres",
+
   "devisStatus.en_cours": "En cours",
   "devisStatus.valide": "Validé",
   "devisStatus.refuse": "Refusé",
@@ -112,9 +118,10 @@
   "articles.add": "Ajouter un article",
   "articles.edit": "Modifier l'article",
   "articles.reference": "Référence",
-  "articles.referenceHelp": "Code court d'identification (ex. POIS-BAR).",
+  "articles.family": "Famille",
+  "articles.referenceHelp": "Code court d'identification (ex. POI-001).",
   "articles.activeHelp": "Disponible pour les nouveaux devis",
-  "articles.note": "Ces articles alimentent la création des devis. Modifier un article ne change jamais un devis déjà émis : chaque devis conserve une copie de ses lignes.",
+  "articles.note": "Ces articles alimentent la création des devis, regroupés par famille. Les prix affichés sont indicatifs : ajustez-les ici. Modifier un article ne change jamais un devis déjà émis (chaque devis conserve une copie de ses lignes).",
 
   "payments.title": "Suivi des paiements",
   "payments.billed": "Total facturé",

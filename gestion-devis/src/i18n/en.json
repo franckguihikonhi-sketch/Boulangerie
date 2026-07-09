@@ -53,6 +53,12 @@
 
   "products.active": "Active",
 
+  "family.poissons": "Fish",
+  "family.viandes": "Meat",
+  "family.frites": "Frozen fries",
+  "family.laitier": "Dairy",
+  "family.autres": "Other",
+
   "devisStatus.en_cours": "In progress",
   "devisStatus.valide": "Validated",
   "devisStatus.refuse": "Refused",
@@ -112,9 +118,10 @@
   "articles.add": "Add an article",
   "articles.edit": "Edit article",
   "articles.reference": "Reference",
-  "articles.referenceHelp": "Short identifying code (e.g. POIS-BAR).",
+  "articles.family": "Family",
+  "articles.referenceHelp": "Short identifying code (e.g. POI-001).",
   "articles.activeHelp": "Available for new quotes",
-  "articles.note": "These articles feed quote creation. Editing an article never changes an already-issued quote: each quote keeps a copy of its lines.",
+  "articles.note": "These articles feed quote creation, grouped by family. Displayed prices are indicative — adjust them here. Editing an article never changes an already-issued quote (each quote keeps a copy of its lines).",
 
   "payments.title": "Payment tracking",
   "payments.billed": "Total billed",

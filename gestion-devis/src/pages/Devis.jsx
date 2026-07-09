@@ -4,7 +4,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
 import {
   createDevis, updateDevis, setDevisStatus, finalizeDevis, recordPayment, deleteDevis,
-  devisTotal, devisPaid, devisBalance, paymentStatus, uid
+  devisTotal, devisPaid, devisBalance, paymentStatus, uid, ARTICLE_FAMILIES
 } from '../lib/db';
 import { formatFCFA } from '../lib/money';
 import { printReceipt, mailtoDevisFinalized, mailtoPayment } from '../lib/receipt';
@@ -151,6 +151,12 @@ function DevisForm({ existing, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
 
   const activeArticles = s.articles.filter((a) => a.isActive);
+  // Regroupe le catalogue par famille pour un choix rapide (optgroup). Les
+  // familles connues d'abord, puis « Autres » pour les articles sans famille.
+  const articlesByFamily = [
+    ...ARTICLE_FAMILIES.map((f) => ({ family: f, items: activeArticles.filter((a) => a.family === f) })),
+    { family: '', items: activeArticles.filter((a) => !ARTICLE_FAMILIES.includes(a.family)) }
+  ].filter((g) => g.items.length > 0);
 
   const addFromArticle = (articleId) => {
     const a = s.articles.find((x) => x.id === articleId);
@@ -212,12 +218,16 @@ function DevisForm({ existing, onClose, onSaved }) {
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-stone-700">{t('devis.lines')}</span>
             <div className="flex gap-2">
-              <select className={`${inputClass} w-auto text-xs`} value={picker} onChange={(e) => addFromArticle(e.target.value)}>
+              <select className={`${inputClass} w-auto max-w-[15rem] text-xs`} value={picker} onChange={(e) => addFromArticle(e.target.value)}>
                 <option value="">{t('devis.addArticle')}</option>
-                {activeArticles.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.reference ? `${a.reference} · ` : ''}{a.designation} — {formatFCFA(a.unitPrice, locale)}
-                  </option>
+                {articlesByFamily.map((g) => (
+                  <optgroup key={g.family || 'autres'} label={g.family ? t('family.' + g.family) : t('family.autres')}>
+                    {g.items.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.reference ? `${a.reference} · ` : ''}{a.designation} — {formatFCFA(a.unitPrice, locale)}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <Button type="button" variant="secondary" className="px-2 py-1.5 text-xs" onClick={addFreeLine}>

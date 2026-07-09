@@ -19,10 +19,13 @@ create table articles (
   id uuid primary key default gen_random_uuid(),
   reference text not null default '',
   designation text not null,
+  -- Famille : poissons / viandes / frites / laitier (liste ouverte).
+  family text not null default '',
   unit_price bigint not null default 0 check (unit_price >= 0),  -- FCFA entier
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
+create index on articles (family);
 
 -- Numérotation automatique et atomique des devis (DV-0001, DV-0002, …) -------
 create sequence devis_number_seq;

@@ -14,10 +14,12 @@
 
 import { roundFCFA, roundQty } from './money';
 import { supabase, supabaseConfigured } from './supabase';
+import { CATALOG, ARTICLE_FAMILIES } from './catalog';
 
 // Listes fermées (jamais traduites en base ; libellés d'affichage dans l'i18n).
 export const DEVIS_STATUSES = ['en_cours', 'valide', 'refuse'];
 export const PAYMENT_TYPES = ['acompte', 'total'];
+export { ARTICLE_FAMILIES };
 // Destinataire des e-mails automatiques (devis finalisé, paiement).
 export const ADMIN_EMAIL = 'admin@fish-afric.com';
 
@@ -157,7 +159,7 @@ function guestSessionActive() {
 // --------------------------- Mappage lignes ↔ objets -----------------------
 
 const toArticle = (r) => ({
-  id: r.id, reference: r.reference, designation: r.designation,
+  id: r.id, reference: r.reference, designation: r.designation, family: r.family || '',
   unitPrice: Number(r.unit_price), isActive: r.is_active, createdAt: r.created_at
 });
 const toDevisLine = (r) => ({
@@ -326,7 +328,7 @@ function buildDevisLines(lines) {
 
 // --------------------------- Articles (catalogue) --------------------------
 
-export async function saveArticle({ id, reference, designation, unitPrice, isActive = true }) {
+export async function saveArticle({ id, reference, designation, family, unitPrice, isActive = true }) {
   if (!designation?.trim()) throw new Error('errors.nameRequired');
   if (demoMode) {
     return demoMutate((s) => {
@@ -334,21 +336,21 @@ export async function saveArticle({ id, reference, designation, unitPrice, isAct
         const a = s.articles.find((x) => x.id === id);
         if (!a) throw new Error('errors.notFound');
         Object.assign(a, {
-          reference: reference?.trim() || '', designation: designation.trim(),
+          reference: reference?.trim() || '', designation: designation.trim(), family: family || '',
           unitPrice: roundFCFA(unitPrice), isActive
         });
         return id;
       }
       const newId = uid();
       s.articles.push({
-        id: newId, reference: reference?.trim() || '', designation: designation.trim(),
+        id: newId, reference: reference?.trim() || '', designation: designation.trim(), family: family || '',
         unitPrice: roundFCFA(unitPrice), isActive, createdAt: new Date().toISOString()
       });
       return newId;
     });
   }
   const row = {
-    reference: reference?.trim() || '', designation: designation.trim(),
+    reference: reference?.trim() || '', designation: designation.trim(), family: family || '',
     unit_price: roundFCFA(unitPrice), is_active: isActive
   };
   let resultId = id;
@@ -515,36 +517,34 @@ export async function recordPayment({ devisId, type, amount, clientSignature, no
 }
 
 // ----------------------- Données d'exemple (mode démo) ---------------------
-// Catalogue Fish-Afric (cartons de poisson, sachets de frites, cartons de
-// viande en gros) + trois devis représentatifs des statuts, pour que le bac à
-// sable invité soit immédiatement parlant.
+// Catalogue RÉEL Fish-Afric (défini dans catalog.js, par famille) + trois devis
+// représentatifs des statuts, pour que le bac à sable invité soit immédiatement
+// parlant. Les prix du catalogue sont indicatifs (voir catalog.js).
 
 function seedDemo(s) {
   const author = 'invite@fish-afric-demo.app';
   const now = Date.now();
 
-  const mkArticle = (reference, designation, unitPrice) => {
+  // Charge tout le catalogue réel comme articles prédéfinis.
+  const byRef = {};
+  for (const c of CATALOG) {
     const id = uid();
-    s.articles.push({
-      id, reference, designation, unitPrice: roundFCFA(unitPrice), isActive: true,
+    const art = {
+      id, reference: c.reference, designation: c.designation, family: c.family,
+      unitPrice: roundFCFA(c.price), isActive: true,
       createdAt: new Date(now - 20 * 86400000).toISOString()
-    });
-    return { id, reference, designation, unitPrice: roundFCFA(unitPrice) };
+    };
+    s.articles.push(art);
+    byRef[c.reference] = art;
+  }
+
+  const line = (ref, quantity) => {
+    const art = byRef[ref];
+    return {
+      id: uid(), articleRef: art.reference, designation: art.designation,
+      unitPrice: art.unitPrice, quantity, amount: roundFCFA(art.unitPrice * quantity)
+    };
   };
-
-  const bar = mkArticle('POIS-BAR', 'Carton de Bar (20 kg)', 42000);
-  const maquereau = mkArticle('POIS-MAQ', 'Carton de Maquereau (20 kg)', 28000);
-  const chinchard = mkArticle('POIS-CHI', 'Carton de Chinchard (20 kg)', 24000);
-  const sole = mkArticle('POIS-SOL', 'Carton de Sole (10 kg)', 35000);
-  const friteFine = mkArticle('FRIT-FIN', 'Sachet de frites fines (2,5 kg)', 4500);
-  const friteSteak = mkArticle('FRIT-STK', 'Sachet de frites steak (2,5 kg)', 4200);
-  const boeuf = mkArticle('VIAN-BOE', 'Carton de viande de bœuf (20 kg)', 65000);
-  const poulet = mkArticle('VIAN-POU', 'Carton de cuisses de poulet (15 kg)', 32000);
-
-  const line = (art, quantity) => ({
-    id: uid(), articleRef: art.reference, designation: art.designation,
-    unitPrice: art.unitPrice, quantity, amount: roundFCFA(art.unitPrice * quantity)
-  });
 
   const mkDevis = (number, clientName, clientContact, statusValue, lines, daysAgo, extra = {}) => {
     const id = uid();
@@ -558,10 +558,10 @@ function seedDemo(s) {
   };
 
   mkDevis('DV-0001', 'Restaurant Le Wharf', '+225 07 01 02 03 04', 'en_cours',
-    [line(bar, 10), line(friteFine, 40)], 3);
+    [line('POI-006', 10), line('FRI-001', 40)], 3);
 
   const finalized = mkDevis('DV-0002', 'Supermarché Prosuma', 'achats@prosuma.ci', 'valide',
-    [line(maquereau, 30), line(poulet, 20), line(friteSteak, 60)], 7, {
+    [line('POI-010', 30), line('VIA-020', 20), line('FRI-001', 60)], 7, {
       deliveryDate: new Date(now + 2 * 86400000).toISOString().slice(0, 10),
       deliveryAddress: 'Zone industrielle de Vridi, Abidjan',
       finalizedAt: new Date(now - 6 * 86400000).toISOString()
@@ -574,5 +574,5 @@ function seedDemo(s) {
   });
 
   mkDevis('DV-0003', 'Grill du Port', '+225 05 06 07 08 09', 'refuse',
-    [line(sole, 5), line(boeuf, 4), line(chinchard, 10)], 11);
+    [line('POI-001', 5), line('VIA-016', 4), line('POI-012', 10)], 11);
 }
