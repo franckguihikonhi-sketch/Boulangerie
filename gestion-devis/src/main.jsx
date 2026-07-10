@@ -17,3 +17,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </I18nProvider>
   </React.StrictMode>
 );
+
+// PWA : enregistre le service worker en production (installation + démarrage
+// hors-ligne). En développement, on l'ignore pour éviter tout cache gênant.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  });
+}

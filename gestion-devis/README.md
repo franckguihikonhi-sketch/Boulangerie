@@ -26,10 +26,20 @@ charges – Gestion des devis*.
 - **Utilitaires** — profil et déconnexion.
 - **Tableau de bord** — compteurs par statut et indicateurs d'encaissement.
 
+## Installer sur mobile (PWA)
+
+L'application est une **PWA installable** : ouvrez l'URL déployée sur le
+téléphone, puis « Ajouter à l'écran d'accueil » (Android/Chrome : menu ⋮ →
+*Installer l'application* ; iOS/Safari : Partager → *Sur l'écran d'accueil*).
+Elle s'ouvre alors **en plein écran comme une app native**, avec son icône, et
+démarre même hors-ligne (le service worker met en cache le shell). Le service
+worker n'est actif que sur le **build de production** (`npm run build` +
+`npm run preview`), jamais en `npm run dev`.
+
 ## Pile technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS, **pensé mobile-first** et
-  installable (PWA) — la cible du cahier des charges est le mobile.
+  **installable (PWA)** — la cible du cahier des charges est le mobile.
 - **Données** : Supabase (PostgreSQL) via un cache mémoire hydraté, plus un
   **mode démonstration** entièrement local (accès invité, bac à sable de
   30 min) pour essayer l'app sans base ni compte.
