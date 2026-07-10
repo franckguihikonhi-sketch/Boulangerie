@@ -112,6 +112,8 @@
   "devis.receipt": "Reçu",
   "devis.printReceipt": "Reçu (PDF)",
   "devis.exportPdf": "Exporter le devis (PDF / image)",
+  "doc.print": "Imprimer / Enregistrer PDF",
+  "doc.hint": "Touchez « Imprimer » puis « Enregistrer en PDF » — ou faites une capture d'écran pour une image.",
   "devis.signHere": "Signez ici",
   "devis.clearSignature": "Effacer",
 

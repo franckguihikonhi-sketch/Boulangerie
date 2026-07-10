@@ -112,6 +112,8 @@
   "devis.receipt": "Receipt",
   "devis.printReceipt": "Receipt (PDF)",
   "devis.exportPdf": "Export quote (PDF / image)",
+  "doc.print": "Print / Save PDF",
+  "doc.hint": "Tap “Print” then “Save as PDF” — or take a screenshot for an image.",
   "devis.signHere": "Sign here",
   "devis.clearSignature": "Clear",
 

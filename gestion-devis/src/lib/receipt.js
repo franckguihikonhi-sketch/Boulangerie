@@ -22,10 +22,10 @@ function dateStr(iso, locale) {
   });
 }
 
-// Reçu de paiement imprimable (l'utilisateur peut « Enregistrer en PDF »).
-export function printReceipt({ devis, payment, total, paid, balance, appName, t, locale }) {
-  const win = window.open('', '_blank', 'width=680,height=800');
-  if (!win) return false;
+// Reçu de paiement — renvoie le HTML du document (affiché dans un aperçu
+// intégré, puis imprimable / « Enregistrer en PDF »). Ne dépend d'aucune
+// fenêtre popup, donc fonctionne partout (y compris en démo embarquée).
+export function buildReceiptHtml({ devis, payment, total, paid, balance, appName, t, locale }) {
   const rows = devis.lines
     .map(
       (l) => `<tr>
@@ -39,7 +39,7 @@ export function printReceipt({ devis, payment, total, paid, balance, appName, t,
   const sign = payment.clientSignature
     ? `<div class="sign"><p>${esc(t('devis.clientSignature'))}</p><img src="${payment.clientSignature}" alt="signature" /></div>`
     : '';
-  win.document.write(`<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(t('receipt.title'))} ${esc(devis.number)}</title>
     <style>
       * { box-sizing: border-box; }
@@ -92,19 +92,14 @@ export function printReceipt({ devis, payment, total, paid, balance, appName, t,
     </div>
     ${sign}
     <p class="foot">${esc(t('receipt.footer'))}</p>
-    <script>window.onload = function () { window.print(); };</script>
-    </body></html>`);
-  win.document.close();
-  return true;
+    </body></html>`;
 }
 
 // Devis imprimable / exportable (l'utilisateur choisit « Enregistrer en PDF »
 // ou « Enregistrer en image » dans la boîte d'impression / le partage mobile).
 // Document complet : en-tête, client, lignes, total, et — si le devis est
 // finalisé — livraison + signatures client et commercial.
-export function printDevis({ devis, total, statusLabel, appName, t, locale }) {
-  const win = window.open('', '_blank', 'width=720,height=900');
-  if (!win) return false;
+export function buildDevisHtml({ devis, total, statusLabel, appName, t, locale }) {
   const rows = devis.lines
     .map(
       (l, i) => `<tr>
@@ -132,7 +127,7 @@ export function printDevis({ devis, total, statusLabel, appName, t, locale }) {
            ${devis.commercialSignature ? `<img src="${devis.commercialSignature}" alt="signature commercial" />` : '<div class="empty"></div>'}</figure>
        </div>`
     : '';
-  win.document.write(`<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(t('devis.title'))} ${esc(devis.number)}</title>
     <style>
       * { box-sizing: border-box; }
@@ -195,10 +190,7 @@ export function printDevis({ devis, total, statusLabel, appName, t, locale }) {
     ${delivery}
     ${signatures}
     <p class="foot">${esc(appName)} — ${esc(t('devis.title'))} ${esc(devis.number)}</p>
-    <script>window.onload = function () { window.print(); };</script>
-    </body></html>`);
-  win.document.close();
-  return true;
+    </body></html>`;
 }
 
 // Lien mailto: (devis finalisé) — l'administrateur reçoit les infos clés.
