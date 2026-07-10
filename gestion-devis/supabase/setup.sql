@@ -142,3 +142,59 @@ create policy anon_all on articles    for all to anon, authenticated using (true
 create policy anon_all on devis        for all to anon, authenticated using (true) with check (true);
 create policy anon_all on devis_lines  for all to anon, authenticated using (true) with check (true);
 create policy anon_all on payments     for all to anon, authenticated using (true) with check (true);
+
+-- Pré-chargement du catalogue réel Fish-Afric (49 articles) ------
+-- Références + désignations + familles fournies ; PRIX à 0, à compléter dans
+-- l'écran « Articles ». Section optionnelle : supprimez-la si vous partez d'un
+-- catalogue vierge.
+insert into articles (reference, designation, family, unit_price) values
+  ('POI-001', 'Belle Dame 400-800 GR - 10 Kg', 'poissons', 0),
+  ('POI-002', 'Belle Dame 800 + GR - 10 Kg', 'poissons', 0),
+  ('POI-003', 'Panga 400-1000 GR - 10 Kg', 'poissons', 0),
+  ('POI-004', 'Tilapia 200-300 G - 10 Kg', 'poissons', 0),
+  ('POI-005', 'Tilapia 300-500 G - 10 Kg', 'poissons', 0),
+  ('POI-006', 'Tilapia 500-800 G - 10 Kg', 'poissons', 0),
+  ('POI-007', 'Tilapia 800 GR+ - Kg', 'poissons', 0),
+  ('POI-008', 'Frozen Yellow Croakers - 20 Kg', 'poissons', 0),
+  ('POI-009', 'Frozen Yellow Croakers - 10 Kg', 'poissons', 0),
+  ('POI-010', 'Frozen Maquereaux 20kg Morroco', 'poissons', 0),
+  ('POI-011', 'Frozen Maquereaux 300-500 G - 10 Kg - China', 'poissons', 0),
+  ('POI-012', 'Chinchard - Frozen Atlantic Horse Mackerel - 20 Kg', 'poissons', 0),
+  ('POI-013', 'Frozen Sardine Whole Round - 10 Kg - 20/30', 'poissons', 0),
+  ('POI-014', 'Frozen Sardine Whole Round - 10 Kg - 10/20', 'poissons', 0),
+  ('VIA-001', 'BOBY VEAU ALLANA 18 Kg', 'viandes', 0),
+  ('VIA-002', 'Tranche De Viande - Allana 18 Kg', 'viandes', 0),
+  ('VIA-003', 'Viande Hachée - Allana 20 Kg', 'viandes', 0),
+  ('VIA-004', 'Museau 10 kg - Allana', 'viandes', 0),
+  ('VIA-005', 'COEUR DE BUFFLE - ALLANA 10 Kg', 'viandes', 0),
+  ('VIA-006', 'COEUR DE BUFFLE - ALLANA 18 Kg', 'viandes', 0),
+  ('VIA-007', 'COEUR DE BUFFLE - AL TAMAM 10 Kg', 'viandes', 0),
+  ('VIA-008', 'FOIE DE BOEUF - ALLANA 18 Kg', 'viandes', 0),
+  ('VIA-009', 'FOIE DE BOEUF EU - EMRET', 'viandes', 0),
+  ('VIA-010', 'FOIE DE BOEUF - OFFAL EXP', 'viandes', 0),
+  ('VIA-011', 'FOIE DE BOEUF - ALLANA 10 Kg', 'viandes', 0),
+  ('VIA-012', 'FOIE DE BOEUF - CONCEPCION 10 Kg', 'viandes', 0),
+  ('VIA-013', 'BABINE - ALLANA 18 Kg', 'viandes', 0),
+  ('VIA-014', 'BABINE - ALLANA 10 Kg', 'viandes', 0),
+  ('VIA-015', 'Tenderloin 3 LB CHAIN OFF - Friboi - PV', 'viandes', 0),
+  ('VIA-016', 'CUBE ROLL FRIBOI PV', 'viandes', 0),
+  ('VIA-017', 'BRISKET BONELESS - FRIBOI PV', 'viandes', 0),
+  ('VIA-018', 'Frozen Beef Glottis 10 Kg - Dinardi Menudencias - Argentina', 'viandes', 0),
+  ('VIA-019', 'Queue De Boeuf PV - Friboi', 'viandes', 0),
+  ('VIA-020', 'Pieds de boeuf 20 kg - ICC', 'viandes', 0),
+  ('VIA-021', 'Pieds de boeuf 20 Kg - Wimax', 'viandes', 0),
+  ('VIA-022', 'Pieds de boeuf 20 Kg - Italy', 'viandes', 0),
+  ('VIA-023', 'Pieds de boeuf 20 kg - LTN - Biovela', 'viandes', 0),
+  ('VIA-024', 'Rognon De Boeuf Friboi - 13.6 Kg', 'viandes', 0),
+  ('VIA-025', 'Rognon De Boeuf - 10 Kg - Argentina', 'viandes', 0),
+  ('VIA-026', 'Rognon 8 Kg - Premium Offal', 'viandes', 0),
+  ('VIA-027', 'Rognon De Boeuf Minerva - 13.6 Kg', 'viandes', 0),
+  ('VIA-028', 'Tripes De Boeuf 10 Kg - Premium Offal', 'viandes', 0),
+  ('VIA-029', 'Tripes De Boeuf 10 Kg - ZKW - Poland', 'viandes', 0),
+  ('VIA-030', 'Tripes De Boeuf 10 Kg - Dinardi Menudencias - Argentina', 'viandes', 0),
+  ('VIA-031', 'Tripes De Boeuf 10 Kg - ARGALL', 'viandes', 0),
+  ('VIA-032', 'Tripe De Boeuf 10 Kg - Allana', 'viandes', 0),
+  ('VIA-033', 'Tripes De Boeuf 10 Kg - MM - Netherlands', 'viandes', 0),
+  ('VIA-034', 'BABINE FRIBOI 15 Kg', 'viandes', 0),
+  ('FRI-001', 'French Fries 7 MM B GRADE Short (4x2.5 Kg)', 'frites', 0);
+
