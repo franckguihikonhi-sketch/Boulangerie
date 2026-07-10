@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { consumptionByIngredient, dayKey, financialSummary, perProductReport } from '../lib/reports';
+import { ecrituresComptables, telechargerFichierSage } from '../lib/sage';
 import { formatFCFA } from '../lib/money';
 import { formatQty } from '../lib/units';
-import { Card, InfoNote, PageTitle, StatCard, TableWrap, inputClass, td, th } from '../components/ui';
+import { Button, Card, InfoNote, PageTitle, StatCard, TableWrap, inputClass, td, th } from '../components/ui';
 
 // Rapports (section 5.10) : trois notions strictement séparées —
 // Chiffre d'affaires, Dépenses (trésorerie) et COGS. Seul le COGS est opposé
@@ -18,6 +19,12 @@ export default function Reports() {
   const fin = useMemo(() => financialSummary(s, from || null, to || null), [s, from, to]);
   const perProduct = useMemo(() => perProductReport(s, from || null, to || null), [s, from, to]);
   const consumption = useMemo(() => consumptionByIngredient(s, from || null, to || null), [s, from, to]);
+  const sageCount = useMemo(
+    () => ecrituresComptables(s, from || null, to || null).length,
+    [s, from, to]
+  );
+
+  const exportSage = () => telechargerFichierSage(s, from || null, to || null);
 
   return (
     <div>
@@ -32,6 +39,17 @@ export default function Reports() {
               <span className="mb-1 block text-xs font-medium text-stone-500">{t('common.to')}</span>
               <input type="date" className={`${inputClass} w-40`} value={to} onChange={(e) => setTo(e.target.value)} />
             </label>
+            <Button
+              variant="secondary"
+              onClick={exportSage}
+              disabled={sageCount === 0}
+              title={t('reports.exportSageTip')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+              </svg>
+              {t('reports.exportSage')}
+            </Button>
           </div>
         }
       >
@@ -50,6 +68,10 @@ export default function Reports() {
           tone={fin.marginPct === null ? 'default' : fin.marginPct >= 0 ? 'good' : 'bad'}
           sub={`${t('dashboard.grossMargin')} : ${formatFCFA(fin.grossMargin, locale)}`}
         />
+      </div>
+
+      <div className="mt-3">
+        <InfoNote>{t('reports.sageNote')}</InfoNote>
       </div>
 
       <Card className="mt-5">
