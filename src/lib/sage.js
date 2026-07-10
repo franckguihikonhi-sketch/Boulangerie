@@ -169,6 +169,19 @@ export function construireFichierSage(state, from, to) {
   return { texte: ecritures.length ? corps + FIN_LIGNE : '', nb: ecritures.length };
 }
 
+// Contrôle de partie double : total débit, total crédit et équilibre.
+// Permet d'afficher un récapitulatif de confiance avant/après l'export.
+export function controleEquilibre(state, from, to) {
+  const ecritures = ecrituresComptables(state, from, to);
+  let debit = 0;
+  let credit = 0;
+  for (const e of ecritures) {
+    debit += e.debit || 0;
+    credit += e.credit || 0;
+  }
+  return { nb: ecritures.length, debit, credit, equilibre: debit === credit };
+}
+
 // -------------------- Encodage Windows-1252 (ANSI) --------------------------
 // Origine du fichier = Windows : Sage attend de l'ANSI (Windows-1252), pas de
 // l'UTF-8. On encode donc explicitement chaque caractère sur un octet.

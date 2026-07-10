@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { consumptionByIngredient, dayKey, financialSummary, perProductReport } from '../lib/reports';
-import { ecrituresComptables, telechargerFichierSage } from '../lib/sage';
+import { controleEquilibre, telechargerFichierSage } from '../lib/sage';
 import { formatFCFA } from '../lib/money';
 import { formatQty } from '../lib/units';
 import { Button, Card, InfoNote, PageTitle, StatCard, TableWrap, inputClass, td, th } from '../components/ui';
@@ -19,12 +19,13 @@ export default function Reports() {
   const fin = useMemo(() => financialSummary(s, from || null, to || null), [s, from, to]);
   const perProduct = useMemo(() => perProductReport(s, from || null, to || null), [s, from, to]);
   const consumption = useMemo(() => consumptionByIngredient(s, from || null, to || null), [s, from, to]);
-  const sageCount = useMemo(
-    () => ecrituresComptables(s, from || null, to || null).length,
-    [s, from, to]
-  );
+  const sage = useMemo(() => controleEquilibre(s, from || null, to || null), [s, from, to]);
+  const [exported, setExported] = useState(null);
 
-  const exportSage = () => telechargerFichierSage(s, from || null, to || null);
+  const exportSage = () => {
+    const nb = telechargerFichierSage(s, from || null, to || null);
+    setExported(nb);
+  };
 
   return (
     <div>
@@ -33,16 +34,16 @@ export default function Reports() {
           <div className="flex flex-wrap items-end gap-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-stone-500">{t('common.from')}</span>
-              <input type="date" className={`${inputClass} w-40`} value={from} onChange={(e) => setFrom(e.target.value)} />
+              <input type="date" className={`${inputClass} w-40`} value={from} onChange={(e) => { setFrom(e.target.value); setExported(null); }} />
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-stone-500">{t('common.to')}</span>
-              <input type="date" className={`${inputClass} w-40`} value={to} onChange={(e) => setTo(e.target.value)} />
+              <input type="date" className={`${inputClass} w-40`} value={to} onChange={(e) => { setTo(e.target.value); setExported(null); }} />
             </label>
             <Button
               variant="secondary"
               onClick={exportSage}
-              disabled={sageCount === 0}
+              disabled={sage.nb === 0}
               title={t('reports.exportSageTip')}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -70,8 +71,23 @@ export default function Reports() {
         />
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 space-y-2">
         <InfoNote>{t('reports.sageNote')}</InfoNote>
+        {sage.nb > 0 && (
+          <p className="text-xs text-stone-500">
+            {t('reports.sageBalance', {
+              n: sage.nb,
+              debit: formatFCFA(sage.debit, locale),
+              credit: formatFCFA(sage.credit, locale)
+            })}{' '}
+            {sage.equilibre ? '✓' : '⚠'}
+          </p>
+        )}
+        {exported != null && (
+          <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+            {t('reports.sageDone', { n: exported })}
+          </p>
+        )}
       </div>
 
       <Card className="mt-5">
