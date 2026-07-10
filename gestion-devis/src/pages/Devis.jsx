@@ -7,8 +7,9 @@ import {
   devisTotal, devisPaid, devisBalance, paymentStatus, uid, ARTICLE_FAMILIES
 } from '../lib/db';
 import { formatFCFA } from '../lib/money';
-import { printReceipt, mailtoDevisFinalized, mailtoPayment } from '../lib/receipt';
+import { buildReceiptHtml, buildDevisHtml, mailtoDevisFinalized, mailtoPayment } from '../lib/receipt';
 import SignaturePad from '../components/SignaturePad';
+import DocPreview from '../components/DocPreview';
 import {
   Badge, Button, Card, ErrorNote, Field, InfoNote, Modal, PageTitle,
   TableWrap, inputClass, td, th
@@ -299,6 +300,7 @@ function DevisDetail({ devis, onClose, onEdit }) {
   const { user, isAdmin } = useAuth();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [doc, setDoc] = useState(null); // { html, title } — aperçu imprimable
 
   const total = devisTotal(devis);
   const paid = devisPaid(s, devis.id);
@@ -324,6 +326,11 @@ function DevisDetail({ devis, onClose, onEdit }) {
     if (!window.confirm(t('devis.confirmDelete'))) return;
     run(async () => { await deleteDevis(devis.id); onClose(); });
   };
+  const exportPdf = () =>
+    setDoc({
+      title: `${t('devis.title')} ${devis.number}`,
+      html: buildDevisHtml({ devis, total, statusLabel: t('devisStatus.' + devis.status), appName: t('app.name'), t, locale })
+    });
 
   return (
     <Modal wide title={devis.number} onClose={onClose}>
@@ -339,6 +346,16 @@ function DevisDetail({ devis, onClose, onEdit }) {
             <Badge tone={STATUS_TONE[devis.status]}>{t('devisStatus.' + devis.status)}</Badge>
             {devis.status === 'valide' && <Badge tone={PAY_TONE[payStatus]}>{t('paymentStatus.' + payStatus)}</Badge>}
           </div>
+        </div>
+
+        {/* Export du devis (PDF / image via la boîte d'impression) */}
+        <div>
+          <Button variant="secondary" onClick={exportPdf}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+            </svg>
+            {t('devis.exportPdf')}
+          </Button>
         </div>
 
         {/* Lignes */}
@@ -402,10 +419,12 @@ function DevisDetail({ devis, onClose, onEdit }) {
             <PaymentSection
               devis={devis} total={total} paid={paid} balance={balance}
               payments={payments} run={run} busy={busy} author={user.email}
+              onShowDoc={setDoc}
             />
           </>
         )}
       </div>
+      {doc && <DocPreview html={doc.html} title={doc.title} onClose={() => setDoc(null)} />}
     </Modal>
   );
 }
@@ -487,7 +506,7 @@ function FinalizeSection({ devis, total, run, busy }) {
 }
 
 // Enregistrement d'un paiement (acompte / total) + reçu + e-mail admin.
-function PaymentSection({ devis, total, paid, balance, payments, run, busy, author }) {
+function PaymentSection({ devis, total, paid, balance, payments, run, busy, author, onShowDoc }) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('acompte');
@@ -514,13 +533,15 @@ function PaymentSection({ devis, total, paid, balance, payments, run, busy, auth
       openMail(mailtoPayment({ devis, payment, total, paid: newPaid, balance: newBalance, t, locale }));
     });
 
-  const receiptFor = (payment) =>
-    printReceipt({
-      devis, payment, total,
-      paid: payments.filter((p) => p.createdAt <= payment.createdAt).reduce((a, p) => a + p.amount, 0),
-      balance: total - payments.filter((p) => p.createdAt <= payment.createdAt).reduce((a, p) => a + p.amount, 0),
-      appName: t('app.name'), t, locale
+  const receiptFor = (payment) => {
+    const paidUpTo = payments.filter((p) => p.createdAt <= payment.createdAt).reduce((a, p) => a + p.amount, 0);
+    onShowDoc({
+      title: `${t('receipt.title')} ${devis.number}`,
+      html: buildReceiptHtml({
+        devis, payment, total, paid: paidUpTo, balance: total - paidUpTo, appName: t('app.name'), t, locale
+      })
     });
+  };
 
   return (
     <Card className="p-4">
