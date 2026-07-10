@@ -111,6 +111,7 @@
   "devis.noPayments": "No payment recorded yet.",
   "devis.receipt": "Receipt",
   "devis.printReceipt": "Receipt (PDF)",
+  "devis.exportPdf": "Export quote (PDF / image)",
   "devis.signHere": "Sign here",
   "devis.clearSignature": "Clear",
 

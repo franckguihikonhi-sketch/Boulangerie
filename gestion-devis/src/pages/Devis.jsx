@@ -7,7 +7,7 @@ import {
   devisTotal, devisPaid, devisBalance, paymentStatus, uid, ARTICLE_FAMILIES
 } from '../lib/db';
 import { formatFCFA } from '../lib/money';
-import { printReceipt, mailtoDevisFinalized, mailtoPayment } from '../lib/receipt';
+import { printReceipt, printDevis, mailtoDevisFinalized, mailtoPayment } from '../lib/receipt';
 import SignaturePad from '../components/SignaturePad';
 import {
   Badge, Button, Card, ErrorNote, Field, InfoNote, Modal, PageTitle,
@@ -324,6 +324,8 @@ function DevisDetail({ devis, onClose, onEdit }) {
     if (!window.confirm(t('devis.confirmDelete'))) return;
     run(async () => { await deleteDevis(devis.id); onClose(); });
   };
+  const exportPdf = () =>
+    printDevis({ devis, total, statusLabel: t('devisStatus.' + devis.status), appName: t('app.name'), t, locale });
 
   return (
     <Modal wide title={devis.number} onClose={onClose}>
@@ -339,6 +341,16 @@ function DevisDetail({ devis, onClose, onEdit }) {
             <Badge tone={STATUS_TONE[devis.status]}>{t('devisStatus.' + devis.status)}</Badge>
             {devis.status === 'valide' && <Badge tone={PAY_TONE[payStatus]}>{t('paymentStatus.' + payStatus)}</Badge>}
           </div>
+        </div>
+
+        {/* Export du devis (PDF / image via la boîte d'impression) */}
+        <div>
+          <Button variant="secondary" onClick={exportPdf}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+            </svg>
+            {t('devis.exportPdf')}
+          </Button>
         </div>
 
         {/* Lignes */}
