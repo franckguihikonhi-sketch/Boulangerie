@@ -40,7 +40,10 @@ npm run dev
 
 - **Base Supabase dédiée** si `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`
   sont renseignés (les écritures sont partagées entre appareils). Exécuter une
-  fois `supabase/setup.sql` dans le projet Supabase pour créer la table.
+  fois `supabase/setup.sql` dans le projet Supabase : il crée la table des
+  **journaux** (pré-remplie : ACH, BQ1, BQ2, BQ3, CAI, OD, PAI, RAN, VTE) et la
+  table des **écritures** (`sage_entries`). Sans base, la liste des journaux par
+  défaut est utilisée localement.
 - **Stockage local** du navigateur sinon : l'application fonctionne
   immédiatement, hors ligne, sans configuration.
 
