@@ -1,19 +1,13 @@
 // ---------------------------------------------------------------------------
-// Export des écritures comptables au format d'import SAGE 100 Comptabilité i7.
-//
-// Les écritures sont SAISIES par l'utilisateur (journal, date de pièce, compte,
-// libellé, débit, crédit) puis exportées d'un clic en un fichier texte à
-// largeur fixe, directement importable dans SAGE — la colonne « Code journal »
-// aiguille chaque ligne vers le bon journal.
-//
-// Format reproduit fidèlement depuis la fiche Sage (« Format de fichier
-// paramétrable », type de données : Écritures comptables) :
+// Moteur d'export des écritures comptables au format d'import SAGE 100
+// Comptabilité i7 (« Format de fichier paramétrable », type Écritures
+// comptables).
 //
 //   • Fichier à LARGEUR FIXE, origine Windows, sans entête, une écriture par
 //     ligne, séparateur d'enregistrement = retour-chariot (CRLF sous Windows).
 //   • Montants : 2 décimales, séparateur décimal « , », pas de séparateur de
 //     milliers, cadrés à DROITE, caractère de remplissage = blanc.
-//   • Champs (Champ / Longueur / Position, cf. « Description du format ») :
+//   • Champs (Champ / Longueur / Position) :
 //
 //       Code journal        6   position  1
 //       Date de pièce       6   position  7   (jjmmaa)

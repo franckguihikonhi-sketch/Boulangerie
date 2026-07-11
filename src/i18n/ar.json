@@ -1,6 +1,7 @@
 {
   "app.name": "Boulangerie ERP",
   "app.tagline": "الإدارة الشاملة للمخبزة",
+
   "nav.dashboard": "لوحة القيادة",
   "nav.ingredients": "المكوّنات",
   "nav.products": "المنتجات",
@@ -10,9 +11,9 @@
   "nav.stock": "إدارة المخزون",
   "nav.history": "السجل",
   "nav.reports": "التقارير",
-  "nav.sage": "قيود SAGE",
   "nav.about": "حول",
   "nav.logout": "تسجيل الخروج",
+
   "about.title": "حول",
   "about.tagline": "برنامج شامل لإدارة المخبزة — المخزون، المشتريات، الإنتاج، المبيعات والتقارير.",
   "about.benefitsTitle": "لماذا Boulangerie ERP؟",
@@ -31,10 +32,12 @@
   "about.role3": "مطوّر تطبيقات إدارية",
   "about.phone": "الهاتف",
   "about.rights": "جميع الحقوق محفوظة.",
+
   "demo.title": "نسخة تجريبية",
   "demo.guest": "دخول كضيف — نسخة تجريبية (30 دقيقة)",
   "demo.subtitle": "جرّب التطبيق ببيانات نموذجية، دون إنشاء حساب.",
   "demo.expired": "انتهت جلستك التجريبية التي مدتها 30 دقيقة. ابدأ نسخة تجريبية جديدة للمتابعة.",
+
   "auth.title": "تسجيل الدخول",
   "auth.subtitle": "ادخل إلى مساحة الإدارة الخاصة بك",
   "auth.email": "البريد الإلكتروني",
@@ -49,8 +52,10 @@
   "auth.demoAccounts": "حسابات تجريبية",
   "auth.adminAccount": "مدير",
   "auth.operatorAccount": "مشغّل (المبيعات والإنتاج)",
+
   "role.admin": "مدير",
   "role.operateur": "مشغّل",
+
   "common.save": "حفظ",
   "common.cancel": "إلغاء",
   "common.delete": "حذف",
@@ -76,17 +81,21 @@
   "common.thisWeek": "آخر 7 أيام",
   "common.thisMonth": "هذا الشهر",
   "common.resetDemo": "إعادة تعيين البيانات التجريبية",
+
   "category.pain": "خبز",
   "category.viennoiserie": "معجّنات (فيينوازري)",
   "category.patisserie": "حلويات ومعجّنات",
   "category.boisson": "مشروب",
   "category.autre": "أخرى",
+
   "ingredientType.matiere_premiere": "مادة خام",
   "ingredientType.charge_utilite": "مرافق / أعباء",
+
   "reason.achat": "شراء",
   "reason.production": "إنتاج",
   "reason.ajustement": "تعديل",
   "reason.perte": "خسارة",
+
   "dashboard.title": "لوحة القيادة",
   "dashboard.revenue": "الإيرادات",
   "dashboard.revenueTip": "مجموع المبيعات خلال الفترة.",
@@ -105,6 +114,7 @@
   "dashboard.lowStock": "مخزون منخفض",
   "dashboard.lowStockEmpty": "لا يوجد تنبيه مخزون. 👍",
   "dashboard.methodNote": "الربح (الإيرادات − المصروفات) والهامش الإجمالي (الإيرادات − تكلفة البضاعة المباعة) يقيسان واقعين مختلفين: الأول يتتبّع التدفق النقدي، والثاني يتتبّع ربحية المنتج. من الطبيعي أن يختلفا.",
+
   "ingredients.title": "المكوّنات",
   "ingredients.add": "إضافة مكوّن",
   "ingredients.edit": "تعديل المكوّن",
@@ -119,6 +129,7 @@
   "ingredients.initialQty": "المخزون الأولي",
   "ingredients.lowBadge": "مخزون منخفض",
   "ingredients.cmpNote": "تكلفة الوحدة هي متوسط التكلفة المرجّح، يُعاد حسابه عند كل عملية شراء ويُقرّب إلى أقرب فرنك أفريقي.",
+
   "products.title": "المنتجات والوصفات",
   "products.add": "إضافة منتج",
   "products.edit": "تعديل المنتج",
@@ -135,6 +146,7 @@
   "products.recipeWarning": "⚠ {name}: {qty} لوحدة واحدة يبدو غير متناسب. تحقّق من الوحدة (غ بدل كغ؟).",
   "products.stock": "المخزون النهائي",
   "products.active": "نشط",
+
   "purchases.title": "المشتريات",
   "purchases.record": "تسجيل عملية شراء",
   "purchases.ingredient": "المكوّن",
@@ -145,6 +157,7 @@
   "purchases.deleteBlocked": "المخزون مستهلك بالفعل في الإنتاج، الحذف غير ممكن.",
   "purchases.deleteInfo": "يؤدي الحذف أيضاً إلى إزالة حركة المخزون المرتبطة وتخفيض المخزون، في نفس العملية.",
   "purchases.cmpPreview": "متوسط التكلفة المرجّح الجديد بعد الشراء: {cmp}",
+
   "production.title": "الإنتاج",
   "production.record": "تسجيل عملية إنتاج",
   "production.product": "المنتج",
@@ -160,6 +173,7 @@
   "production.missing": "مخزون غير كافٍ: {name} — ينقص {qty}.",
   "production.frozenNote": "التكلفة المعروضة هنا مجمّدة عند التحقق: ستكون مطابقة في السجل والتقارير.",
   "production.noRecipe": "هذا المنتج ليس له وصفة. حدّدها أولاً في المنتجات.",
+
   "sales.title": "المبيعات",
   "sales.record": "تسجيل عملية بيع",
   "sales.product": "المنتج",
@@ -169,6 +183,7 @@
   "sales.history": "سجل المبيعات",
   "sales.noStock": "لا يوجد منتج بمخزون متوفر. قم بعملية إنتاج أولاً.",
   "sales.stockNote": "تُعرض فقط المنتجات ذات المخزون النهائي الموجب تماماً. عملية البيع تخفّض فقط مخزون المنتجات النهائية.",
+
   "stock.title": "إدارة المخزون",
   "stock.rawTab": "المواد الخام",
   "stock.finishedTab": "المنتجات النهائية",
@@ -186,6 +201,7 @@
   "stock.potentialRevenue": "الإيراد المحتمل",
   "stock.outOfStock": "نفد المخزون",
   "stock.consistencyNote": "تُحسب بطاقات الملخص من صفوف الجدول المعروض — وليس من حقل مخزّن منفصل.",
+
   "history.title": "السجل",
   "history.productions": "عمليات الإنتاج الأخيرة",
   "history.movements": "حركات المخزون",
@@ -197,6 +213,7 @@
   "history.reason": "السبب",
   "history.change": "التغيير",
   "history.author": "المؤلف",
+
   "reports.title": "التقارير",
   "reports.financial": "الملخص المالي",
   "reports.revenue": "الإيرادات",
@@ -213,11 +230,13 @@
   "reports.consumption": "الاستهلاك حسب المكوّن",
   "reports.consumed": "الكمية المستهلكة",
   "reports.consumptionNote": "مجمّعة حسب معرّف المكوّن (وليس حسب الاسم المعروض).",
+
   "db.loading": "جارٍ تحميل البيانات…",
   "db.errorTitle": "تعذّر تحميل البيانات",
   "db.notReadyTitle": "قاعدة البيانات تحتاج إلى إعداد",
   "db.notReadyHelp": "اتصال Supabase يعمل، لكن الجداول لم تُنشأ بعد. شغّل supabase/setup.sql في Supabase (محرّر SQL)، ثم أعد المحاولة.",
   "db.retry": "إعادة المحاولة",
+
   "errors.dbNotReady": "قاعدة البيانات غير مهيّأة.",
   "errors.desktopOnly": "يجب تشغيل هذه النسخة من تطبيق Boulangerie ERP.",
   "errors.generic": "حدث خطأ.",
@@ -234,31 +253,5 @@
   "errors.stockAlreadyConsumed": "المخزون مستهلك بالفعل في الإنتاج، الحذف غير ممكن.",
   "errors.insufficientStock": "مخزون غير كافٍ لتنفيذ هذا الإنتاج.",
   "errors.insufficientProductStock": "مخزون المنتج النهائي غير كافٍ.",
-  "errors.noRecipe": "هذا المنتج ليس له وصفة.",
-  "sage.title": "قيود SAGE",
-  "sage.intro": "أدخل قيودك المحاسبية (اليومية، تاريخ المستند، الحساب، البيان، مدين، دائن)، ثم صدّرها بنقرة واحدة كملف نصي مطابق لصيغة استيراد SAGE 100 للمحاسبة. يوجّه عمود «رمز اليومية» كل قيد إلى اليومية الصحيحة في SAGE.",
-  "sage.newEntry": "قيد جديد",
-  "sage.journal": "رمز اليومية",
-  "sage.journalHelp": "6 أحرف كحد أقصى — مثل VT، AC، BQ، OD",
-  "sage.pieceDate": "تاريخ المستند",
-  "sage.account": "رقم الحساب العام",
-  "sage.accountHelp": "13 حرفًا كحد أقصى — مثل 571000، 401000",
-  "sage.label": "البيان",
-  "sage.debit": "مدين",
-  "sage.credit": "دائن",
-  "sage.add": "إضافة القيد",
-  "sage.entries": "القيود المُدخلة",
-  "sage.empty": "لا توجد قيود بعد.",
-  "sage.count": "{n} قيد",
-  "sage.balanced": "متوازن",
-  "sage.unbalanced": "غير متوازن",
-  "sage.export": "تصدير SAGE",
-  "sage.exportTip": "ينشئ الملف النصي بعرض ثابت (88 حرفًا، CRLF، Windows-1252) القابل للاستيراد إلى SAGE.",
-  "sage.clearAll": "حذف الكل",
-  "sage.confirmClear": "حذف جميع القيود المُدخلة؟",
-  "sage.formatNote": "صيغة SAGE: عرض ثابت 88 حرفًا — رمز اليومية (6)، تاريخ المستند (6، jjmmaa)، الحساب (13)، البيان (35)، مدين (14)، دائن (14). المبالغ بخانتين عشريتين (فاصلة)، نهايات أسطر CRLF، ترميز Windows-1252. تحقق من توازن المدين = الدائن قبل التصدير.",
-  "errors.sageJournalRequired": "رمز اليومية مطلوب.",
-  "errors.sageDateRequired": "تاريخ المستند مطلوب.",
-  "errors.sageAccountRequired": "رقم الحساب مطلوب.",
-  "errors.sageAmountRequired": "أدخل مبلغًا في المدين أو الدائن."
+  "errors.noRecipe": "هذا المنتج ليس له وصفة."
 }
