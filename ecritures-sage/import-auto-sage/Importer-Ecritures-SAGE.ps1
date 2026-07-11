@@ -122,52 +122,57 @@ function Invoke-SageImport {
     }
 
     # 1) Ouverture de la société comptable (.mae) via les Objets métiers.
-    #    Le ProgID peut varier légèrement selon la version installée.
-    $cpta = New-Object -ComObject "Objets100c.cptApplication100c"
+    #    ProgID confirmé pour Sage 100 v8 (Objets métiers v8.05) : "Objets100c.Cpta.Stream".
+    $cpta = New-Object -ComObject "Objets100c.Cpta.Stream"
     $cpta.Name = $Config.FichierSociete
     $cpta.Loggable.UserName = $Config.Utilisateur
     $cpta.Loggable.UserPwd  = $Config.MotDePasse
     $cpta.Open()
+    if (-not $cpta.IsOpen) { throw "Impossible d'ouvrir la societe : $($Config.FichierSociete)" }
 
     try {
+        $noPiece = 0
         foreach ($piece in $Pieces) {
+            $noPiece++
+            # Référence de pièce : regroupe les lignes d'un même mouvement équilibré.
+            $refPiece = "{0:yyyyMMdd}-{1:000}" -f $piece[0].Date, $noPiece
+
             foreach ($lig in $piece) {
-
-                # Valeurs déjà prêtes à injecter (issues du fichier) :
-                #   $lig.Journal  : code journal (ex. VT, AC, OD)
-                #   $lig.Date     : [datetime] de la pièce
-                #   $lig.Compte   : n° de compte général
-                #   $lig.Libelle  : libellé (≤ 35 car.)
-                #   $lig.Debit / $lig.Credit : un seul des deux est > 0
-                #   $sens = 0 (débit) ou 1 (crédit) ; $montant = le montant > 0
                 $estDebit = ($lig.Debit -gt 0)
-                $sens     = if ($estDebit) { 0 } else { 1 }
-                $montant  = if ($estDebit) { $lig.Debit } else { $lig.Credit }
+                $sens     = if ($estDebit) { 0 } else { 1 }               # 0 = débit, 1 = crédit
+                $montant  = if ($estDebit) { [double]$lig.Debit } else { [double]$lig.Credit }
 
-                # ================= À COMPLÉTER (Kit OM de votre version) ============
-                # Recopiez ici la création d'écriture de l'exemple fourni dans le
-                # Kit Objets métiers (dossier « Exemples »), en branchant les
-                # variables ci-dessus. Schéma type (noms de propriétés à vérifier
-                # sur votre version — ils reflètent la table F_ECRITURE) :
-                #
-                #   $ecr = $cpta.FactoryEcriture.Create()
-                #   $ecr.SetDefaultValue()
-                #   $ecr.JournalCode      = $lig.Journal
-                #   $ecr.Date             = $lig.Date
-                #   $ecr.CompteGeneral    = $lig.Compte
-                #   $ecr.Intitule         = $lig.Libelle
-                #   $ecr.Sens             = $sens
-                #   $ecr.Montant          = [double]$montant
-                #   $ecr.Write()
-                # ===================================================================
+                # Journal et compte doivent déjà exister dans le plan SAGE.
+                $journal = $cpta.FactoryJournal.ReadNumero($lig.Journal)
+                if ($null -eq $journal) { throw "Journal absent du plan SAGE : '$($lig.Journal)' (ligne $($lig.Ligne))." }
+                $compte = $cpta.FactoryCompteG.ReadNumero($lig.Compte)
+                if ($null -eq $compte)  { throw "Compte général absent du plan SAGE : '$($lig.Compte)' (ligne $($lig.Ligne))." }
 
-                throw "Bloc d'injection Objets métiers à compléter (voir README + Kit OM). Utilisez -DryRun en attendant."
+                # Création d'une ligne d'écriture (un mouvement) puis enregistrement.
+                $ecr = $cpta.FactoryEcriture.Create()
+                try { $ecr.SetDefaultValue() } catch { }
+                $ecr.Journal     = $journal
+                $ecr.Date        = $lig.Date
+                $ecr.NumeroPiece = $refPiece
+                $ecr.CompteG     = $compte
+                $ecr.Intitule    = $lig.Libelle
+                $ecr.Sens        = $sens
+                $ecr.Montant     = $montant
+                $ecr.Write()
             }
         }
     }
+    catch {
+        # Si un nom de propriété diffère sur cette version, on capture la liste
+        # réelle des membres d'une écriture (DIAGNOSTIC-ecriture.txt) pour ajuster.
+        try {
+            $cpta.FactoryEcriture.Create() | Get-Member |
+                Out-File (Join-Path $PSScriptRoot 'DIAGNOSTIC-ecriture.txt') -Encoding UTF8
+        } catch { }
+        throw
+    }
     finally {
-        $cpta.Close() | Out-Null
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($cpta) | Out-Null
+        try { $cpta.Close() | Out-Null } catch { }
     }
 }
 

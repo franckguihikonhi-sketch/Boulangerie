@@ -88,24 +88,33 @@ Une fois le §5 finalisé, planifiez le surveillant au démarrage :
 Désormais : **clic « Exporter SAGE » → écritures dans SAGE en ~1 seconde**, sans
 aucun clic d'import.
 
-## 5. Finaliser le bloc Objets métiers (~15 lignes)
+## 5. Injection Objets métiers — implémentée (Sage 100 v8 / OM v8.05)
 
-Dans `Importer-Ecritures-SAGE.ps1`, fonction `Invoke-SageImport`, remplacez le
-bloc marqué **« À COMPLÉTER »** par la création d'écriture de l'**exemple du Kit
-OM** de votre version. Toutes les valeurs sont déjà prêtes pour chaque ligne :
+Le bloc d'injection (`Invoke-SageImport`) est **écrit et branché** : il ouvre la
+société via `Objets100c.Cpta.Stream`, puis pour chaque ligne crée une écriture
+(`FactoryEcriture`) avec journal, date, compte, libellé, sens (0 débit /
+1 crédit) et montant, et l'enregistre.
 
-| Variable | Contenu |
-| --- | --- |
-| `$lig.Journal` | code journal (VT, AC, OD…) |
-| `$lig.Date` | date de pièce (`[datetime]`) |
-| `$lig.Compte` | n° compte général |
-| `$lig.Libelle` | libellé (≤ 35 car.) |
-| `$sens` | `0` = débit, `1` = crédit |
-| `$montant` | montant (> 0) |
+### Test sur une COPIE (obligatoire avant la vraie base)
 
-Le schéma-type (noms de propriétés à confirmer sur votre version) est commenté
-dans le script. Envoyez-moi l'exemple de création d'écriture de votre Kit OM et
-je vous livre le bloc exact.
+1. **Dupliquez** votre dossier société (`...\Desktop\COMPTA` → `COMPTA-TEST`).
+2. Dans `config.json`, pointez `FichierSociete` sur le **.mae de la copie**.
+3. Exportez un petit fichier depuis l'app, puis :
+   ```powershell
+   .\Importer-Ecritures-SAGE.ps1 -Fichier "C:\...\SAGE_ECRITURES_xxx.txt"
+   ```
+4. Ouvrez la société **copie** dans SAGE et vérifiez les écritures (brouillard).
+
+### Si une erreur apparaît
+
+Les noms de propriétés d'écriture peuvent varier légèrement selon la version.
+En cas d'échec, le script écrit **`DIAGNOSTIC-ecriture.txt`** (liste réelle des
+champs d'une écriture) à côté du script : envoyez-le-moi et j'ajuste en une passe
+les 2-3 noms concernés (ex. `Intitule`, `NumeroPiece`, `Sens`, `Montant`).
+
+> Prérequis : le **journal** (VT, AC…) et les **comptes** utilisés doivent déjà
+> exister dans le plan comptable SAGE, sinon le script s'arrête avec un message
+> explicite (aucune écriture partielle).
 
 ## Notes
 
