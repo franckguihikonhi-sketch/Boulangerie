@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { to: '/stocks', key: 'nav.stock', icon: 'M4 8l8-5 8 5v11a1 1 0 01-1 1H5a1 1 0 01-1-1V8zm4 12v-7h8v7', adminOnly: true },
   { to: '/historique', key: 'nav.history', icon: 'M12 8v5l3 2M21 12a9 9 0 11-9-9c3.4 0 6.4 1.9 8 4.7M21 3v5h-5', adminOnly: true },
   { to: '/rapports', key: 'nav.reports', icon: 'M4 20V10m6 10V4m6 16v-7m4 7H2', adminOnly: true },
-  { to: '/ecritures-sage', key: 'nav.sage', icon: 'M9 12h6m-6 4h6m-6-8h6M6 3h9l3 3v13a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z', adminOnly: true },
   { to: '/a-propos', key: 'nav.about', icon: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 16v-4M12 8h.01', adminOnly: false }
 ];
 
