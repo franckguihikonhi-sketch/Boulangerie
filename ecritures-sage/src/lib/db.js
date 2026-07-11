@@ -12,11 +12,13 @@
 // ---------------------------------------------------------------------------
 
 import { roundFCFA } from './money';
+import { JOURNAUX_DEFAUT } from './sage';
 import { supabase, supabaseConfigured } from './supabase';
 
 const LOCAL_KEY = 'ecritures-sage-entries';
 
 let entries = [];
+let journaux = JOURNAUX_DEFAUT;
 let status = 'idle'; // idle | loading | ready | error
 let statusSnapshot = { status, error: null };
 let hydratePromise = null;
@@ -38,6 +40,10 @@ export function subscribe(fn) {
 
 export function getEntries() {
   return entries;
+}
+
+export function getJournaux() {
+  return journaux;
 }
 
 export function getStatus() {
@@ -96,11 +102,18 @@ export async function hydrate() {
   notify();
   try {
     if (supabaseConfigured) {
-      const { data, error } = await supabase.from('sage_entries').select('*').order('created_at');
-      if (error) throw error;
-      entries = data.map(toEntry);
+      const [ecr, jx] = await Promise.all([
+        supabase.from('sage_entries').select('*').order('created_at'),
+        supabase.from('journaux').select('*').order('ordre')
+      ]);
+      if (ecr.error) throw ecr.error;
+      if (jx.error) throw jx.error;
+      entries = ecr.data.map(toEntry);
+      // Repli sur la liste par défaut si la table journaux est vide.
+      journaux = jx.data.length ? jx.data.map((r) => ({ code: r.code, intitule: r.intitule })) : JOURNAUX_DEFAUT;
     } else {
       entries = loadLocal();
+      journaux = JOURNAUX_DEFAUT;
     }
     setStatus('ready');
   } catch (err) {

@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { useEntries } from './lib/useStore';
+import { useEffect, useState } from 'react';
+import { useEntries, useJournaux } from './lib/useStore';
 import { usingSupabase, addEntry, deleteEntry, clearEntries } from './lib/db';
-import {
-  JOURNAUX_SUGGESTIONS, controleEquilibre, jjmmaaDepuisDate, telechargerFichierSage
-} from './lib/sage';
+import { controleEquilibre, jjmmaaDepuisDate, telechargerFichierSage } from './lib/sage';
 import DbGate from './components/DbGate';
 import {
   Badge, Button, Card, ErrorNote, Field, InfoNote, TableWrap, inputClass, td, th
@@ -11,17 +9,40 @@ import {
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-FR'); // nombre sans unité (colonnes serrées)
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyForm = () => ({ journal: 'VT', pieceDate: today(), account: '', label: '', debit: '', credit: '' });
+const emptyForm = (journal = '') => ({ journal, pieceDate: today(), account: '', label: '', debit: '', credit: '' });
 
 function Journal() {
   const rows = useEntries();
-  const [form, setForm] = useState(emptyForm);
+  const journaux = useJournaux();
+  const [form, setForm] = useState(() => emptyForm(''));
+  const [filtre, setFiltre] = useState(''); // '' = tous les journaux
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const entries = [...rows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const intituleJournal = (code) => journaux.find((j) => j.code === code)?.intitule || '';
+
+  // Journal de saisie par défaut = premier de la liste, une fois chargée.
+  useEffect(() => {
+    if (!form.journal && journaux.length) setForm((f) => ({ ...f, journal: journaux[0].code }));
+  }, [journaux]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const all = [...rows].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const entries = filtre ? all.filter((e) => e.journal === filtre) : all;
   const balance = controleEquilibre(entries);
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  // Récapitulatif par journal (sur toutes les écritures) : nombre + totaux.
+  const recap = {};
+  for (const e of all) {
+    const r = recap[e.journal] || { code: e.journal, count: 0, debit: 0, credit: 0 };
+    r.count += 1; r.debit += e.debit || 0; r.credit += e.credit || 0;
+    recap[e.journal] = r;
+  }
+  const parJournal = Object.values(recap);
+  const chipCls = (actif) =>
+    `rounded-full border px-3 py-1 text-xs font-medium transition ${
+      actif ? 'border-brand-600 bg-brand-700 text-white' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+    }`;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -68,29 +89,42 @@ function Journal() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {entries.length > 0 && (
+        {all.length > 0 && (
           <Button variant="danger" onClick={clearAll}>Tout supprimer</Button>
         )}
         <Button variant="primary" onClick={exportFile} disabled={entries.length === 0}
-          title="Génère le fichier texte à largeur fixe (88 caractères, CRLF, Windows-1252) importable dans SAGE.">
+          title="Exporte les écritures affichées (journal sélectionné, ou tous) au format d'import SAGE 100 — largeur fixe 88 caractères, CRLF, Windows-1252.">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
           </svg>
-          Exporter SAGE
+          Exporter SAGE{filtre ? ` · ${filtre}` : ''}
         </Button>
       </div>
+
+      {all.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-stone-500">Journal :</span>
+          <button onClick={() => setFiltre('')} className={chipCls(filtre === '')}>Tous · {all.length}</button>
+          {parJournal.map((r) => (
+            <button key={r.code} onClick={() => setFiltre(r.code)} title={intituleJournal(r.code)} className={chipCls(filtre === r.code)}>
+              {r.code} · {r.count}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-5">
         <Card className="p-4 sm:p-5 lg:col-span-2">
           <h2 className="mb-4 text-sm font-semibold text-stone-900">Nouvelle écriture</h2>
           <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Code journal" help="6 caractères max — ex. VT, AC, BQ, OD">
-                <input className={inputClass} list="journaux" value={form.journal}
-                  onChange={(e) => set({ journal: e.target.value.toUpperCase() })} maxLength={6} required />
-                <datalist id="journaux">
-                  {JOURNAUX_SUGGESTIONS.map((j) => <option key={j.code} value={j.code}>{j.libelle}</option>)}
-                </datalist>
+              <Field label="Journal" help={intituleJournal(form.journal)}>
+                <select className={inputClass} value={form.journal}
+                  onChange={(e) => set({ journal: e.target.value })} required>
+                  {journaux.map((j) => (
+                    <option key={j.code} value={j.code}>{j.code} — {j.intitule}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="Date de pièce">
                 <input type="date" className={inputClass} value={form.pieceDate}
@@ -125,7 +159,9 @@ function Journal() {
         <div className="lg:col-span-3">
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-4 py-3">
-              <h2 className="text-sm font-semibold text-stone-900">Écritures saisies</h2>
+              <h2 className="text-sm font-semibold text-stone-900">
+                Écritures saisies{filtre ? ` — ${filtre} · ${intituleJournal(filtre)}` : ''}
+              </h2>
               {entries.length > 0 && (
                 <Badge tone={balance.equilibre ? 'success' : 'warning'}>
                   {balance.equilibre ? 'Équilibré' : 'Déséquilibré'}
@@ -147,7 +183,7 @@ function Journal() {
               <tbody className="divide-y divide-stone-100">
                 {entries.map((e) => (
                   <tr key={e.id} className="hover:bg-stone-50">
-                    <td className={`${td} font-medium`}>{e.journal}</td>
+                    <td className={`${td} font-medium`} title={intituleJournal(e.journal)}>{e.journal}</td>
                     <td className={`${td} tabular-nums`}>{jjmmaaDepuisDate(e.pieceDate)}</td>
                     <td className={`${td} tabular-nums`}>{e.account}</td>
                     <td className={td}>{e.label || '—'}</td>
@@ -165,7 +201,9 @@ function Journal() {
                   </tr>
                 ))}
                 {entries.length === 0 && (
-                  <tr><td className={`${td} text-stone-500`} colSpan="7">Aucune écriture saisie pour le moment.</td></tr>
+                  <tr><td className={`${td} text-stone-500`} colSpan="7">
+                    {filtre ? `Aucune écriture dans le journal ${filtre}.` : 'Aucune écriture saisie pour le moment.'}
+                  </td></tr>
                 )}
               </tbody>
               {entries.length > 0 && (

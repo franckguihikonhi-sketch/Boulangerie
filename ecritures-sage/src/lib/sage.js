@@ -19,14 +19,19 @@
 //     Longueur totale d'un enregistrement : 88 caractères + CRLF.
 // ---------------------------------------------------------------------------
 
-// Suggestions de codes journaux courants (SYSCOHADA / usage SAGE). L'utilisateur
-// reste libre de saisir n'importe quel code : ce ne sont que des propositions.
-export const JOURNAUX_SUGGESTIONS = [
-  { code: 'VT', libelle: 'Ventes' },
-  { code: 'AC', libelle: 'Achats' },
-  { code: 'BQ', libelle: 'Banque' },
-  { code: 'CA', libelle: 'Caisse' },
-  { code: 'OD', libelle: 'Opérations diverses' }
+// Liste des journaux (codes + intitulés). Sert de valeurs par défaut / de repli
+// quand la base n'est pas configurée ; la même liste amorce la table `journaux`
+// dans Supabase (voir supabase/setup.sql).
+export const JOURNAUX_DEFAUT = [
+  { code: 'ACH', intitule: 'JOURNAL ACHATS' },
+  { code: 'BQ1', intitule: 'BANQUE BDA' },
+  { code: 'BQ2', intitule: 'BANQUE FINANCIA' },
+  { code: 'BQ3', intitule: 'NSIA BANQUE' },
+  { code: 'CAI', intitule: 'JOURNAL CAISSE' },
+  { code: 'OD', intitule: 'JOURNAL OPERATIONS DIVERSES' },
+  { code: 'PAI', intitule: 'JOURNAL DE PAIE' },
+  { code: 'RAN', intitule: 'JOURNAL REPORTS A NOUVEAU' },
+  { code: 'VTE', intitule: 'JOURNAL DE VENTES' }
 ];
 
 // Gabarit des champs, dans l'ordre et aux longueurs exigés par la fiche Sage.

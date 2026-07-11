@@ -40,7 +40,10 @@ npm run dev
 
 - **Base Supabase dédiée** si `VITE_SUPABASE_URL` et `VITE_SUPABASE_ANON_KEY`
   sont renseignés (les écritures sont partagées entre appareils). Exécuter une
-  fois `supabase/setup.sql` dans le projet Supabase pour créer la table.
+  fois `supabase/setup.sql` dans le projet Supabase : il crée la table des
+  **journaux** (pré-remplie : ACH, BQ1, BQ2, BQ3, CAI, OD, PAI, RAN, VTE) et la
+  table des **écritures** (`sage_entries`). Sans base, la liste des journaux par
+  défaut est utilisée localement.
 - **Stockage local** du navigateur sinon : l'application fonctionne
   immédiatement, hors ligne, sans configuration.
 
@@ -57,3 +60,10 @@ VITE_SUPABASE_ANON_KEY=votre-cle-anon
 npm run build      # génère dist/
 npm run preview    # sert le build
 ```
+
+## Import automatique dans SAGE (optionnel)
+
+Pour éviter le clic manuel « Fichier → Importer » dans SAGE : le dossier
+[`import-auto-sage/`](./import-auto-sage/) fournit un « surveillant » Windows qui
+importe automatiquement chaque fichier exporté dans SAGE 100 via les Objets
+métiers (SDK). Voir son `README.md`.
