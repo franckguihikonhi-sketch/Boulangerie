@@ -1,7 +1,6 @@
 {
   "app.name": "Boulangerie ERP",
   "app.tagline": "Complete bakery management",
-
   "nav.dashboard": "Dashboard",
   "nav.ingredients": "Ingredients",
   "nav.products": "Products",
@@ -11,9 +10,9 @@
   "nav.stock": "Stock management",
   "nav.history": "History",
   "nav.reports": "Reports",
+  "nav.sage": "SAGE entries",
   "nav.about": "About",
   "nav.logout": "Log out",
-
   "about.title": "About",
   "about.tagline": "Complete bakery management software — stock, purchases, production, sales and reports.",
   "about.benefitsTitle": "Why Boulangerie ERP?",
@@ -32,12 +31,10 @@
   "about.role3": "Management software developer",
   "about.phone": "Phone",
   "about.rights": "All rights reserved.",
-
   "demo.title": "Demo",
   "demo.guest": "Guest access — Demo (30 min)",
   "demo.subtitle": "Try the app with sample data, no account required.",
   "demo.expired": "Your 30-minute demo session has ended. Start a new demo to continue.",
-
   "auth.title": "Sign in",
   "auth.subtitle": "Access your management workspace",
   "auth.email": "Email address",
@@ -52,10 +49,8 @@
   "auth.demoAccounts": "Demo accounts",
   "auth.adminAccount": "Administrator",
   "auth.operatorAccount": "Operator (sales and production)",
-
   "role.admin": "Administrator",
   "role.operateur": "Operator",
-
   "common.save": "Save",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
@@ -81,21 +76,17 @@
   "common.thisWeek": "Last 7 days",
   "common.thisMonth": "This month",
   "common.resetDemo": "Reset demo data",
-
   "category.pain": "Bread",
   "category.viennoiserie": "Pastry (viennoiserie)",
   "category.patisserie": "Cake & pastry",
   "category.boisson": "Drink",
   "category.autre": "Other",
-
   "ingredientType.matiere_premiere": "Raw material",
   "ingredientType.charge_utilite": "Utility / overhead",
-
   "reason.achat": "Purchase",
   "reason.production": "Production",
   "reason.ajustement": "Adjustment",
   "reason.perte": "Loss",
-
   "dashboard.title": "Dashboard",
   "dashboard.revenue": "Revenue",
   "dashboard.revenueTip": "Sum of sales over the period.",
@@ -114,7 +105,6 @@
   "dashboard.lowStock": "Low stock",
   "dashboard.lowStockEmpty": "No stock alert. 👍",
   "dashboard.methodNote": "Profit (Revenue − Expenses) and Gross margin (Revenue − COGS) measure two different realities: the first tracks cash flow, the second tracks product profitability. It is normal for them to differ.",
-
   "ingredients.title": "Ingredients",
   "ingredients.add": "Add an ingredient",
   "ingredients.edit": "Edit ingredient",
@@ -129,7 +119,6 @@
   "ingredients.initialQty": "Initial stock",
   "ingredients.lowBadge": "Low stock",
   "ingredients.cmpNote": "The unit cost is the weighted average cost (WAC), recalculated on each purchase and rounded to the nearest FCFA.",
-
   "products.title": "Products & recipes",
   "products.add": "Add a product",
   "products.edit": "Edit product",
@@ -146,7 +135,6 @@
   "products.recipeWarning": "⚠ {name}: {qty} for a single unit looks disproportionate. Check the unit (g instead of kg?).",
   "products.stock": "Finished stock",
   "products.active": "Active",
-
   "purchases.title": "Purchases",
   "purchases.record": "Record a purchase",
   "purchases.ingredient": "Ingredient",
@@ -157,7 +145,6 @@
   "purchases.deleteBlocked": "Stock already consumed in production, deletion impossible.",
   "purchases.deleteInfo": "Deletion also removes the linked stock movement and decrements the stock, in the same transaction.",
   "purchases.cmpPreview": "New WAC after purchase: {cmp}",
-
   "production.title": "Production",
   "production.record": "Record a production",
   "production.product": "Product",
@@ -173,7 +160,6 @@
   "production.missing": "Insufficient stock: {name} — {qty} missing.",
   "production.frozenNote": "The cost shown here is frozen at validation: it will be identical in History and Reports.",
   "production.noRecipe": "This product has no recipe. Define it first in Products.",
-
   "sales.title": "Sales",
   "sales.record": "Record a sale",
   "sales.product": "Product",
@@ -183,7 +169,6 @@
   "sales.history": "Sales history",
   "sales.noStock": "No product with available stock. Run a production first.",
   "sales.stockNote": "Only products with strictly positive finished stock are offered. A sale only decrements finished product stock.",
-
   "stock.title": "Stock management",
   "stock.rawTab": "Raw materials",
   "stock.finishedTab": "Finished products",
@@ -201,7 +186,6 @@
   "stock.potentialRevenue": "Potential revenue",
   "stock.outOfStock": "Out of stock",
   "stock.consistencyNote": "Summary cards are computed from the displayed table rows — never from a separately cached field.",
-
   "history.title": "History",
   "history.productions": "Recent productions",
   "history.movements": "Stock movements",
@@ -213,7 +197,6 @@
   "history.reason": "Reason",
   "history.change": "Change",
   "history.author": "Author",
-
   "reports.title": "Reports",
   "reports.financial": "Financial summary",
   "reports.revenue": "Revenue",
@@ -230,13 +213,11 @@
   "reports.consumption": "Consumption by ingredient",
   "reports.consumed": "Quantity consumed",
   "reports.consumptionNote": "Aggregated by ingredient identifier (not by displayed name).",
-
   "db.loading": "Loading data…",
   "db.errorTitle": "Unable to load data",
   "db.notReadyTitle": "Database needs setup",
   "db.notReadyHelp": "The Supabase connection works, but the tables are not created yet. Run supabase/setup.sql in Supabase (SQL Editor), then retry.",
   "db.retry": "Retry",
-
   "errors.dbNotReady": "Database not initialized.",
   "errors.desktopOnly": "This version must be launched from the Boulangerie ERP application.",
   "errors.generic": "An error occurred.",
@@ -253,5 +234,31 @@
   "errors.stockAlreadyConsumed": "Stock already consumed in production, deletion impossible.",
   "errors.insufficientStock": "Insufficient stock to run this production.",
   "errors.insufficientProductStock": "Insufficient finished product stock.",
-  "errors.noRecipe": "This product has no recipe."
+  "errors.noRecipe": "This product has no recipe.",
+  "sage.title": "SAGE entries",
+  "sage.intro": "Enter your accounting entries (journal, document date, account, label, debit, credit), then export them in one click as a text file matching the SAGE 100 Accounting import format. The “Journal code” column routes each entry to the right SAGE journal.",
+  "sage.newEntry": "New entry",
+  "sage.journal": "Journal code",
+  "sage.journalHelp": "Max 6 chars — e.g. VT, AC, BQ, OD",
+  "sage.pieceDate": "Document date",
+  "sage.account": "G/L account no.",
+  "sage.accountHelp": "Max 13 chars — e.g. 571000, 401000",
+  "sage.label": "Label",
+  "sage.debit": "Debit",
+  "sage.credit": "Credit",
+  "sage.add": "Add entry",
+  "sage.entries": "Entered lines",
+  "sage.empty": "No entries yet.",
+  "sage.count": "{n} line(s)",
+  "sage.balanced": "Balanced",
+  "sage.unbalanced": "Unbalanced",
+  "sage.export": "Export SAGE",
+  "sage.exportTip": "Generates the fixed-width text file (88 chars, CRLF, Windows-1252) importable into SAGE.",
+  "sage.clearAll": "Clear all",
+  "sage.confirmClear": "Delete all entered lines?",
+  "sage.formatNote": "SAGE format: fixed width, 88 chars — Journal code (6), Document date (6, ddmmyy), Account (13), Label (35), Debit (14), Credit (14). Amounts with 2 decimals (comma), CRLF line endings, Windows-1252 encoding. Check debit = credit before exporting.",
+  "errors.sageJournalRequired": "Journal code is required.",
+  "errors.sageDateRequired": "Document date is required.",
+  "errors.sageAccountRequired": "Account number is required.",
+  "errors.sageAmountRequired": "Enter an amount in debit or credit."
 }

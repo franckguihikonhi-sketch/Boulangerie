@@ -4,7 +4,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { consumptionByIngredient, dayKey, financialSummary, perProductReport } from '../lib/reports';
 import { formatFCFA } from '../lib/money';
 import { formatQty } from '../lib/units';
-import { Card, InfoNote, PageTitle, StatCard, TableWrap, inputClass, td, th } from '../components/ui';
+import { Card, PageTitle, StatCard, TableWrap, inputClass, td, th } from '../components/ui';
 
 // Rapports (section 5.10) : trois notions strictement séparées —
 // Chiffre d'affaires, Dépenses (trésorerie) et COGS. Seul le COGS est opposé

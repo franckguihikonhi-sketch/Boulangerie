@@ -49,7 +49,8 @@ export function uid() {
 function emptyState() {
   return {
     ingredients: [], products: [], recipes: [],
-    purchases: [], productions: [], sales: [], stockMovements: []
+    purchases: [], productions: [], sales: [], stockMovements: [],
+    sageEntries: []
   };
 }
 
@@ -356,6 +357,32 @@ function demoRecordSale({ productId, quantity, unitPrice, client, note, idempote
   });
 }
 
+// ---------------------- Écritures SAGE (mode démo) -------------------------
+
+function demoAddSageEntry({ journal, pieceDate, account, label, debit, credit, author }) {
+  return demoMutate((s) => {
+    const id = uid();
+    s.sageEntries.push({
+      id, journal: journal.trim(), pieceDate, account: account.trim(),
+      label: (label || '').trim(), debit: roundFCFA(debit) || 0, credit: roundFCFA(credit) || 0,
+      createdAt: new Date().toISOString(), author: author || ''
+    });
+    return id;
+  });
+}
+
+function demoDeleteSageEntry(id) {
+  demoMutate((s) => {
+    s.sageEntries = s.sageEntries.filter((e) => e.id !== id);
+  });
+}
+
+function demoClearSageEntries() {
+  demoMutate((s) => {
+    s.sageEntries = [];
+  });
+}
+
 // --------------------------- Mappage lignes ↔ objets -----------------------
 
 const toIngredient = (r) => ({
@@ -395,6 +422,11 @@ const toSale = (r) => ({
   client: r.client, note: r.note, soldAt: r.sold_at,
   idempotencyKey: r.idempotency_key, author: r.author
 });
+const toSageEntry = (r) => ({
+  id: r.id, journal: r.journal, pieceDate: r.piece_date, account: r.account,
+  label: r.label, debit: Number(r.debit), credit: Number(r.credit),
+  createdAt: r.created_at, author: r.author
+});
 
 // ------------------------------ Hydratation --------------------------------
 
@@ -413,16 +445,17 @@ async function fetchAll() {
     ingredients: 'ingredients', products: 'products', recipes: 'recipes',
     purchases: 'purchases', sales: 'sales', stockMovements: 'stock_movements'
   };
-  const [ing, prod, rec, pur, sal, mov, productions] = await Promise.all([
+  const [ing, prod, rec, pur, sal, mov, productions, sage] = await Promise.all([
     supabase.from('ingredients').select('*').order('created_at'),
     supabase.from('products').select('*').order('created_at'),
     supabase.from('recipes').select('*'),
     supabase.from('purchases').select('*').order('purchased_at'),
     supabase.from('sales').select('*').order('sold_at'),
     supabase.from('stock_movements').select('*').order('created_at'),
-    supabase.from('productions').select('*, production_lines(*)').order('produced_at')
+    supabase.from('productions').select('*, production_lines(*)').order('produced_at'),
+    supabase.from('sage_entries').select('*').order('created_at')
   ]);
-  for (const r of [ing, prod, rec, pur, sal, mov, productions]) {
+  for (const r of [ing, prod, rec, pur, sal, mov, productions, sage]) {
     if (r.error) throw r.error;
   }
   return {
@@ -432,7 +465,8 @@ async function fetchAll() {
     purchases: pur.data.map(toPurchase),
     sales: sal.data.map(toSale),
     stockMovements: mov.data.map(toMovement),
-    productions: productions.data.map(toProduction)
+    productions: productions.data.map(toProduction),
+    sageEntries: sage.data.map(toSageEntry)
   };
 }
 
@@ -484,7 +518,7 @@ function setupSync() {
   try {
     const channel = supabase.channel('boulange-sync');
     const tables = ['ingredients', 'products', 'recipes', 'purchases',
-      'productions', 'production_lines', 'stock_movements', 'sales'];
+      'productions', 'production_lines', 'stock_movements', 'sales', 'sage_entries'];
     for (const table of tables) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
@@ -728,6 +762,43 @@ export async function recordSale({ productId, quantity, unitPrice, client, note,
   return data;
 }
 
+// ------------------------- Écritures SAGE ----------------------------------
+// Saisie manuelle des écritures comptables destinées à l'export SAGE.
+
+export async function addSageEntry({ journal, pieceDate, account, label, debit, credit, author }) {
+  if (!journal?.trim()) throw new Error('errors.sageJournalRequired');
+  if (!pieceDate) throw new Error('errors.sageDateRequired');
+  if (!account?.trim()) throw new Error('errors.sageAccountRequired');
+  const d = roundFCFA(debit) || 0;
+  const c = roundFCFA(credit) || 0;
+  if (d < 0 || c < 0) throw new Error('errors.badCost');
+  if (d === 0 && c === 0) throw new Error('errors.sageAmountRequired');
+  if (demoMode) return demoAddSageEntry({ journal, pieceDate, account, label, debit, credit, author });
+  const { data, error } = await supabase.from('sage_entries').insert({
+    journal: journal.trim(), piece_date: pieceDate, account: account.trim(),
+    label: (label || '').trim(), debit: d, credit: c, author: author || ''
+  }).select('id').single();
+  if (error) throw rpcError(error);
+  await refresh();
+  return data.id;
+}
+
+export async function deleteSageEntry(id) {
+  if (demoMode) return demoDeleteSageEntry(id);
+  const { error } = await supabase.from('sage_entries').delete().eq('id', id);
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+export async function clearSageEntries() {
+  if (demoMode) return demoClearSageEntries();
+  const ids = state.sageEntries.map((e) => e.id);
+  if (ids.length === 0) return;
+  const { error } = await supabase.from('sage_entries').delete().in('id', ids);
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
 // ----------------------- Données d'exemple (mode démo) ---------------------
 // Génère une semaine d'activité réaliste (ingrédients, recettes, achats,
 // productions, ventes) pour que le bac à sable invité soit immédiatement
@@ -865,4 +936,18 @@ function seedDemo(s) {
     if (d % 2 === 1) sell(painChoco, 16, 350, d, 11);
     if (d === 2) sell(gateau, 2, 2500, d, 16, 'Hôtel Riviera');
   }
+
+  // Quelques écritures comptables d'exemple pour l'export SAGE (partie double).
+  const jour = (daysAgo) => new Date(now - daysAgo * 86400000).toISOString().slice(0, 10);
+  const sageEntry = (journal, pieceDate, account, label, debit, credit) => {
+    s.sageEntries.push({
+      id: uid(), journal, pieceDate, account, label,
+      debit: roundFCFA(debit) || 0, credit: roundFCFA(credit) || 0,
+      createdAt: new Date().toISOString(), author
+    });
+  };
+  sageEntry('VT', jour(1), '571000', 'Vente comptant journée', 128500, 0);
+  sageEntry('VT', jour(1), '702000', 'Vente comptant journée', 0, 128500);
+  sageEntry('AC', jour(3), '602000', 'Achat farine Moulins d’Abidjan', 60000, 0);
+  sageEntry('AC', jour(3), '401000', 'Achat farine Moulins d’Abidjan', 0, 60000);
 }

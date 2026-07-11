@@ -16,6 +16,8 @@ drop table if exists sales cascade;
 drop table if exists recipes cascade;
 drop table if exists products cascade;
 drop table if exists ingredients cascade;
+-- Note : on NE supprime PAS sage_entries pour ne pas perdre les écritures
+-- saisies si le script est relancé ; sa création ci-dessous est idempotente.
 
 -- Tables --------------------------------------------------------------------
 create table ingredients (
@@ -102,6 +104,24 @@ create table sales (
   idempotency_key uuid not null unique,
   author text not null default ''
 );
+
+-- Écritures comptables saisies pour l'export SAGE ---------------------------
+-- Saisie manuelle des écritures (journal, date de pièce, compte, libellé,
+-- débit, crédit) destinées au fichier d'import SAGE 100 Comptabilité.
+-- Montants en FCFA entiers, comme le reste de l'application.
+-- Création idempotente : conserve les écritures déjà saisies.
+create table if not exists sage_entries (
+  id uuid primary key default gen_random_uuid(),
+  journal text not null,                         -- code journal (VT, AC, OD…)
+  piece_date date not null,                       -- date de pièce
+  account text not null,                          -- n° compte général
+  label text not null default '',                 -- libellé écriture
+  debit bigint not null default 0 check (debit >= 0),
+  credit bigint not null default 0 check (credit >= 0),
+  created_at timestamptz not null default now(),  -- ordre de saisie
+  author text not null default ''
+);
+create index if not exists sage_entries_created_idx on sage_entries (created_at);
 
 -- Stock courant d'un ingrédient = somme de ses mouvements --------------------
 create or replace function ingredient_current_qty(p_ingredient uuid)
@@ -231,6 +251,7 @@ alter table productions      enable row level security;
 alter table production_lines enable row level security;
 alter table stock_movements  enable row level security;
 alter table sales            enable row level security;
+alter table sage_entries     enable row level security;
 
 drop policy if exists anon_all on ingredients;
 drop policy if exists anon_all on products;
@@ -240,6 +261,7 @@ drop policy if exists anon_all on productions;
 drop policy if exists anon_all on production_lines;
 drop policy if exists anon_all on stock_movements;
 drop policy if exists anon_all on sales;
+drop policy if exists anon_all on sage_entries;
 
 create policy anon_all on ingredients      for all to anon, authenticated using (true) with check (true);
 create policy anon_all on products         for all to anon, authenticated using (true) with check (true);
@@ -249,3 +271,4 @@ create policy anon_all on productions      for all to anon, authenticated using 
 create policy anon_all on production_lines for all to anon, authenticated using (true) with check (true);
 create policy anon_all on stock_movements  for all to anon, authenticated using (true) with check (true);
 create policy anon_all on sales            for all to anon, authenticated using (true) with check (true);
+create policy anon_all on sage_entries     for all to anon, authenticated using (true) with check (true);

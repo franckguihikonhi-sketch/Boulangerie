@@ -1,7 +1,6 @@
 {
   "app.name": "Boulangerie ERP",
   "app.tagline": "Gestion complète de votre boulangerie",
-
   "nav.dashboard": "Tableau de bord",
   "nav.ingredients": "Ingrédients",
   "nav.products": "Produits",
@@ -11,9 +10,9 @@
   "nav.stock": "Gestion des stocks",
   "nav.history": "Historique",
   "nav.reports": "Rapports",
+  "nav.sage": "Écritures SAGE",
   "nav.about": "À propos",
   "nav.logout": "Se déconnecter",
-
   "about.title": "À propos",
   "about.tagline": "Logiciel de gestion complète pour boulangerie — stocks, achats, production, ventes et rapports.",
   "about.benefitsTitle": "Pourquoi Boulangerie ERP ?",
@@ -32,12 +31,10 @@
   "about.role3": "Développeur d'applications de gestion",
   "about.phone": "Tél",
   "about.rights": "Tous droits réservés.",
-
   "demo.title": "Démonstration",
   "demo.guest": "Accès invité — Démo (30 min)",
   "demo.subtitle": "Testez l'application avec des données d'exemple, sans créer de compte.",
   "demo.expired": "Votre session de démonstration de 30 minutes est terminée. Relancez une démo pour continuer.",
-
   "auth.title": "Connexion",
   "auth.subtitle": "Accédez à votre espace de gestion",
   "auth.email": "Adresse email",
@@ -52,10 +49,8 @@
   "auth.demoAccounts": "Comptes de démonstration",
   "auth.adminAccount": "Administrateur",
   "auth.operatorAccount": "Opérateur (ventes et production)",
-
   "role.admin": "Administrateur",
   "role.operateur": "Opérateur",
-
   "common.save": "Enregistrer",
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",
@@ -81,21 +76,17 @@
   "common.thisWeek": "7 derniers jours",
   "common.thisMonth": "Ce mois",
   "common.resetDemo": "Réinitialiser les données de démo",
-
   "category.pain": "Pain",
   "category.viennoiserie": "Viennoiserie",
   "category.patisserie": "Pâtisserie",
   "category.boisson": "Boisson",
   "category.autre": "Autre",
-
   "ingredientType.matiere_premiere": "Matière première",
   "ingredientType.charge_utilite": "Charge / utilité",
-
   "reason.achat": "Achat",
   "reason.production": "Production",
   "reason.ajustement": "Ajustement",
   "reason.perte": "Perte",
-
   "dashboard.title": "Tableau de bord",
   "dashboard.revenue": "Chiffre d'affaires",
   "dashboard.revenueTip": "Somme des ventes de la période.",
@@ -114,7 +105,6 @@
   "dashboard.lowStock": "Stock faible",
   "dashboard.lowStockEmpty": "Aucune alerte de stock. 👍",
   "dashboard.methodNote": "Bénéfice (CA − Dépenses) et Marge brute (CA − COGS) mesurent deux réalités différentes : le premier suit la trésorerie, la seconde la rentabilité des produits fabriqués. Il est normal qu'ils diffèrent.",
-
   "ingredients.title": "Ingrédients",
   "ingredients.add": "Ajouter un ingrédient",
   "ingredients.edit": "Modifier l'ingrédient",
@@ -129,7 +119,6 @@
   "ingredients.initialQty": "Stock initial",
   "ingredients.lowBadge": "Stock faible",
   "ingredients.cmpNote": "Le coût unitaire est le coût moyen pondéré (CMP), recalculé automatiquement à chaque achat et arrondi à l'entier FCFA.",
-
   "products.title": "Produits & recettes",
   "products.add": "Ajouter un produit",
   "products.edit": "Modifier le produit",
@@ -146,7 +135,6 @@
   "products.recipeWarning": "⚠ {name} : {qty} pour une seule unité semble disproportionné. Vérifiez l'unité saisie (g et non kg ?).",
   "products.stock": "Stock fini",
   "products.active": "Actif",
-
   "purchases.title": "Achats",
   "purchases.record": "Enregistrer un achat",
   "purchases.ingredient": "Ingrédient",
@@ -157,7 +145,6 @@
   "purchases.deleteBlocked": "Stock déjà consommé en production, suppression impossible.",
   "purchases.deleteInfo": "La suppression retire aussi le mouvement de stock associé et décrémente le stock, dans la même transaction.",
   "purchases.cmpPreview": "Nouveau CMP après achat : {cmp}",
-
   "production.title": "Production",
   "production.record": "Enregistrer une production",
   "production.product": "Produit",
@@ -173,7 +160,6 @@
   "production.missing": "Stock insuffisant : {name} — il manque {qty}.",
   "production.frozenNote": "Le coût affiché ici est figé à la validation : il sera identique dans l'Historique et les Rapports.",
   "production.noRecipe": "Ce produit n'a pas de recette. Définissez-la d'abord dans Produits.",
-
   "sales.title": "Ventes",
   "sales.record": "Enregistrer une vente",
   "sales.product": "Produit",
@@ -183,7 +169,6 @@
   "sales.history": "Historique des ventes",
   "sales.noStock": "Aucun produit avec du stock disponible. Lancez d'abord une production.",
   "sales.stockNote": "Seuls les produits avec un stock fini strictement positif sont proposés. La vente ne décrémente que le stock de produits finis.",
-
   "stock.title": "Gestion des stocks",
   "stock.rawTab": "Matières premières",
   "stock.finishedTab": "Produits finis",
@@ -201,7 +186,6 @@
   "stock.potentialRevenue": "CA potentiel",
   "stock.outOfStock": "Rupture",
   "stock.consistencyNote": "Les cartes de synthèse sont calculées à partir des lignes du tableau affiché — jamais depuis un champ mis en cache.",
-
   "history.title": "Historique",
   "history.productions": "Productions récentes",
   "history.movements": "Mouvements de stock",
@@ -213,7 +197,6 @@
   "history.reason": "Motif",
   "history.change": "Variation",
   "history.author": "Auteur",
-
   "reports.title": "Rapports",
   "reports.financial": "Synthèse financière",
   "reports.revenue": "Chiffre d'affaires",
@@ -230,13 +213,11 @@
   "reports.consumption": "Consommation par ingrédient",
   "reports.consumed": "Quantité consommée",
   "reports.consumptionNote": "Agrégée par identifiant d'ingrédient (pas par nom affiché).",
-
   "db.loading": "Chargement des données…",
   "db.errorTitle": "Impossible de charger les données",
   "db.notReadyTitle": "Base de données à initialiser",
   "db.notReadyHelp": "La connexion à Supabase fonctionne, mais les tables ne sont pas encore créées. Exécutez le script supabase/setup.sql dans Supabase (SQL Editor), puis réessayez.",
   "db.retry": "Réessayer",
-
   "errors.dbNotReady": "Base de données non initialisée.",
   "errors.desktopOnly": "Cette version doit être lancée depuis le logiciel Boulangerie ERP.",
   "errors.generic": "Une erreur est survenue.",
@@ -253,5 +234,31 @@
   "errors.stockAlreadyConsumed": "Stock déjà consommé en production, suppression impossible.",
   "errors.insufficientStock": "Stock insuffisant pour lancer cette production.",
   "errors.insufficientProductStock": "Stock de produits finis insuffisant.",
-  "errors.noRecipe": "Ce produit n'a pas de recette."
+  "errors.noRecipe": "Ce produit n'a pas de recette.",
+  "sage.title": "Écritures SAGE",
+  "sage.intro": "Saisissez vos écritures comptables (journal, date de pièce, compte, libellé, débit, crédit), puis exportez-les d'un clic en un fichier texte conforme au format d'import de SAGE 100 Comptabilité. La colonne « Code journal » aiguille chaque écriture vers le bon journal SAGE.",
+  "sage.newEntry": "Nouvelle écriture",
+  "sage.journal": "Code journal",
+  "sage.journalHelp": "6 caractères max — ex. VT, AC, BQ, OD",
+  "sage.pieceDate": "Date de pièce",
+  "sage.account": "N° compte général",
+  "sage.accountHelp": "13 caractères max — ex. 571000, 401000",
+  "sage.label": "Libellé",
+  "sage.debit": "Débit",
+  "sage.credit": "Crédit",
+  "sage.add": "Ajouter l'écriture",
+  "sage.entries": "Écritures saisies",
+  "sage.empty": "Aucune écriture saisie pour le moment.",
+  "sage.count": "{n} écriture(s)",
+  "sage.balanced": "Équilibré",
+  "sage.unbalanced": "Déséquilibré",
+  "sage.export": "Exporter SAGE",
+  "sage.exportTip": "Génère le fichier texte à largeur fixe (88 caractères, CRLF, Windows-1252) importable dans SAGE.",
+  "sage.clearAll": "Tout supprimer",
+  "sage.confirmClear": "Supprimer toutes les écritures saisies ?",
+  "sage.formatNote": "Format SAGE : largeur fixe 88 caractères — Code journal (6), Date de pièce (6, jjmmaa), N° compte (13), Libellé (35), Débit (14), Crédit (14). Montants à 2 décimales (virgule), fins de ligne CRLF, encodage Windows-1252. Vérifiez l'équilibre débit = crédit avant l'export.",
+  "errors.sageJournalRequired": "Le code journal est obligatoire.",
+  "errors.sageDateRequired": "La date de pièce est obligatoire.",
+  "errors.sageAccountRequired": "Le n° de compte est obligatoire.",
+  "errors.sageAmountRequired": "Renseignez un montant au débit ou au crédit."
 }
