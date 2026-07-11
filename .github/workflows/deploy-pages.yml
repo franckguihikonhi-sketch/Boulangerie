@@ -25,8 +25,21 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # Application principale (Boulangerie ERP) → racine du site
       - run: npm ci
       - run: npm run build
+      # Application autonome « Écritures SAGE » → sous-chemin /ecritures-sage/
+      # (build indépendant ; base relative, donc fonctionne sous ce sous-chemin).
+      # Les clés Supabase sont facultatives : si elles ne sont pas définies en
+      # secrets du dépôt, l'app tourne en stockage local du navigateur.
+      - run: npm ci
+        working-directory: ecritures-sage
+      - run: npm run build
+        working-directory: ecritures-sage
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - run: mkdir -p dist/ecritures-sage && cp -r ecritures-sage/dist/. dist/ecritures-sage/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
