@@ -1,0 +1,11 @@
+{
+  "DossierSurveille": "C:\\Users\\VOTRE_NOM\\Downloads",
+  "MotifFichier": "SAGE_ECRITURES_*.txt",
+  "DossierTraites": "C:\\SAGE-Import\\Traites",
+  "DossierErreurs": "C:\\SAGE-Import\\Erreurs",
+  "FichierLog": "C:\\SAGE-Import\\import-sage.log",
+
+  "FichierSociete": "C:\\Sage\\Comptabilite\\MASOCIETE.mae",
+  "Utilisateur": "<Administrateur>",
+  "MotDePasse": ""
+}

@@ -57,3 +57,10 @@ VITE_SUPABASE_ANON_KEY=votre-cle-anon
 npm run build      # génère dist/
 npm run preview    # sert le build
 ```
+
+## Import automatique dans SAGE (optionnel)
+
+Pour éviter le clic manuel « Fichier → Importer » dans SAGE : le dossier
+[`import-auto-sage/`](./import-auto-sage/) fournit un « surveillant » Windows qui
+importe automatiquement chaque fichier exporté dans SAGE 100 via les Objets
+métiers (SDK). Voir son `README.md`.
