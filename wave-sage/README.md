@@ -42,9 +42,11 @@ Comptes par défaut (modifiables dans **Paramètres**) :
 | Charge par défaut | `60580000` | Achats de travaux, matériels et équipements |
 | Produit par défaut | `70610000` | Services vendus dans la région |
 
-Le **compte de contrepartie** (charge ou produit) est déterminé par une
-cascade : compte mémorisé par contrepartie → **règles par mots-clés** (écran
-**Règles**, éditables) → compte par défaut signalé « à vérifier ».
+Le **compte de contrepartie** (charge ou produit) est déterminé par la
+**Raison du paiement** (motif Wave) via des **règles par mots-clés** (écran
+**Règles**, éditables) ; en repli, par un compte mémorisé pour la contrepartie ;
+à défaut, un compte par défaut signalé « à vérifier ». Le nom de la contrepartie
+n'entre pas dans le rapprochement automatique.
 
 ## Format d'export SAGE
 
