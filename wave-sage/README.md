@@ -76,6 +76,33 @@ npm run dev        # http://localhost:5173
 npm run build      # build de production dans dist/
 ```
 
+## Application de bureau (Windows / macOS / Linux)
+
+L'application existe aussi en **logiciel installable** (Electron), utilisable
+**hors ligne** sur l'ordinateur, sans navigateur.
+
+- **Télécharger** : les installateurs sont publiés dans les
+  [Releases](../../releases) du dépôt — `Wave-SAGE-Setup-*.exe` (Windows,
+  installation), `Wave-SAGE-Portable-*.exe` (Windows, sans installation),
+  `Wave-SAGE-*.dmg` (macOS), `Wave-SAGE-*.AppImage` (Linux).
+- **Générer une nouvelle version** : poussez un tag `wave-sage-desktop-v1.0.0`
+  (ou lancez le workflow « Application bureau » manuellement). GitHub Actions
+  compile les installateurs sur chaque OS et crée la Release.
+
+> L'application n'est pas signée : sous Windows, cliquez « Informations
+> complémentaires » → « Exécuter quand même » au premier lancement.
+
+Compilation locale (nécessite le bon OS pour chaque cible) :
+
+```bash
+cd wave-sage
+npm install
+npm run build
+npm install --no-save electron electron-builder
+npx electron-builder --config electron-builder.yml
+# installateurs générés dans wave-sage/release/
+```
+
 ## Base de données dédiée (optionnelle)
 
 Pour partager les paramètres, règles, mappings et l'historique entre postes :

@@ -1,0 +1,67 @@
+name: Application bureau (Wave → SAGE)
+
+# Génère les installateurs de bureau de « Wave → SAGE » (Windows .exe,
+# macOS .dmg, Linux .AppImage) et les publie dans une Release téléchargeable.
+# Déclenché en poussant un tag « wave-sage-desktop-v* » (ou manuellement).
+on:
+  push:
+    tags:
+      - 'wave-sage-desktop-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: wave-sage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Dépendances de l'app + build du renderer (Vite -> dist/).
+      - run: npm ci
+      - run: npm run build
+      # Outils d'empaquetage (installés à la volée, hors dépendances de l'app).
+      - run: npm install --no-save electron@31 electron-builder@24
+      # Construit les installateurs pour l'OS courant.
+      - run: npx --no-install electron-builder --config electron-builder.yml --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTODISCOVERY: false
+      # Artefacts de build (téléchargeables depuis l'exécution du workflow).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wave-sage-${{ matrix.os }}
+          path: |
+            wave-sage/release/*.exe
+            wave-sage/release/*.dmg
+            wave-sage/release/*.AppImage
+          if-no-files-found: ignore
+      # Sur tag : publie/attache les installateurs à la Release.
+      - name: Publier la Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wave-sage/release/*.exe
+            wave-sage/release/*.dmg
+            wave-sage/release/*.AppImage
+          fail_on_unmatched_files: false
+          name: Wave → SAGE — application de bureau ${{ github.ref_name }}
+          body: |
+            Application de bureau **Wave → SAGE** (import Wave Business → export SAGE 100).
+
+            - **Windows** : `Wave-SAGE-Setup-*.exe` (installateur) ou `Wave-SAGE-Portable-*.exe` (sans installation).
+            - **macOS** : `Wave-SAGE-*.dmg`.
+            - **Linux** : `Wave-SAGE-*.AppImage`.
+
+            Application non signée : sous Windows, cliquez « Informations complémentaires » → « Exécuter quand même ».
