@@ -24,7 +24,7 @@
 // ---------------------------------------------------------------------------
 
 import { roundFCFA } from './money';
-import { imputerCompte, sensTransaction, PARAMETRES_DEFAUT } from './rules';
+import { PARAMETRES_DEFAUT } from './rules';
 import { intituleCompte, normaliserCompte } from '../data/planComptable';
 
 // Libellé d'écriture (repris sur chaque ligne de la pièce). On privilégie le
@@ -47,31 +47,33 @@ export function ecrituresTransaction(tx, rang, options = {}) {
   const params = { ...PARAMETRES_DEFAUT, ...(options.parametres || {}) };
   const overrides = options.overrides || {};
 
-  const sens = sensTransaction(tx);
   const montant = Number(tx.montant) || 0;
-  const frais = Number(tx.frais) || 0;
+  // Le solde de caisse bouge toujours du montant EXACT de la transaction
+  // (frais Wave inclus) : c'est le montant UNIQUE de l'écriture, sans ligne de
+  // frais séparée.
+  const estSortie = montant < 0;
+  const sens = estSortie ? 'sortie' : 'entree';
+  const T = roundFCFA(Math.abs(montant));
 
-  // Choix du compte de contrepartie (charge / produit) : override manuel > règle.
-  let compte, source, regle, libelleRegle;
+  // Schéma d'écriture simplifié à 2 lignes :
+  //   • Sortie : Débit 47100000 (contrepartie) / Crédit 57100000 (caisse)
+  //   • Entrée : Débit 57100000 (caisse)        / Crédit 58500000 (contrepartie)
+  // La contrepartie est fixée par le sens, mais reste modifiable ligne à ligne
+  // (override manuel).
+  const contrepartieDefaut = estSortie
+    ? params.compteContrepartieSortie
+    : params.compteContrepartieEntree;
+  let compte = contrepartieDefaut;
+  let source = 'auto';
   if (tx.txId && overrides[tx.txId]) {
     compte = normaliserCompte(overrides[tx.txId]);
     source = 'manuel';
-    regle = null;
-    libelleRegle = '';
-  } else {
-    const r = imputerCompte(tx, options);
-    compte = normaliserCompte(r.compte);
-    source = r.source;
-    regle = r.regle;
-    libelleRegle = r.libelle;
   }
 
   const libelle = libelleEcriture(tx);
   const journal = params.journal;
   const date = tx.dateIso;
   const ref = referencePiece(tx, rang);
-  const T = roundFCFA(Math.abs(montant));
-  const F = roundFCFA(Math.abs(frais));
 
   const intitulePar = options.intitulePar || null;
   const resoudreIntitule = (c) => (intitulePar && intitulePar[c]) || intituleCompte(c);
@@ -86,30 +88,17 @@ export function ecrituresTransaction(tx, rang, options = {}) {
       libelle,
       debit: roundFCFA(debit),
       credit: roundFCFA(credit),
-      role // 'contrepartie' | 'frais' | 'tresorerie'
+      role // 'contrepartie' | 'tresorerie'
     };
   };
 
   const lignes = [];
-
-  if (sens === 'sortie') {
-    const net = roundFCFA(T - F);
-    lignes.push(ligne(compte, net, 0, 'contrepartie'));
-    if (F > 0) lignes.push(ligne(params.compteFrais, F, 0, 'frais'));
-    lignes.push(ligne(params.compteTresorerie, 0, T, 'tresorerie'));
-  } else if (sens === 'contrepassation') {
-    // Annulation : la trésorerie revient (débit), charge + frais contre-passés.
-    const net = roundFCFA(T - F);
-    lignes.push(ligne(params.compteTresorerie, T, 0, 'tresorerie'));
-    if (F > 0) lignes.push(ligne(params.compteFrais, 0, F, 'frais'));
-    lignes.push(ligne(compte, 0, net, 'contrepartie'));
+  if (estSortie) {
+    lignes.push(ligne(compte, T, 0, 'contrepartie')); // Débit 47100000
+    lignes.push(ligne(params.compteTresorerie, 0, T, 'tresorerie')); // Crédit 57100000
   } else {
-    // Encaissement : trésorerie créditée du net reçu, produit au brut.
-    const net = T; // le solde Wave a augmenté du montant net reçu
-    const brut = roundFCFA(net + F);
-    lignes.push(ligne(params.compteTresorerie, net, 0, 'tresorerie'));
-    if (F > 0) lignes.push(ligne(params.compteFrais, F, 0, 'frais'));
-    lignes.push(ligne(compte, 0, brut, 'contrepartie'));
+    lignes.push(ligne(params.compteTresorerie, T, 0, 'tresorerie')); // Débit 57100000
+    lignes.push(ligne(compte, 0, T, 'contrepartie')); // Crédit 58500000
   }
 
   const totalDebit = lignes.reduce((s, l) => s + l.debit, 0);
@@ -125,15 +114,16 @@ export function ecrituresTransaction(tx, rang, options = {}) {
     contrepartie: tx.contrepartie,
     motif: tx.motif,
     compteContrepartie: compte,
-    source, // manuel | contrepartie | regle | defaut
-    regle,
-    libelleRegle,
+    source, // auto | manuel
+    regle: null,
+    libelleRegle: '',
     libelle,
+    montant: T,
     lignes,
     totalDebit,
     totalCredit,
     equilibre: totalDebit === totalCredit,
-    aVerifier: source === 'defaut' || source === 'plan'
+    aVerifier: false
   };
 }
 

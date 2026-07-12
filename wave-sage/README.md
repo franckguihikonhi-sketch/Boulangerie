@@ -23,30 +23,25 @@ comptable charge dans le journal désigné.
 
 ## Logique comptable
 
-Le solde Wave est un compte de **trésorerie** (monnaie électronique). Le solde
-bouge toujours du **montant exact** de la transaction ; les **frais Wave** sont
-isolés sur une charge financière dédiée.
+Écriture **simplifiée à 2 lignes** par transaction, avec un **montant unique**
+(les frais Wave sont **inclus**, pas de ligne de frais séparée). Le montant est
+le mouvement réel sur la caisse, soit `|montant|`.
 
 | Cas | Écriture générée |
 |---|---|
-| **Paiement** (`montant < 0`), total `T`, frais `F`, net `N = T − F` | **D** compte de charge `N` · **D** `63170000` frais `F` · **C** `57100000` trésorerie `T` |
-| **Encaissement** (`montant > 0`), net `N`, frais `F`, brut `B = N + F` | **D** `57100000` trésorerie `N` · **D** `63170000` frais `F` · **C** compte de produit `B` |
-| **Annulation** (`*_reversal`) | contre-passation : trésorerie ré-alimentée, charge et frais au crédit |
+| **Sortie** (paiement, `montant < 0`) | **Débit `47100000`** · **Crédit `57100000`** — montant `\|montant\|` |
+| **Entrée** (encaissement / annulation, `montant ≥ 0`) | **Débit `57100000`** · **Crédit `58500000`** — montant `\|montant\|` |
 
 Comptes par défaut (modifiables dans **Paramètres**) :
 
-| Rôle | Compte | Intitulé SYSCOHADA |
+| Rôle | Compte | Intitulé |
 |---|---|---|
-| Trésorerie (journal caisse) | `57100000` | Caisse (compte de trésorerie du journal CAI) |
-| Frais Wave | `63170000` | Frais sur instruments de monnaie électronique |
-| Charge par défaut | `60580000` | Achats de travaux, matériels et équipements |
-| Produit par défaut | `70610000` | Services vendus dans la région |
+| Trésorerie / caisse (journal CAI) | `57100000` | Caisse |
+| Contrepartie des sorties (débit) | `47100000` | Débiteurs divers |
+| Contrepartie des entrées (crédit) | `58500000` | Virements de fonds |
 
-Le **compte de contrepartie** (charge ou produit) est déterminé par la
-**Raison du paiement** (motif Wave) via des **règles par mots-clés** (écran
-**Règles**, éditables) ; en repli, par un compte mémorisé pour la contrepartie ;
-à défaut, un compte par défaut signalé « à vérifier ». Le nom de la contrepartie
-n'entre pas dans le rapprochement automatique.
+La contrepartie est **fixée par le sens** de l'opération, mais reste
+**modifiable ligne à ligne** à l'import si une écriture doit être reclassée.
 
 ## Format d'export SAGE
 

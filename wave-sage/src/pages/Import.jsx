@@ -1,10 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { lireFichierWave } from '../lib/parseWave';
 import { construirePieces, controlePieces, toutesLesLignes } from '../lib/impute';
-import { normaliser } from '../lib/rules';
 import { telechargerFichierSage } from '../lib/sage';
 import { formatFCFA } from '../lib/money';
-import { setMapping, enregistrerImport } from '../lib/db';
+import { enregistrerImport } from '../lib/db';
 import { Badge, Button, Card, ErrorNote, InfoNote, TableWrap, td, th } from '../components/ui';
 import CompteSelect from '../components/CompteSelect';
 
@@ -16,11 +15,8 @@ const TYPE_LABEL = {
 };
 
 const SOURCE = {
-  contrepartie: { tone: 'brand', texte: 'Mémorisé' },
-  regle: { tone: 'info', texte: 'Règle (motif)' },
-  plan: { tone: 'warn', texte: 'Proposé (libellé)' },
-  manuel: { tone: 'success', texte: 'Manuel' },
-  defaut: { tone: 'warn', texte: 'À vérifier' }
+  auto: { tone: 'neutral', texte: 'Automatique' },
+  manuel: { tone: 'success', texte: 'Manuel' }
 };
 
 export default function Import({ store }) {
@@ -100,13 +96,6 @@ export default function Import({ store }) {
 
   const changerCompte = (txId, compte) => setOverrides((o) => ({ ...o, [txId]: compte }));
 
-  const memoriser = async (piece) => {
-    const cle = normaliser(piece.contrepartie);
-    if (!cle) return;
-    await setMapping(cle, piece.compteContrepartie);
-    setMessage(`Compte ${piece.compteContrepartie} mémorisé pour « ${piece.contrepartie} ».`);
-  };
-
   const exporter = async () => {
     const lignes = toutesLesLignes(pieces);
     if (!lignes.length) return;
@@ -160,7 +149,7 @@ export default function Import({ store }) {
 
       {transactions.length > 0 && (
         <>
-          <Card title="2 · Contrôle comptable" subtitle="Partie double et lignes à vérifier avant export.">
+          <Card title="2 · Contrôle comptable" subtitle="Écriture à 2 lignes par transaction — montant unique (frais inclus).">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat label="Pièces" valeur={controle.nbPieces} />
               <Stat label="Lignes d'écriture" valeur={controle.nbLignes} />
@@ -172,11 +161,6 @@ export default function Import({ store }) {
                 <Badge tone="success">✔ Équilibré (débit = crédit)</Badge>
               ) : (
                 <Badge tone="danger">✘ Déséquilibre : {controle.desequilibrees} pièce(s)</Badge>
-              )}
-              {controle.aVerifier > 0 ? (
-                <Badge tone="warn">{controle.aVerifier} imputation(s) par défaut à vérifier</Badge>
-              ) : (
-                <Badge tone="success">Toutes les imputations sont issues d'une règle</Badge>
               )}
               <div className="ml-auto">
                 <Button onClick={exporter} disabled={!controle.equilibre}>
@@ -203,13 +187,12 @@ export default function Import({ store }) {
           {message && <InfoNote tone="success">{message}</InfoNote>}
 
           <Card
-            title="3 · Écritures imputées"
-            subtitle="Vérifiez et, si besoin, corrigez le compte de contrepartie de chaque transaction."
+            title="3 · Écritures générées"
+            subtitle="Sortie : Débit 47100000 / Crédit 57100000 · Entrée : Débit 57100000 / Crédit 58500000. La contrepartie reste modifiable ligne à ligne."
             actions={
               <div className="flex flex-wrap gap-1">
                 {[
                   { id: 'toutes', label: `Toutes (${pieces.length})` },
-                  { id: 'verifier', label: `À vérifier (${controle.aVerifier})` },
                   { id: 'exportees', label: `Déjà exportées (${nbDejaExporte})` }
                 ].map((f) => (
                   <button
@@ -235,7 +218,6 @@ export default function Import({ store }) {
                     <th className={th}>Type</th>
                     <th className={th}>Contrepartie / motif</th>
                     <th className={`${th} text-right`}>Montant</th>
-                    <th className={`${th} text-right`}>Frais</th>
                     <th className={th}>Compte de contrepartie</th>
                     <th className={th}>Source</th>
                     <th className={th}></th>
@@ -243,7 +225,7 @@ export default function Import({ store }) {
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {piecesAffichees.map((p) => {
-                    const src = SOURCE[p.source] || SOURCE.regle;
+                    const src = SOURCE[p.source] || SOURCE.auto;
                     const estOuvert = ouvert[p.ref];
                     const estDejaExporte = dejaExporte(p);
                     return (
@@ -259,14 +241,7 @@ export default function Import({ store }) {
                             <div className="truncate font-medium text-stone-800">{p.contrepartie || '—'}</div>
                             {p.motif && <div className="truncate text-xs text-stone-500">{p.motif}</div>}
                           </td>
-                          <td className={`${td} text-right tabular-nums`}>
-                            {formatFCFA(p.lignes.find((l) => l.role === 'tresorerie')?.debit ||
-                              p.lignes.find((l) => l.role === 'tresorerie')?.credit)}
-                          </td>
-                          <td className={`${td} text-right tabular-nums text-stone-500`}>
-                            {formatFCFA(p.lignes.find((l) => l.role === 'frais')?.debit ||
-                              p.lignes.find((l) => l.role === 'frais')?.credit || 0)}
-                          </td>
+                          <td className={`${td} text-right tabular-nums`}>{formatFCFA(p.montant)}</td>
                           <td className={`${td} min-w-[220px]`}>
                             <CompteSelect
                               value={p.compteContrepartie}
@@ -284,26 +259,17 @@ export default function Import({ store }) {
                             </div>
                           </td>
                           <td className={`${td} text-right`}>
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                className="text-xs text-brand-700 hover:underline"
-                                onClick={() => memoriser(p)}
-                                title="Mémoriser ce compte pour cette contrepartie"
-                              >
-                                Mémoriser
-                              </button>
-                              <button
-                                className="rounded px-2 py-1 text-xs text-stone-500 hover:bg-stone-100"
-                                onClick={() => setOuvert((o) => ({ ...o, [p.ref]: !o[p.ref] }))}
-                              >
-                                {estOuvert ? '▲' : '▼'}
-                              </button>
-                            </div>
+                            <button
+                              className="rounded px-2 py-1 text-xs text-stone-500 hover:bg-stone-100"
+                              onClick={() => setOuvert((o) => ({ ...o, [p.ref]: !o[p.ref] }))}
+                            >
+                              {estOuvert ? '▲' : '▼'}
+                            </button>
                           </td>
                         </tr>
                         {estOuvert && (
                           <tr key={p.ref + '-detail'} className="bg-stone-50">
-                            <td className={td} colSpan={8}>
+                            <td className={td} colSpan={7}>
                               <div className="rounded-lg border border-stone-200 bg-white p-3">
                                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
                                   Pièce {p.ref} · Journal {p.journal}

@@ -14,21 +14,20 @@ export default function Apropos() {
           <p className="font-semibold text-stone-800">Logique comptable appliquée</p>
           <ul className="list-inside list-disc space-y-1">
             <li>
-              Le solde Wave est enregistré sur le compte de <strong>trésorerie</strong> du journal de caisse (par
-              défaut <code>57100000</code> — Caisse). Il bouge toujours du montant exact de la transaction.
+              Écriture <strong>simplifiée à 2 lignes</strong> par transaction, avec un <strong>montant unique</strong>
+              (frais Wave inclus, pas de ligne de frais séparée) : le montant est le mouvement réel sur la caisse.
             </li>
             <li>
-              Les <strong>frais Wave</strong> sont isolés sur une charge financière (par défaut <code>63170000</code> —
-              frais sur instruments de monnaie électronique).
+              <strong>Sortie</strong> (paiement) : <strong>Débit <code>47100000</code></strong> / <strong>Crédit
+              <code>57100000</code></strong> (caisse).
             </li>
             <li>
-              Le <strong>compte de contrepartie</strong> (charge ou produit) est déterminé par la <strong>Raison du
-              paiement</strong> (motif Wave) via les règles par mots-clés ; en repli, par un compte mémorisé pour la
-              contrepartie ; à défaut, un compte par défaut signalé « à vérifier ».
+              <strong>Entrée</strong> (encaissement) : <strong>Débit <code>57100000</code></strong> (caisse) /
+              <strong>Crédit <code>58500000</code></strong>.
             </li>
             <li>
-              Chaque transaction produit une <strong>pièce équilibrée</strong> (partie double). L'export est bloqué si
-              une pièce n'est pas équilibrée.
+              La contrepartie est fixée par le sens de l'opération mais reste <strong>modifiable ligne à ligne</strong>.
+              Chaque pièce est équilibrée ; l'export est bloqué en cas de déséquilibre.
             </li>
           </ul>
         </div>
