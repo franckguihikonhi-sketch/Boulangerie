@@ -32,17 +32,15 @@ export default function Parametres({ store, backend }) {
           <Field label="Intitulé du journal">
             <input value={form.intituleJournal} onChange={(e) => set({ intituleJournal: e.target.value })} className={inputClass} />
           </Field>
-          <Field label="Compte de trésorerie (journal caisse)" hint="Compte de trésorerie du journal CAI : 57100000 Caisse.">
+          <Field label="Compte de trésorerie / caisse" hint="Journal CAI : 57100000 Caisse. Crédité sur les sorties, débité sur les entrées.">
             <CompteSelect value={form.compteTresorerie} onChange={(c) => set({ compteTresorerie: c })} />
           </Field>
-          <Field label="Compte des frais Wave" hint="Base réelle : 63170000 Frais sur instruments de monnaie électronique.">
-            <CompteSelect value={form.compteFrais} onChange={(c) => set({ compteFrais: c })} />
+          <div className="hidden sm:block" />
+          <Field label="Contrepartie des SORTIES (débit)" hint="Paiements : Débit de ce compte / Crédit caisse. Par défaut 47100000.">
+            <CompteSelect value={form.compteContrepartieSortie} onChange={(c) => set({ compteContrepartieSortie: c })} />
           </Field>
-          <Field label="Compte de charge par défaut" hint="Paiements non reconnus par une règle.">
-            <CompteSelect value={form.compteChargeDefaut} onChange={(c) => set({ compteChargeDefaut: c })} />
-          </Field>
-          <Field label="Compte de produit par défaut" hint="Encaissements non reconnus par une règle.">
-            <CompteSelect value={form.compteProduitDefaut} onChange={(c) => set({ compteProduitDefaut: c })} />
+          <Field label="Contrepartie des ENTRÉES (crédit)" hint="Encaissements : Débit caisse / Crédit de ce compte. Par défaut 58500000.">
+            <CompteSelect value={form.compteContrepartieEntree} onChange={(c) => set({ compteContrepartieEntree: c })} />
           </Field>
           <div className="sm:col-span-2 flex items-center gap-3">
             <Button type="submit">Enregistrer les paramètres</Button>

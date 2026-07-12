@@ -87,13 +87,15 @@ insert into parametres (cle, valeur) values
   ('journal', 'CAI'),
   ('intituleJournal', 'JOURNAL CAISSE'),
   ('compteTresorerie', '57100000'),
+  ('compteContrepartieSortie', '47100000'),
+  ('compteContrepartieEntree', '58500000'),
   ('compteFrais', '63170000'),
   ('compteChargeDefaut', '60580000'),
   ('compteProduitDefaut', '70610000'),
   ('compteContrepartieDefaut', '47110000')
 on conflict (cle) do nothing;
 
--- Plan comptable (1092 comptes) --------------------------------------------
+-- Plan comptable (1093 comptes) --------------------------------------------
 insert into plan_comptable (compte, intitule) values
   ('10100000', 'Comptes capital'),
   ('10110000', 'Capital souscrit non appelé'),
@@ -610,6 +612,7 @@ insert into plan_comptable (compte, intitule) values
   ('46500000', 'Associés dividendes à payer'),
   ('46600000', 'Groupe compte courant'),
   ('46700000', 'Apporteurs restant du sur capital appelé'),
+  ('47100000', 'Débiteurs divers (contrepartie sorties)'),
   ('47110000', 'Débiteurs divers'),
   ('47120000', 'Créditeurs divers'),
   ('47130000', 'Obligataires'),

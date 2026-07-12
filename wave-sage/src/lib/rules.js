@@ -22,10 +22,15 @@ export const PARAMETRES_DEFAUT = {
   journal: 'CAI', // code du journal SAGE de destination : JOURNAL CAISSE
   intituleJournal: 'JOURNAL CAISSE',
   compteTresorerie: '57100000', // Caisse — compte de trésorerie du journal CAI
-  compteFrais: '63170000', // Frais sur instruments de monnaie électronique
-  compteChargeDefaut: '60580000', // Achats de travaux, matériels et équipements
-  compteProduitDefaut: '70610000', // Services vendus dans la région
-  compteContrepartieDefaut: '47110000' // Débiteurs divers (encaissements à ventiler)
+  // Schéma d'écriture simplifié (montant unique, frais inclus) :
+  //   • Sortie  : Débit 47100000 / Crédit 57100000
+  //   • Entrée  : Débit 57100000 / Crédit 58500000
+  compteContrepartieSortie: '47100000', // Débit des paiements (débiteurs divers)
+  compteContrepartieEntree: '58500000', // Crédit des encaissements (virements de fonds)
+  compteFrais: '63170000', // (héritage) — non utilisé dans le schéma simplifié
+  compteChargeDefaut: '60580000', // (héritage) — proposition d'imputation par motif
+  compteProduitDefaut: '70610000', // (héritage) — proposition d'imputation par motif
+  compteContrepartieDefaut: '47110000'
 };
 
 // sens : 'sortie' (paiement, montant < 0), 'entree' (encaissement, montant > 0)
