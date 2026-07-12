@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Plan comptable SYSCOHADA révisé — référentiel des comptes généraux.
-// 1091 comptes. Les numéros sont sur 8 CHIFFRES, format de la base
+// 1092 comptes. Les numéros sont sur 8 CHIFFRES, format de la base
 // comptable réelle (SAGE) : le compte SYSCOHADA à 6 chiffres est complété par
 // « 00 » (ex. 521000 -> 52100000, 552000 -> 55200000).
 // Chaque entrée : { compte: "NNNNNNNN", intitule: "…" }.
@@ -641,6 +641,7 @@ export const PLAN_COMPTABLE = [
   {"compte":"56400000","intitule":"Escompte de crédits de campagne"},
   {"compte":"56500000","intitule":"Escompte de crédits ordinaires"},
   {"compte":"56600000","intitule":"Banques, crédits de trésorerie, intérêts courus"},
+  {"compte":"57100000","intitule":"Caisse (compte de trésorerie)"},
   {"compte":"57110000","intitule":"Caisse en monnaie nationale"},
   {"compte":"57120000","intitule":"Caisse en dévises"},
   {"compte":"57210000","intitule":"Caisse succursale A, en monnaie nationale"},
