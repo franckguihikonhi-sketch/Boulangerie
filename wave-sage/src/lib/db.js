@@ -20,12 +20,15 @@ const K_PARAMS = PREFIXE + 'parametres';
 const K_REGLES = PREFIXE + 'regles';
 const K_MAPPINGS = PREFIXE + 'mappings';
 const K_IMPORTS = PREFIXE + 'imports';
+const K_EXPORTED = PREFIXE + 'exportedTx';
+const MAX_EXPORTED = 5000; // borne du garde-fou anti-doublon
 
 let state = {
   parametres: { ...PARAMETRES_DEFAUT },
   regles: clonerRegles(REGLES_DEFAUT),
   mappings: {}, // { contrepartieNormalisee: compte }
-  imports: [] // historique { id, dateImport, nomFichier, periode, controle }
+  imports: [], // historique { id, dateImport, nomFichier, periode, controle }
+  exportedTx: [] // identifiants Wave déjà exportés vers SAGE (anti-doublon)
 };
 let status = 'idle'; // idle | loading | ready | error
 let statusSnapshot = { status, error: null, backend: supabaseConfigured ? 'supabase' : 'local' };
@@ -76,6 +79,9 @@ export function getMappings() {
 export function getImports() {
   return state.imports;
 }
+export function getExportedTxIds() {
+  return new Set(state.exportedTx);
+}
 
 // -------------------------- Hydratation -----------------------------------
 
@@ -85,10 +91,12 @@ function lireLocal() {
     const r = JSON.parse(localStorage.getItem(K_REGLES) || 'null');
     const m = JSON.parse(localStorage.getItem(K_MAPPINGS) || 'null');
     const im = JSON.parse(localStorage.getItem(K_IMPORTS) || 'null');
+    const ex = JSON.parse(localStorage.getItem(K_EXPORTED) || 'null');
     if (p) state.parametres = { ...PARAMETRES_DEFAUT, ...p };
     if (Array.isArray(r) && r.length) state.regles = clonerRegles(r);
     if (m && typeof m === 'object') state.mappings = m;
     if (Array.isArray(im)) state.imports = im;
+    if (Array.isArray(ex)) state.exportedTx = ex;
   } catch {
     /* stockage indisponible : on garde les valeurs par défaut */
   }
@@ -100,6 +108,7 @@ function ecrireLocal() {
     localStorage.setItem(K_REGLES, JSON.stringify(state.regles));
     localStorage.setItem(K_MAPPINGS, JSON.stringify(state.mappings));
     localStorage.setItem(K_IMPORTS, JSON.stringify(state.imports.slice(0, 50)));
+    localStorage.setItem(K_EXPORTED, JSON.stringify(state.exportedTx.slice(-MAX_EXPORTED)));
   } catch {
     /* quota/indispo : sans effet */
   }
@@ -135,6 +144,15 @@ async function hydraterSupabase() {
     const obj = {};
     for (const row of maps) obj[row.contrepartie] = row.compte;
     state.mappings = obj;
+  }
+  // Références déjà exportées (garde-fou anti-doublon), depuis les écritures.
+  const { data: refs } = await supabase
+    .from('ecritures')
+    .select('reference')
+    .limit(20000);
+  if (refs && refs.length) {
+    const set = new Set([...state.exportedTx, ...refs.map((r) => r.reference).filter(Boolean)]);
+    state.exportedTx = [...set];
   }
   // Historique d'imports.
   const { data: imports } = await supabase
@@ -284,6 +302,13 @@ export async function enregistrerImport({ nomFichier, periode, pieces, controle 
     controle
   };
   state.imports = [entree, ...state.imports].slice(0, 50);
+  // Mémorise les identifiants Wave exportés (anti-doublon sur les imports futurs).
+  if (Array.isArray(pieces)) {
+    const nouveaux = pieces.map((p) => p.txId).filter(Boolean);
+    if (nouveaux.length) {
+      state.exportedTx = [...new Set([...state.exportedTx, ...nouveaux])].slice(-MAX_EXPORTED);
+    }
+  }
   ecrireLocal();
   notify();
   if (supabaseConfigured) {

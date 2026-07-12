@@ -47,6 +47,19 @@ export default function Import({ store }) {
   );
   const controle = useMemo(() => controlePieces(pieces), [pieces]);
 
+  // Garde-fou anti-doublon : transactions dont l'identifiant Wave a déjà été
+  // exporté vers SAGE lors d'un import précédent.
+  const exportedSet = useMemo(() => new Set(store.exportedTx || []), [store.exportedTx]);
+  const dejaExporte = (p) => Boolean(p.txId && exportedSet.has(p.txId));
+  const nbDejaExporte = useMemo(() => pieces.filter(dejaExporte).length, [pieces, exportedSet]);
+
+  const [filtre, setFiltre] = useState('toutes'); // toutes | verifier | exportees
+  const piecesAffichees = useMemo(() => {
+    if (filtre === 'verifier') return pieces.filter((p) => p.aVerifier);
+    if (filtre === 'exportees') return pieces.filter(dejaExporte);
+    return pieces;
+  }, [pieces, filtre, exportedSet]);
+
   const choisirFichier = () => inputRef.current?.click();
 
   const onFichier = async (e) => {
@@ -167,6 +180,15 @@ export default function Import({ store }) {
                 L'export est bloqué tant qu'une pièce n'est pas équilibrée (contrôle de sécurité).
               </p>
             )}
+            {nbDejaExporte > 0 && (
+              <div className="mt-3">
+                <InfoNote tone="warn">
+                  ⚠️ <strong>{nbDejaExporte}</strong> transaction(s) de ce fichier ont déjà été exportées vers SAGE
+                  lors d'un import précédent (risque de doublon). Utilisez le filtre « Déjà exportées » pour les
+                  repérer et, au besoin, réimportez seulement la nouvelle période.
+                </InfoNote>
+              </div>
+            )}
           </Card>
 
           {message && <InfoNote tone="success">{message}</InfoNote>}
@@ -174,6 +196,27 @@ export default function Import({ store }) {
           <Card
             title="3 · Écritures imputées"
             subtitle="Vérifiez et, si besoin, corrigez le compte de contrepartie de chaque transaction."
+            actions={
+              <div className="flex flex-wrap gap-1">
+                {[
+                  { id: 'toutes', label: `Toutes (${pieces.length})` },
+                  { id: 'verifier', label: `À vérifier (${controle.aVerifier})` },
+                  { id: 'exportees', label: `Déjà exportées (${nbDejaExporte})` }
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFiltre(f.id)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      filtre === f.id
+                        ? 'border-brand-600 bg-brand-700 text-white'
+                        : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            }
           >
             <TableWrap>
               <table className="min-w-full divide-y divide-stone-100">
@@ -190,12 +233,13 @@ export default function Import({ store }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {pieces.map((p) => {
+                  {piecesAffichees.map((p) => {
                     const src = SOURCE[p.source] || SOURCE.regle;
                     const estOuvert = ouvert[p.ref];
+                    const estDejaExporte = dejaExporte(p);
                     return (
                       <>
-                        <tr key={p.ref} className={p.aVerifier ? 'bg-amber-50/50' : ''}>
+                        <tr key={p.ref} className={estDejaExporte ? 'bg-red-50/60' : p.aVerifier ? 'bg-amber-50/50' : ''}>
                           <td className={td}>{p.date}</td>
                           <td className={td}>
                             <Badge tone={p.sens === 'entree' ? 'success' : p.sens === 'contrepassation' ? 'warn' : 'neutral'}>
@@ -225,7 +269,10 @@ export default function Import({ store }) {
                             </div>
                           </td>
                           <td className={td}>
-                            <Badge tone={src.tone}>{src.texte}</Badge>
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge tone={src.tone}>{src.texte}</Badge>
+                              {estDejaExporte && <Badge tone="danger">Déjà exporté</Badge>}
+                            </div>
                           </td>
                           <td className={`${td} text-right`}>
                             <div className="flex items-center justify-end gap-1">
