@@ -102,16 +102,20 @@ export default function Regles({ store }) {
             </thead>
             <tbody className="divide-y divide-stone-100">
               {regles.map((r) => (
-                <tr key={r.id}>
+                <tr key={r.id} className="align-top">
                   <td className={`${td} tabular-nums`}>{r.priorite}</td>
                   <td className={td}>
                     <Badge tone={r.sens === 'entree' ? 'success' : r.sens === 'tous' ? 'neutral' : 'info'}>
                       {r.sens}
                     </Badge>
                   </td>
-                  <td className={`${td} max-w-sm whitespace-normal`}>{(r.motsCles || []).join(', ')}</td>
+                  <td className="px-3 py-2 align-top text-sm text-stone-700">
+                    <div className="w-56 whitespace-normal break-words leading-snug sm:w-72">
+                      {(r.motsCles || []).join(', ')}
+                    </div>
+                  </td>
                   <td className={`${td} font-mono`}>{r.compte}</td>
-                  <td className={`${td} text-stone-500`}>{r.libelle}</td>
+                  <td className={`${td} whitespace-normal text-stone-500`}>{r.libelle}</td>
                   <td className={td}>{r.actif !== false ? <Badge tone="success">actif</Badge> : <Badge>inactif</Badge>}</td>
                   <td className={`${td} text-right`}>
                     <button className="text-xs text-brand-700 hover:underline" onClick={() => editer(r)}>
@@ -132,9 +136,10 @@ export default function Regles({ store }) {
       </Card>
 
       <InfoNote>
-        Les <strong>frais Wave</strong> et le <strong>compte de trésorerie</strong> (solde Wave) ne dépendent pas des
-        règles : ils sont fixés dans <strong>Paramètres</strong>. Les règles ne concernent que le compte de
-        contrepartie (charge ou produit).
+        L'export utilise le <strong>schéma simplifié</strong> défini dans <strong>Paramètres</strong> (Sortie : Débit
+        47100000 / Crédit 57100000 · Entrée : Débit 57100000 / Crédit 58500000). Ces règles servent de
+        <strong> référentiel d'analyse par motif</strong> ; le compte de contrepartie reste ajustable ligne à ligne à
+        l'import.
       </InfoNote>
     </div>
   );
