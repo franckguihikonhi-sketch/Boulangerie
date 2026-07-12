@@ -19,8 +19,8 @@ import { normaliserCompte } from '../data/planComptable';
 // Numéros de compte sur 8 CHIFFRES : format de la base comptable réelle (SAGE),
 // où le compte SYSCOHADA à 6 chiffres est complété par « 00 ».
 export const PARAMETRES_DEFAUT = {
-  journal: 'WAV', // code du journal SAGE où seront importées les écritures
-  intituleJournal: 'JOURNAL WAVE',
+  journal: 'CA', // code du journal SAGE de destination : JOURNAL CAISSE
+  intituleJournal: 'JOURNAL CAISSE',
   compteTresorerie: '55200000', // Monnaie téléphonique portable (le solde Wave)
   compteFrais: '63170000', // Frais sur instruments de monnaie électronique
   compteChargeDefaut: '60580000', // Achats de travaux, matériels et équipements

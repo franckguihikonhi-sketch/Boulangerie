@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - claude/responsive-web-app-59m2qn
+      - claude/new-project-database-48zbfe
   workflow_dispatch:
 
 permissions:
@@ -40,6 +41,17 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - run: mkdir -p dist/ecritures-sage && cp -r ecritures-sage/dist/. dist/ecritures-sage/
+      # Application autonome « Wave → SAGE » → sous-chemin /wave-sage/
+      # Base de données DÉDIÉE : secrets distincts (VITE_WAVE_SUPABASE_*). S'ils
+      # ne sont pas définis, l'app tourne en stockage local du navigateur.
+      - run: npm ci
+        working-directory: wave-sage
+      - run: npm run build
+        working-directory: wave-sage
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_WAVE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_WAVE_SUPABASE_ANON_KEY }}
+      - run: mkdir -p dist/wave-sage && cp -r wave-sage/dist/. dist/wave-sage/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
