@@ -73,6 +73,8 @@ export function ecrituresTransaction(tx, rang, options = {}) {
   const T = roundFCFA(Math.abs(montant));
   const F = roundFCFA(Math.abs(frais));
 
+  const intitulePar = options.intitulePar || null;
+  const resoudreIntitule = (c) => (intitulePar && intitulePar[c]) || intituleCompte(c);
   const ligne = (cpt, debit, credit, role) => {
     const compteN = normaliserCompte(cpt);
     return {
@@ -80,7 +82,7 @@ export function ecrituresTransaction(tx, rang, options = {}) {
       journal,
       date,
       compte: compteN,
-      intituleCompte: intituleCompte(compteN),
+      intituleCompte: resoudreIntitule(compteN),
       libelle,
       debit: roundFCFA(debit),
       credit: roundFCFA(credit),
@@ -131,7 +133,7 @@ export function ecrituresTransaction(tx, rang, options = {}) {
     totalDebit,
     totalCredit,
     equilibre: totalDebit === totalCredit,
-    aVerifier: source === 'defaut'
+    aVerifier: source === 'defaut' || source === 'plan'
   };
 }
 

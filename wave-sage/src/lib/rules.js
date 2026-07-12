@@ -72,7 +72,7 @@ const REGLES_BRUTES = [
   { priorite: 36, sens: 'sortie', motsCles: ['fin de chantier', 'chantier', 'main d oeuvre', 'main d’oeuvre', 'manoeuvre', 'ouvrier', 'journalier'], compte: '637100', libelle: 'Personnel intérimaire (chantier)' },
 
   // --- Commissions ---
-  { priorite: 38, sens: 'sortie', motsCles: ['commission', 'courtage'], compte: '632200', libelle: 'Commissions et courtages sur ventes' },
+  { priorite: 38, sens: 'sortie', motsCles: ['commission', 'courtage', 'com'], compte: '632200', libelle: 'Commissions et courtages sur ventes' },
 
   // --- Tenues / vêtements de travail ---
   { priorite: 40, sens: 'sortie', motsCles: ['tenue', 'tenues', 'uniforme', 'vetement'], compte: '605600', libelle: 'Petit matériel / tenues' },
@@ -115,6 +115,50 @@ function echapper(s) {
 export function contientMot(texte, mot) {
   if (!mot) return false;
   return new RegExp(`(?:^|[^a-z0-9])${echapper(mot)}(?:[^a-z0-9]|$)`).test(texte);
+}
+
+// Mots vides ignorés lors du rapprochement par libellé du plan comptable.
+const MOTS_VIDES = new Set([
+  'de', 'des', 'du', 'la', 'le', 'les', 'un', 'une', 'et', 'ou', 'au', 'aux', 'en',
+  'pour', 'par', 'sur', 'sous', 'avec', 'dans', 'ce', 'cette', 'son', 'sa', 'ses',
+  'leur', 'nos', 'vos', 'plus', 'the', 'a', 'l', 'd', 'to', 'si', 'ne', 'pr'
+]);
+
+// Découpe un texte normalisé en mots significatifs (>= 3 lettres, hors mots
+// vides et nombres).
+export function motsSignificatifs(texte) {
+  return normaliser(texte)
+    .split(/[^a-z0-9]+/)
+    .filter((m) => m.length >= 3 && !MOTS_VIDES.has(m) && !/^\d+$/.test(m));
+}
+
+// Imputation par LIBELLÉ du plan comptable : cherche le compte dont l'intitulé
+// partage le plus de mots significatifs avec la Raison du paiement. Les
+// candidats sont restreints à la bonne classe (6 = charges, 7 = produits).
+// Renvoie un numéro de compte ou null. C'est une PROPOSITION (à vérifier).
+export function imputerParLibelle(motif, plan, sens) {
+  const mots = motsSignificatifs(motif);
+  if (!mots.length || !Array.isArray(plan) || !plan.length) return null;
+  const classe = sens === 'entree' ? '7' : '6';
+  let best = null;
+  for (const cpt of plan) {
+    if (!cpt.compte || cpt.compte[0] !== classe) continue;
+    const motsLib = new Set(motsSignificatifs(cpt.intitule));
+    if (!motsLib.size) continue;
+    let score = 0;
+    for (const m of mots) if (motsLib.has(m)) score += 1;
+    if (score === 0) continue;
+    const cand = { compte: cpt.compte, score, taille: motsLib.size };
+    if (
+      !best ||
+      cand.score > best.score ||
+      (cand.score === best.score && cand.taille < best.taille) ||
+      (cand.score === best.score && cand.taille === best.taille && cand.compte < best.compte)
+    ) {
+      best = cand;
+    }
+  }
+  return best ? best.compte : null;
 }
 
 // Sens comptable d'une transaction d'après son montant / son type.
@@ -161,7 +205,17 @@ export function imputerCompte(tx, options = {}) {
     }
   }
 
-  // 2) Repli : compte mémorisé pour cette contrepartie (décision déjà prise),
+  // 2) Rapprochement par LIBELLÉ du plan comptable (proposition à vérifier) :
+  //    on cherche le compte dont l'intitulé colle le mieux à la Raison du
+  //    paiement. Ne s'applique que si un plan est fourni.
+  if (texteMotif && options.plan && options.plan.length) {
+    const compteLib = imputerParLibelle(tx.motif, options.plan, sens);
+    if (compteLib) {
+      return { compte: compteLib, libelle: '', source: 'plan', regle: null };
+    }
+  }
+
+  // 3) Repli : compte mémorisé pour cette contrepartie (décision déjà prise),
   //    utilisé seulement quand la Raison du paiement ne classe pas la ligne.
   if (cleContrepartie && mappings[cleContrepartie]) {
     return {
@@ -172,7 +226,7 @@ export function imputerCompte(tx, options = {}) {
     };
   }
 
-  // 3) Compte par défaut selon le sens — à vérifier par le comptable.
+  // 4) Compte par défaut selon le sens — à vérifier par le comptable.
   const compte = sens === 'entree' ? params.compteProduitDefaut : params.compteChargeDefaut;
   return { compte, libelle: '', source: 'defaut', regle: null };
 }

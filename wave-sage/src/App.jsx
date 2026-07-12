@@ -18,7 +18,7 @@ export default function App() {
       {page === 'import' && <Import store={store} />}
       {page === 'historique' && <Historique store={store} />}
       {page === 'regles' && <Regles store={store} />}
-      {page === 'plan' && <Plan />}
+      {page === 'plan' && <Plan store={store} />}
       {page === 'parametres' && <Parametres store={store} backend={backend} />}
       {page === 'apropos' && <Apropos />}
     </Layout>

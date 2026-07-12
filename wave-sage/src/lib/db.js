@@ -14,6 +14,7 @@
 
 import { supabase, supabaseConfigured } from './supabase';
 import { PARAMETRES_DEFAUT, REGLES_DEFAUT } from './rules';
+import { PLAN_COMPTABLE, normaliserCompte } from '../data/planComptable';
 
 const PREFIXE = 'wave-sage:';
 const K_PARAMS = PREFIXE + 'parametres';
@@ -21,11 +22,15 @@ const K_REGLES = PREFIXE + 'regles';
 const K_MAPPINGS = PREFIXE + 'mappings';
 const K_IMPORTS = PREFIXE + 'imports';
 const K_EXPORTED = PREFIXE + 'exportedTx';
+const K_PLAN = PREFIXE + 'plan';
 const MAX_EXPORTED = 5000; // borne du garde-fou anti-doublon
+
+let planMap = null; // cache compte -> intitulé (invalidé à chaque changement)
 
 let state = {
   parametres: { ...PARAMETRES_DEFAUT },
   regles: clonerRegles(REGLES_DEFAUT),
+  plan: PLAN_COMPTABLE.map((c) => ({ ...c })), // référentiel des comptes (éditable)
   mappings: {}, // { contrepartieNormalisee: compte }
   imports: [], // historique { id, dateImport, nomFichier, periode, controle }
   exportedTx: [] // identifiants Wave déjà exportés vers SAGE (anti-doublon)
@@ -82,6 +87,16 @@ export function getImports() {
 export function getExportedTxIds() {
   return new Set(state.exportedTx);
 }
+export function getPlan() {
+  return state.plan;
+}
+function rebuildPlanMap() {
+  planMap = Object.fromEntries(state.plan.map((c) => [c.compte, c.intitule]));
+}
+export function intituleDe(compte) {
+  if (!planMap) rebuildPlanMap();
+  return planMap[normaliserCompte(compte)] || '';
+}
 
 // -------------------------- Hydratation -----------------------------------
 
@@ -92,11 +107,16 @@ function lireLocal() {
     const m = JSON.parse(localStorage.getItem(K_MAPPINGS) || 'null');
     const im = JSON.parse(localStorage.getItem(K_IMPORTS) || 'null');
     const ex = JSON.parse(localStorage.getItem(K_EXPORTED) || 'null');
+    const pl = JSON.parse(localStorage.getItem(K_PLAN) || 'null');
     if (p) state.parametres = { ...PARAMETRES_DEFAUT, ...p };
     if (Array.isArray(r) && r.length) state.regles = clonerRegles(r);
     if (m && typeof m === 'object') state.mappings = m;
     if (Array.isArray(im)) state.imports = im;
     if (Array.isArray(ex)) state.exportedTx = ex;
+    if (Array.isArray(pl) && pl.length) {
+      state.plan = pl.filter((c) => c && c.compte);
+      planMap = null;
+    }
   } catch {
     /* stockage indisponible : on garde les valeurs par défaut */
   }
@@ -114,7 +134,25 @@ function ecrireLocal() {
   }
 }
 
+// Le plan comptable est volumineux : on ne l'écrit que lorsqu'il change.
+function ecrirePlanLocal() {
+  try {
+    localStorage.setItem(K_PLAN, JSON.stringify(state.plan));
+  } catch {
+    /* quota/indispo : sans effet */
+  }
+}
+
 async function hydraterSupabase() {
+  // Plan comptable (référentiel éditable, partagé).
+  const { data: plan } = await supabase
+    .from('plan_comptable')
+    .select('compte, intitule')
+    .order('compte', { ascending: true });
+  if (plan && plan.length) {
+    state.plan = plan.map((r) => ({ compte: r.compte, intitule: r.intitule }));
+    planMap = null;
+  }
   // Paramètres (table clé/valeur).
   const { data: params } = await supabase.from('parametres').select('cle, valeur');
   if (params && params.length) {
@@ -264,6 +302,54 @@ export async function removeRegle(id) {
 export async function reinitialiserRegles() {
   state.regles = clonerRegles(REGLES_DEFAUT);
   ecrireLocal();
+  notify();
+}
+
+// --------------------- Plan comptable (CRUD) ------------------------------
+
+// Ajoute ou modifie un compte du plan (numéro normalisé à 8 chiffres).
+export async function upsertCompte({ compte, intitule }) {
+  const c = normaliserCompte(compte);
+  if (!c) return null;
+  const lib = String(intitule || '').trim();
+  const idx = state.plan.findIndex((x) => x.compte === c);
+  if (idx === -1) state.plan = [...state.plan, { compte: c, intitule: lib }];
+  else state.plan = state.plan.map((x) => (x.compte === c ? { compte: c, intitule: lib } : x));
+  state.plan.sort((a, b) => a.compte.localeCompare(b.compte));
+  planMap = null;
+  ecrirePlanLocal();
+  notify();
+  if (supabaseConfigured) {
+    try {
+      await supabase.from('plan_comptable').upsert({ compte: c, intitule: lib }, { onConflict: 'compte' });
+    } catch {
+      /* local conservé */
+    }
+  }
+  return c;
+}
+
+// Supprime un compte du plan.
+export async function removeCompte(compte) {
+  const c = normaliserCompte(compte);
+  state.plan = state.plan.filter((x) => x.compte !== c);
+  planMap = null;
+  ecrirePlanLocal();
+  notify();
+  if (supabaseConfigured) {
+    try {
+      await supabase.from('plan_comptable').delete().eq('compte', c);
+    } catch {
+      /* compte référencé (règle/écriture) : suppression distante ignorée */
+    }
+  }
+}
+
+// Restaure le plan comptable SYSCOHADA d'origine.
+export async function reinitialiserPlan() {
+  state.plan = PLAN_COMPTABLE.map((c) => ({ ...c }));
+  planMap = null;
+  ecrirePlanLocal();
   notify();
 }
 

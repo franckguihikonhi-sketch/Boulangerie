@@ -1,17 +1,23 @@
 import { useMemo, useId } from 'react';
-import { PLAN_COMPTABLE, intituleCompte, normaliserCompte } from '../data/planComptable';
+import { normaliserCompte } from '../data/planComptable';
+import { useStore } from '../lib/useStore';
 import { inputClass } from './ui';
 
-// Sélecteur de compte général sur le plan SYSCOHADA (1091 comptes).
+// Sélecteur de compte général sur le plan comptable ÉDITABLE (magasin réactif).
 // Champ texte + datalist : on saisit / choisit un numéro, l'intitulé s'affiche.
 // Recherche possible par numéro OU par libellé (la datalist filtre nativement).
 export default function CompteSelect({ value, onChange, compact = false }) {
   const listId = useId();
+  const { plan } = useStore();
   const options = useMemo(
-    () => PLAN_COMPTABLE.map((c) => ({ value: c.compte, label: `${c.compte} — ${c.intitule}` })),
-    []
+    () => plan.map((c) => ({ value: c.compte, label: `${c.compte} — ${c.intitule}` })),
+    [plan]
   );
-  const intitule = intituleCompte(value);
+  const intitule = useMemo(() => {
+    const n = normaliserCompte(value);
+    const f = plan.find((c) => c.compte === n);
+    return f ? f.intitule : '';
+  }, [plan, value]);
   const inconnu = value && !intitule;
 
   return (
@@ -37,7 +43,7 @@ export default function CompteSelect({ value, onChange, compact = false }) {
       </datalist>
       {!compact && (
         <p className={`text-xs ${inconnu ? 'text-red-600' : 'text-stone-500'}`}>
-          {inconnu ? 'Compte absent du plan SYSCOHADA' : intitule || '—'}
+          {inconnu ? 'Compte absent du plan (ajoutez-le dans « Plan comptable »)' : intitule || '—'}
         </p>
       )}
     </div>
