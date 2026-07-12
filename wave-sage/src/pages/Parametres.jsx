@@ -32,7 +32,7 @@ export default function Parametres({ store, backend }) {
           <Field label="Intitulé du journal">
             <input value={form.intituleJournal} onChange={(e) => set({ intituleJournal: e.target.value })} className={inputClass} />
           </Field>
-          <Field label="Compte de trésorerie (solde Wave)" hint="Base réelle : 55200000 Monnaie téléphonique portable.">
+          <Field label="Compte de trésorerie (journal caisse)" hint="Compte de trésorerie du journal CAI : 57100000 Caisse.">
             <CompteSelect value={form.compteTresorerie} onChange={(c) => set({ compteTresorerie: c })} />
           </Field>
           <Field label="Compte des frais Wave" hint="Base réelle : 63170000 Frais sur instruments de monnaie électronique.">

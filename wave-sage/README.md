@@ -29,15 +29,15 @@ isolés sur une charge financière dédiée.
 
 | Cas | Écriture générée |
 |---|---|
-| **Paiement** (`montant < 0`), total `T`, frais `F`, net `N = T − F` | **D** compte de charge `N` · **D** `63170000` frais `F` · **C** `55200000` trésorerie `T` |
-| **Encaissement** (`montant > 0`), net `N`, frais `F`, brut `B = N + F` | **D** `55200000` trésorerie `N` · **D** `63170000` frais `F` · **C** compte de produit `B` |
+| **Paiement** (`montant < 0`), total `T`, frais `F`, net `N = T − F` | **D** compte de charge `N` · **D** `63170000` frais `F` · **C** `57100000` trésorerie `T` |
+| **Encaissement** (`montant > 0`), net `N`, frais `F`, brut `B = N + F` | **D** `57100000` trésorerie `N` · **D** `63170000` frais `F` · **C** compte de produit `B` |
 | **Annulation** (`*_reversal`) | contre-passation : trésorerie ré-alimentée, charge et frais au crédit |
 
 Comptes par défaut (modifiables dans **Paramètres**) :
 
 | Rôle | Compte | Intitulé SYSCOHADA |
 |---|---|---|
-| Trésorerie (solde Wave) | `55200000` | Monnaie téléphonique portable |
+| Trésorerie (journal caisse) | `57100000` | Caisse (compte de trésorerie du journal CAI) |
 | Frais Wave | `63170000` | Frais sur instruments de monnaie électronique |
 | Charge par défaut | `60580000` | Achats de travaux, matériels et équipements |
 | Produit par défaut | `70610000` | Services vendus dans la région |

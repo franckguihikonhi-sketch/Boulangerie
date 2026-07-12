@@ -14,8 +14,8 @@ export default function Apropos() {
           <p className="font-semibold text-stone-800">Logique comptable appliquée</p>
           <ul className="list-inside list-disc space-y-1">
             <li>
-              Le solde Wave est un compte de <strong>trésorerie</strong> (par défaut <code>55200000</code> — monnaie
-              téléphonique portable). Il bouge toujours du montant exact de la transaction.
+              Le solde Wave est enregistré sur le compte de <strong>trésorerie</strong> du journal de caisse (par
+              défaut <code>57100000</code> — Caisse). Il bouge toujours du montant exact de la transaction.
             </li>
             <li>
               Les <strong>frais Wave</strong> sont isolés sur une charge financière (par défaut <code>63170000</code> —

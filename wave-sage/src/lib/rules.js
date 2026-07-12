@@ -21,7 +21,7 @@ import { normaliserCompte } from '../data/planComptable';
 export const PARAMETRES_DEFAUT = {
   journal: 'CAI', // code du journal SAGE de destination : JOURNAL CAISSE
   intituleJournal: 'JOURNAL CAISSE',
-  compteTresorerie: '55200000', // Monnaie téléphonique portable (le solde Wave)
+  compteTresorerie: '57100000', // Caisse — compte de trésorerie du journal CAI
   compteFrais: '63170000', // Frais sur instruments de monnaie électronique
   compteChargeDefaut: '60580000', // Achats de travaux, matériels et équipements
   compteProduitDefaut: '70610000', // Services vendus dans la région

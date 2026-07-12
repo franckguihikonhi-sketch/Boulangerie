@@ -86,14 +86,14 @@ create policy anon_all on ecritures for all to anon, authenticated using (true) 
 insert into parametres (cle, valeur) values
   ('journal', 'CAI'),
   ('intituleJournal', 'JOURNAL CAISSE'),
-  ('compteTresorerie', '55200000'),
+  ('compteTresorerie', '57100000'),
   ('compteFrais', '63170000'),
   ('compteChargeDefaut', '60580000'),
   ('compteProduitDefaut', '70610000'),
   ('compteContrepartieDefaut', '47110000')
 on conflict (cle) do nothing;
 
--- Plan comptable (1091 comptes) --------------------------------------------
+-- Plan comptable (1092 comptes) --------------------------------------------
 insert into plan_comptable (compte, intitule) values
   ('10100000', 'Comptes capital'),
   ('10110000', 'Capital souscrit non appelé'),
@@ -729,6 +729,7 @@ insert into plan_comptable (compte, intitule) values
   ('56400000', 'Escompte de crédits de campagne'),
   ('56500000', 'Escompte de crédits ordinaires'),
   ('56600000', 'Banques, crédits de trésorerie, intérêts courus'),
+  ('57100000', 'Caisse (compte de trésorerie)'),
   ('57110000', 'Caisse en monnaie nationale'),
   ('57120000', 'Caisse en dévises'),
   ('57210000', 'Caisse succursale A, en monnaie nationale'),
