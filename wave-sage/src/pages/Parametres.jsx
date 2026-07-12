@@ -32,10 +32,10 @@ export default function Parametres({ store, backend }) {
           <Field label="Intitulé du journal">
             <input value={form.intituleJournal} onChange={(e) => set({ intituleJournal: e.target.value })} className={inputClass} />
           </Field>
-          <Field label="Compte de trésorerie (solde Wave)" hint="SYSCOHADA : 552000 Monnaie téléphonique portable.">
+          <Field label="Compte de trésorerie (solde Wave)" hint="Base réelle : 55200000 Monnaie téléphonique portable.">
             <CompteSelect value={form.compteTresorerie} onChange={(c) => set({ compteTresorerie: c })} />
           </Field>
-          <Field label="Compte des frais Wave" hint="SYSCOHADA : 631700 Frais sur instruments de monnaie électronique.">
+          <Field label="Compte des frais Wave" hint="Base réelle : 63170000 Frais sur instruments de monnaie électronique.">
             <CompteSelect value={form.compteFrais} onChange={(c) => set({ compteFrais: c })} />
           </Field>
           <Field label="Compte de charge par défaut" hint="Paiements non reconnus par une règle.">

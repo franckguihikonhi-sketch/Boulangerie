@@ -29,18 +29,18 @@ isolés sur une charge financière dédiée.
 
 | Cas | Écriture générée |
 |---|---|
-| **Paiement** (`montant < 0`), total `T`, frais `F`, net `N = T − F` | **D** compte de charge `N` · **D** `631700` frais `F` · **C** `552000` trésorerie `T` |
-| **Encaissement** (`montant > 0`), net `N`, frais `F`, brut `B = N + F` | **D** `552000` trésorerie `N` · **D** `631700` frais `F` · **C** compte de produit `B` |
+| **Paiement** (`montant < 0`), total `T`, frais `F`, net `N = T − F` | **D** compte de charge `N` · **D** `63170000` frais `F` · **C** `55200000` trésorerie `T` |
+| **Encaissement** (`montant > 0`), net `N`, frais `F`, brut `B = N + F` | **D** `55200000` trésorerie `N` · **D** `63170000` frais `F` · **C** compte de produit `B` |
 | **Annulation** (`*_reversal`) | contre-passation : trésorerie ré-alimentée, charge et frais au crédit |
 
 Comptes par défaut (modifiables dans **Paramètres**) :
 
 | Rôle | Compte | Intitulé SYSCOHADA |
 |---|---|---|
-| Trésorerie (solde Wave) | `552000` | Monnaie téléphonique portable |
-| Frais Wave | `631700` | Frais sur instruments de monnaie électronique |
-| Charge par défaut | `605800` | Achats de travaux, matériels et équipements |
-| Produit par défaut | `706100` | Services vendus dans la région |
+| Trésorerie (solde Wave) | `55200000` | Monnaie téléphonique portable |
+| Frais Wave | `63170000` | Frais sur instruments de monnaie électronique |
+| Charge par défaut | `60580000` | Achats de travaux, matériels et équipements |
+| Produit par défaut | `70610000` | Services vendus dans la région |
 
 Le **compte de contrepartie** (charge ou produit) est déterminé par une
 cascade : compte mémorisé par contrepartie → **règles par mots-clés** (écran
@@ -85,7 +85,7 @@ Pour partager les paramètres, règles, mappings et l'historique entre postes :
 
 1. Créez un **nouveau projet Supabase** (base propre à cette application).
 2. Dans **SQL Editor**, exécutez [`supabase/setup.sql`](supabase/setup.sql) :
-   il crée les tables, active RLS, insère le **plan SYSCOHADA (1091 comptes)**,
+   il crée les tables, active RLS, insère le **plan SYSCOHADA (1091 comptes, numéros à 8 chiffres)**,
    les **paramètres** et les **règles** par défaut.
 3. Renseignez les variables d'environnement avant le build :
 

@@ -12,23 +12,28 @@
 // le jeu de départ, calé sur le plan SYSCOHADA révisé fourni.
 // ---------------------------------------------------------------------------
 
+import { normaliserCompte } from '../data/planComptable';
+
 // Paramètres comptables par défaut (surchargés depuis la base / l'écran
 // « Paramètres »). Le compte Wave est un instrument de monnaie électronique.
+// Numéros de compte sur 8 CHIFFRES : format de la base comptable réelle (SAGE),
+// où le compte SYSCOHADA à 6 chiffres est complété par « 00 ».
 export const PARAMETRES_DEFAUT = {
   journal: 'WAV', // code du journal SAGE où seront importées les écritures
   intituleJournal: 'JOURNAL WAVE',
-  compteTresorerie: '552000', // Monnaie téléphonique portable (le solde Wave)
-  compteFrais: '631700', // Frais sur instruments de monnaie électronique
-  compteChargeDefaut: '605800', // Achats de travaux, matériels et équipements
-  compteProduitDefaut: '706100', // Services vendus dans la région
-  compteContrepartieDefaut: '471100' // Débiteurs divers (encaissements à ventiler)
+  compteTresorerie: '55200000', // Monnaie téléphonique portable (le solde Wave)
+  compteFrais: '63170000', // Frais sur instruments de monnaie électronique
+  compteChargeDefaut: '60580000', // Achats de travaux, matériels et équipements
+  compteProduitDefaut: '70610000', // Services vendus dans la région
+  compteContrepartieDefaut: '47110000' // Débiteurs divers (encaissements à ventiler)
 };
 
 // sens : 'sortie' (paiement, montant < 0), 'entree' (encaissement, montant > 0)
 // ou 'tous'. motsCles : liste de termes ; la règle s'applique si l'un d'eux
 // apparaît dans le texte normalisé (motif + contrepartie). priorite : plus
-// petit = évalué en premier.
-export const REGLES_DEFAUT = [
+// petit = évalué en premier. Les comptes sont écrits ici à 6 chiffres (lisible)
+// puis normalisés en 8 chiffres au chargement (voir REGLES_DEFAUT plus bas).
+const REGLES_BRUTES = [
   // --- Carburant & énergie ---
   { priorite: 10, sens: 'sortie', motsCles: ['carburant', 'essence', 'gasoil', 'gazole', 'fuel'], compte: '605300', libelle: 'Carburant (autres énergies)' },
   { priorite: 12, sens: 'sortie', motsCles: ['electricite', 'cie', 'courant'], compte: '605200', libelle: 'Électricité' },
@@ -81,6 +86,12 @@ export const REGLES_DEFAUT = [
   { priorite: 60, sens: 'entree', motsCles: ['vente', 'marchandise'], compte: '701100', libelle: 'Ventes de marchandises' },
   { priorite: 62, sens: 'entree', motsCles: ['travaux', 'facture'], compte: '705100', libelle: 'Travaux facturés' }
 ];
+
+// Jeu de règles par défaut, comptes normalisés au format 8 chiffres réel.
+export const REGLES_DEFAUT = REGLES_BRUTES.map((r) => ({
+  ...r,
+  compte: normaliserCompte(r.compte)
+}));
 
 // Normalise un texte pour l'appariement : minuscules, sans accents.
 export function normaliser(texte) {

@@ -25,7 +25,7 @@
 
 import { roundFCFA } from './money';
 import { imputerCompte, sensTransaction, PARAMETRES_DEFAUT } from './rules';
-import { intituleCompte } from '../data/planComptable';
+import { intituleCompte, normaliserCompte } from '../data/planComptable';
 
 // Libellé d'écriture (repris sur chaque ligne de la pièce). On privilégie le
 // motif Wave ; à défaut la contrepartie ; à défaut le type de transaction.
@@ -54,13 +54,13 @@ export function ecrituresTransaction(tx, rang, options = {}) {
   // Choix du compte de contrepartie (charge / produit) : override manuel > règle.
   let compte, source, regle, libelleRegle;
   if (tx.txId && overrides[tx.txId]) {
-    compte = overrides[tx.txId];
+    compte = normaliserCompte(overrides[tx.txId]);
     source = 'manuel';
     regle = null;
     libelleRegle = '';
   } else {
     const r = imputerCompte(tx, options);
-    compte = r.compte;
+    compte = normaliserCompte(r.compte);
     source = r.source;
     regle = r.regle;
     libelleRegle = r.libelle;
@@ -73,17 +73,20 @@ export function ecrituresTransaction(tx, rang, options = {}) {
   const T = roundFCFA(Math.abs(montant));
   const F = roundFCFA(Math.abs(frais));
 
-  const ligne = (cpt, debit, credit, role) => ({
-    ref,
-    journal,
-    date,
-    compte: cpt,
-    intituleCompte: intituleCompte(cpt),
-    libelle,
-    debit: roundFCFA(debit),
-    credit: roundFCFA(credit),
-    role // 'contrepartie' | 'frais' | 'tresorerie'
-  });
+  const ligne = (cpt, debit, credit, role) => {
+    const compteN = normaliserCompte(cpt);
+    return {
+      ref,
+      journal,
+      date,
+      compte: compteN,
+      intituleCompte: intituleCompte(compteN),
+      libelle,
+      debit: roundFCFA(debit),
+      credit: roundFCFA(credit),
+      role // 'contrepartie' | 'frais' | 'tresorerie'
+    };
+  };
 
   const lignes = [];
 

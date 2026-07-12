@@ -1,5 +1,5 @@
 import { useMemo, useId } from 'react';
-import { PLAN_COMPTABLE, intituleCompte } from '../data/planComptable';
+import { PLAN_COMPTABLE, intituleCompte, normaliserCompte } from '../data/planComptable';
 import { inputClass } from './ui';
 
 // Sélecteur de compte général sur le plan SYSCOHADA (1091 comptes).
@@ -20,7 +20,11 @@ export default function CompteSelect({ value, onChange, compact = false }) {
         list={listId}
         value={value || ''}
         onChange={(e) => onChange(e.target.value.trim())}
-        placeholder="N° compte…"
+        onBlur={(e) => {
+          const v = e.target.value.trim();
+          if (v) onChange(normaliserCompte(v)); // complète en 8 chiffres à la sortie
+        }}
+        placeholder="N° compte (8 chiffres)…"
         className={`${inputClass} ${compact ? 'py-1 text-sm' : ''} ${inconnu ? 'border-red-400' : ''}`}
         inputMode="numeric"
       />
