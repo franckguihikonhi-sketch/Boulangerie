@@ -84,7 +84,7 @@ create policy anon_all on ecritures for all to anon, authenticated using (true) 
 
 -- Paramètres par défaut -----------------------------------------------------
 insert into parametres (cle, valeur) values
-  ('journal', 'CA'),
+  ('journal', 'CAI'),
   ('intituleJournal', 'JOURNAL CAISSE'),
   ('compteTresorerie', '55200000'),
   ('compteFrais', '63170000'),

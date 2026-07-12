@@ -26,7 +26,7 @@ export default function Parametres({ store, backend }) {
         subtitle="Comptes fixes appliqués à chaque écriture. Le solde Wave est un compte de trésorerie ; les frais Wave sont une charge financière."
       >
         <form onSubmit={enregistrer} className="grid gap-4 sm:grid-cols-2">
-          <Field label="Code journal SAGE" hint="Journal de destination dans SAGE (par défaut la caisse, ex. CA / CAI).">
+          <Field label="Code journal SAGE" hint="Journal de destination dans SAGE (par défaut la caisse : CAI).">
             <input value={form.journal} onChange={(e) => set({ journal: e.target.value.toUpperCase() })} className={inputClass} maxLength={6} />
           </Field>
           <Field label="Intitulé du journal">
