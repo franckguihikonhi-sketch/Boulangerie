@@ -22,8 +22,9 @@ export default function Apropos() {
               frais sur instruments de monnaie électronique).
             </li>
             <li>
-              Le <strong>compte de contrepartie</strong> (charge ou produit) est déterminé par les règles par mots-clés,
-              puis par les comptes mémorisés par contrepartie ; à défaut, un compte par défaut signalé « à vérifier ».
+              Le <strong>compte de contrepartie</strong> (charge ou produit) est déterminé par la <strong>Raison du
+              paiement</strong> (motif Wave) via les règles par mots-clés ; en repli, par un compte mémorisé pour la
+              contrepartie ; à défaut, un compte par défaut signalé « à vérifier ».
             </li>
             <li>
               Chaque transaction produit une <strong>pièce équilibrée</strong> (partie double). L'export est bloqué si

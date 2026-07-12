@@ -103,6 +103,20 @@ export function normaliser(texte) {
     .trim();
 }
 
+// Échappe les caractères spéciaux d'expression régulière.
+function echapper(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Vrai si le mot-clé apparaît comme MOT ENTIER dans le texte (déjà normalisés).
+// On borne par des frontières de mot pour éviter les faux positifs :
+// « eau » ne doit PAS matcher « plateau », « com » ne doit pas matcher
+// « complementaire », etc.
+export function contientMot(texte, mot) {
+  if (!mot) return false;
+  return new RegExp(`(?:^|[^a-z0-9])${echapper(mot)}(?:[^a-z0-9]|$)`).test(texte);
+}
+
 // Sens comptable d'une transaction d'après son montant / son type.
 //   'sortie'  : paiement (montant < 0)
 //   'entree'  : encaissement (montant > 0)
@@ -126,10 +140,29 @@ export function imputerCompte(tx, options = {}) {
   // La contrepassation impute comme la charge d'origine (sens « sortie »).
   const sens = sensBrut === 'contrepassation' ? 'sortie' : sensBrut;
 
-  const texte = normaliser(`${tx.motif} ${tx.contrepartie}`);
+  // L'imputation est pilotée par la RAISON DU PAIEMENT (motif Wave) uniquement.
+  // Le nom de la contrepartie n'entre PAS dans le rapprochement par mots-clés
+  // (il déclencherait de faux positifs) ; il ne sert que via le mapping
+  // mémorisé, en repli, quand le motif ne permet pas de classer.
+  const texteMotif = normaliser(tx.motif);
   const cleContrepartie = normaliser(tx.contrepartie);
 
-  // 1) Mapping mémorisé par contrepartie (décision déjà prise par le comptable).
+  // 1) Règles par mots-clés appliquées à la Raison du paiement.
+  if (texteMotif) {
+    const applicables = [...regles]
+      .filter((r) => r.actif !== false && (r.sens === 'tous' || r.sens === sens))
+      .sort((a, b) => (a.priorite ?? 999) - (b.priorite ?? 999));
+
+    for (const r of applicables) {
+      const mots = (r.motsCles || []).map(normaliser).filter(Boolean);
+      if (mots.some((m) => contientMot(texteMotif, m))) {
+        return { compte: r.compte, libelle: r.libelle || '', source: 'regle', regle: r };
+      }
+    }
+  }
+
+  // 2) Repli : compte mémorisé pour cette contrepartie (décision déjà prise),
+  //    utilisé seulement quand la Raison du paiement ne classe pas la ligne.
   if (cleContrepartie && mappings[cleContrepartie]) {
     return {
       compte: mappings[cleContrepartie],
@@ -137,18 +170,6 @@ export function imputerCompte(tx, options = {}) {
       source: 'contrepartie',
       regle: null
     };
-  }
-
-  // 2) Règles par mots-clés, triées par priorité, filtrées par sens.
-  const applicables = [...regles]
-    .filter((r) => r.actif !== false && (r.sens === 'tous' || r.sens === sens))
-    .sort((a, b) => (a.priorite ?? 999) - (b.priorite ?? 999));
-
-  for (const r of applicables) {
-    const mots = (r.motsCles || []).map(normaliser).filter(Boolean);
-    if (mots.some((m) => m && texte.includes(m))) {
-      return { compte: r.compte, libelle: r.libelle || '', source: 'regle', regle: r };
-    }
   }
 
   // 3) Compte par défaut selon le sens — à vérifier par le comptable.

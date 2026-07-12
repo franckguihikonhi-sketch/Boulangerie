@@ -31,7 +31,7 @@ export default function Regles({ store }) {
     <div className="space-y-6">
       <Card
         title="Règles d'imputation automatique"
-        subtitle="Un mot-clé trouvé dans le motif ou la contrepartie impute la transaction sur le compte choisi. La règle de plus petite priorité s'applique en premier."
+        subtitle="Un mot-clé trouvé dans la Raison du paiement (motif Wave) impute la transaction sur le compte choisi. La règle de plus petite priorité s'applique en premier. Le nom de la contrepartie n'entre pas dans le rapprochement."
         actions={
           <Button
             variant="secondary"
