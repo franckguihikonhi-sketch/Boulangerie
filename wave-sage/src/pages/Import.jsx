@@ -17,7 +17,8 @@ const TYPE_LABEL = {
 
 const SOURCE = {
   contrepartie: { tone: 'brand', texte: 'Mémorisé' },
-  regle: { tone: 'info', texte: 'Règle' },
+  regle: { tone: 'info', texte: 'Règle (motif)' },
+  plan: { tone: 'warn', texte: 'Proposé (libellé)' },
   manuel: { tone: 'success', texte: 'Manuel' },
   defaut: { tone: 'warn', texte: 'À vérifier' }
 };
@@ -32,18 +33,26 @@ export default function Import({ store }) {
   const [ouvert, setOuvert] = useState({}); // pièces dépliées
   const [message, setMessage] = useState('');
 
-  const { parametres, regles, mappings } = store;
+  const { parametres, regles, mappings, plan } = store;
 
-  // Recalcule les pièces à chaque changement d'override / règle / paramètre.
+  // Table compte -> intitulé pour l'affichage (plan comptable éditable).
+  const intitulePar = useMemo(
+    () => Object.fromEntries((plan || []).map((c) => [c.compte, c.intitule])),
+    [plan]
+  );
+
+  // Recalcule les pièces à chaque changement d'override / règle / paramètre / plan.
   const pieces = useMemo(
     () =>
       construirePieces(transactions, {
         parametres,
         regles,
         mappingsContrepartie: mappings,
+        plan,
+        intitulePar,
         overrides
       }),
-    [transactions, parametres, regles, mappings, overrides]
+    [transactions, parametres, regles, mappings, plan, intitulePar, overrides]
   );
   const controle = useMemo(() => controlePieces(pieces), [pieces]);
 
