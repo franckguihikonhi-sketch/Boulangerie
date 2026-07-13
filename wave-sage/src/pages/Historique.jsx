@@ -1,12 +1,38 @@
 import { formatFCFA } from '../lib/money';
-import { Badge, Card, InfoNote, TableWrap, td, th } from '../components/ui';
+import { viderHistorique } from '../lib/db';
+import { Badge, Button, Card, InfoNote, TableWrap, td, th } from '../components/ui';
 
 export default function Historique({ store }) {
-  const { imports } = store;
+  const { imports, exportedTx } = store;
+
+  const vider = async () => {
+    if (
+      !window.confirm(
+        "Vider l'historique des imports et la mémoire anti-doublon ? " +
+          'Le plan comptable, les règles et les paramètres sont conservés.'
+      )
+    )
+      return;
+    await viderHistorique();
+  };
+
   return (
-    <Card title="Historique des imports" subtitle="Chaque export SAGE est journalisé (traçabilité).">
+    <Card
+      title="Historique des imports"
+      subtitle="Chaque export SAGE est journalisé (traçabilité)."
+      actions={
+        (imports.length > 0 || (exportedTx && exportedTx.length > 0)) && (
+          <Button variant="danger" onClick={vider}>
+            Vider l'historique
+          </Button>
+        )
+      }
+    >
       {!imports.length ? (
-        <InfoNote>Aucun import pour l'instant. Importez un relevé Wave puis générez le fichier SAGE.</InfoNote>
+        <InfoNote>
+          Aucun import pour l'instant — l'application est prête pour vos données. Importez un relevé Wave puis générez
+          le fichier SAGE.
+        </InfoNote>
       ) : (
         <TableWrap>
           <table className="min-w-full divide-y divide-stone-100">
