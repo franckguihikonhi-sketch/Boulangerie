@@ -9,6 +9,14 @@ directories:
   output: release
   buildResources: build
 
+# Fournisseur de publication (nécessaire pour qu'electron-builder calcule les
+# métadonnées, même avec « --publish never » ; la publication réelle de la
+# Release est faite par l'action GitHub).
+publish:
+  provider: github
+  owner: franckguihikonhi-sketch
+  repo: Boulangerie
+
 # Fichiers embarqués dans l'application.
 files:
   - dist/**/*
