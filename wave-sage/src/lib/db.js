@@ -226,11 +226,13 @@ export function hydrater() {
       } catch (e) {
         // La base dédiée n'est pas prête : on reste en local sans bloquer l'UI.
         setStatus('ready', e?.message || 'Supabase indisponible (mode local).');
+        state = { ...state }; // nouvelle référence -> re-render des abonnés
         notify();
         return;
       }
     }
     setStatus('ready');
+    state = { ...state }; // nouvelle référence -> re-render des abonnés
     notify();
   })();
   return hydratePromise;
@@ -239,7 +241,7 @@ export function hydrater() {
 // --------------------------- Mutations ------------------------------------
 
 export async function setParametres(patch) {
-  state.parametres = { ...state.parametres, ...patch };
+  state = { ...state, parametres: { ...state.parametres, ...patch } };
   ecrireLocal();
   notify();
   if (supabaseConfigured) {
@@ -263,9 +265,11 @@ export async function upsertRegle(regle) {
     libelle: regle.libelle || '',
     actif: regle.actif !== false
   };
-  if (idx === -1) state.regles = [...state.regles, propre];
-  else state.regles = state.regles.map((r) => (r.id === propre.id ? propre : r));
-  state.regles.sort((a, b) => a.priorite - b.priorite);
+  const regles = (idx === -1
+    ? [...state.regles, propre]
+    : state.regles.map((r) => (r.id === propre.id ? propre : r))
+  ).sort((a, b) => a.priorite - b.priorite);
+  state = { ...state, regles };
   ecrireLocal();
   notify();
   if (supabaseConfigured) {
@@ -287,7 +291,7 @@ export async function upsertRegle(regle) {
 }
 
 export async function removeRegle(id) {
-  state.regles = state.regles.filter((r) => r.id !== id);
+  state = { ...state, regles: state.regles.filter((r) => r.id !== id) };
   ecrireLocal();
   notify();
   if (supabaseConfigured && /^\d+$/.test(id)) {
@@ -300,7 +304,7 @@ export async function removeRegle(id) {
 }
 
 export async function reinitialiserRegles() {
-  state.regles = clonerRegles(REGLES_DEFAUT);
+  state = { ...state, regles: clonerRegles(REGLES_DEFAUT) };
   ecrireLocal();
   notify();
 }
@@ -313,9 +317,11 @@ export async function upsertCompte({ compte, intitule }) {
   if (!c) return null;
   const lib = String(intitule || '').trim();
   const idx = state.plan.findIndex((x) => x.compte === c);
-  if (idx === -1) state.plan = [...state.plan, { compte: c, intitule: lib }];
-  else state.plan = state.plan.map((x) => (x.compte === c ? { compte: c, intitule: lib } : x));
-  state.plan.sort((a, b) => a.compte.localeCompare(b.compte));
+  const plan = (idx === -1
+    ? [...state.plan, { compte: c, intitule: lib }]
+    : state.plan.map((x) => (x.compte === c ? { compte: c, intitule: lib } : x))
+  ).sort((a, b) => a.compte.localeCompare(b.compte));
+  state = { ...state, plan };
   planMap = null;
   ecrirePlanLocal();
   notify();
@@ -332,7 +338,7 @@ export async function upsertCompte({ compte, intitule }) {
 // Supprime un compte du plan.
 export async function removeCompte(compte) {
   const c = normaliserCompte(compte);
-  state.plan = state.plan.filter((x) => x.compte !== c);
+  state = { ...state, plan: state.plan.filter((x) => x.compte !== c) };
   planMap = null;
   ecrirePlanLocal();
   notify();
@@ -347,7 +353,7 @@ export async function removeCompte(compte) {
 
 // Restaure le plan comptable SYSCOHADA d'origine.
 export async function reinitialiserPlan() {
-  state.plan = PLAN_COMPTABLE.map((c) => ({ ...c }));
+  state = { ...state, plan: PLAN_COMPTABLE.map((c) => ({ ...c })) };
   planMap = null;
   ecrirePlanLocal();
   notify();
@@ -355,12 +361,13 @@ export async function reinitialiserPlan() {
 
 export async function setMapping(contrepartieNormalisee, compte) {
   if (!contrepartieNormalisee) return;
-  if (compte) state.mappings = { ...state.mappings, [contrepartieNormalisee]: compte };
+  let mappings;
+  if (compte) mappings = { ...state.mappings, [contrepartieNormalisee]: compte };
   else {
-    const copie = { ...state.mappings };
-    delete copie[contrepartieNormalisee];
-    state.mappings = copie;
+    mappings = { ...state.mappings };
+    delete mappings[contrepartieNormalisee];
   }
+  state = { ...state, mappings };
   ecrireLocal();
   notify();
   if (supabaseConfigured) {
@@ -378,6 +385,27 @@ export async function setMapping(contrepartieNormalisee, compte) {
   }
 }
 
+// Vide l'historique des imports et le garde-fou anti-doublon (démarrage propre).
+// Ne touche pas au plan comptable, aux règles ni aux paramètres.
+export async function viderHistorique() {
+  state = { ...state, imports: [], exportedTx: [] };
+  try {
+    localStorage.removeItem(K_IMPORTS);
+    localStorage.removeItem(K_EXPORTED);
+  } catch {
+    /* stockage indisponible */
+  }
+  notify();
+  if (supabaseConfigured) {
+    try {
+      await supabase.from('ecritures').delete().neq('id', 0);
+      await supabase.from('imports').delete().neq('id', 0);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
 // Enregistre un import (métadonnées + écritures) pour l'historique / l'audit.
 export async function enregistrerImport({ nomFichier, periode, pieces, controle }) {
   const entree = {
@@ -387,14 +415,16 @@ export async function enregistrerImport({ nomFichier, periode, pieces, controle 
     periode: periode || { debut: '', fin: '' },
     controle
   };
-  state.imports = [entree, ...state.imports].slice(0, 50);
+  const imports = [entree, ...state.imports].slice(0, 50);
   // Mémorise les identifiants Wave exportés (anti-doublon sur les imports futurs).
+  let exportedTx = state.exportedTx;
   if (Array.isArray(pieces)) {
     const nouveaux = pieces.map((p) => p.txId).filter(Boolean);
     if (nouveaux.length) {
-      state.exportedTx = [...new Set([...state.exportedTx, ...nouveaux])].slice(-MAX_EXPORTED);
+      exportedTx = [...new Set([...state.exportedTx, ...nouveaux])].slice(-MAX_EXPORTED);
     }
   }
+  state = { ...state, imports, exportedTx };
   ecrireLocal();
   notify();
   if (supabaseConfigured) {
