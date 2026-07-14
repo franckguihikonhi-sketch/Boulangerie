@@ -179,7 +179,6 @@ function slipHtml(data, t, locale) {
         <p class="nom">${esc(e.nom)}</p>
         <p class="muted">Emploi : ${esc(e.emploi || '—')}${e.expatrie ? ' — Expatrié' : ''}</p>
         <p class="muted">Matricule : ${esc(e.matricule || '—')}</p>
-        <p class="muted">N° Séc. Soc. (CNPS) : ${esc(e.cnps || '—')}</p>
       </div>
       <div class="stat">
         <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
