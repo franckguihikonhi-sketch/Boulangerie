@@ -1,0 +1,257 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useStore } from '../lib/useStore';
+import { useI18n } from '../i18n/I18nContext';
+import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
+import { periodePourMois } from '../lib/payroll';
+import { formatFCFA } from '../lib/money';
+import {
+  Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
+  Badge, TableWrap, th, td
+} from '../components/ui';
+
+function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const emptyPeriode = (kind = 'cdd') => ({
+  id: uid(), kind, label: '', debut: '', fin: '', salaireBase: '', netCible: '', transport: 30000, primes: []
+});
+
+function emptyForm() {
+  return {
+    id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
+    cnps: '', emploi: '', dateEmbauche: '', salaireCategoriel: '',
+    periodes: [emptyPeriode('cdd')]
+  };
+}
+
+function fromEmployee(e) {
+  return {
+    id: e.id, matricule: e.matricule, nom: e.nom, situation: e.situation,
+    enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, dateEmbauche: e.dateEmbauche,
+    salaireCategoriel: e.salaireCategoriel,
+    periodes: e.periodes.map((p) => ({ ...p, fin: p.fin || '', primes: p.primes.map((pr) => ({ ...pr })) }))
+  };
+}
+
+export default function Employees() {
+  const { employees } = useStore();
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const [form, setForm] = useState(null);
+  const [error, setError] = useState('');
+  const ym = currentYm();
+
+  const openNew = () => { setError(''); setForm(emptyForm()); };
+  const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
+
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const setPeriode = (i, patch) =>
+    setForm((f) => ({ ...f, periodes: f.periodes.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) }));
+
+  const addPeriode = () =>
+    setForm((f) => ({ ...f, periodes: [...f.periodes, emptyPeriode(f.periodes.length ? 'cdd' : 'cdd')] }));
+
+  const removePeriode = (i) =>
+    setForm((f) => ({ ...f, periodes: f.periodes.filter((_, idx) => idx !== i) }));
+
+  const addPrime = (i) =>
+    setPeriode(i, { primes: [...form.periodes[i].primes, { label: '', montant: '', imposable: true }] });
+
+  const setPrime = (i, j, patch) =>
+    setPeriode(i, {
+      primes: form.periodes[i].primes.map((pr, idx) => (idx === j ? { ...pr, ...patch } : pr))
+    });
+
+  const removePrime = (i, j) =>
+    setPeriode(i, { primes: form.periodes[i].primes.filter((_, idx) => idx !== j) });
+
+  const submit = (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      saveEmployee(form);
+      setForm(null);
+    } catch (err) {
+      setError(t(err.message) || err.message);
+    }
+  };
+
+  const remove = (id) => {
+    if (window.confirm(t('employees.deleteConfirm'))) deleteEmployee(id);
+  };
+
+  return (
+    <div>
+      <PageTitle actions={<Button onClick={openNew}>{t('employees.add')}</Button>}>
+        {t('employees.title')}
+      </PageTitle>
+
+      <Card>
+        {employees.length === 0 ? (
+          <p className="p-6 text-center text-sm text-stone-500">{t('employees.empty')}</p>
+        ) : (
+          <TableWrap min={720}>
+            <thead>
+              <tr className="border-b border-stone-200">
+                <th className={th}>{t('employees.name')}</th>
+                <th className={th}>{t('employees.emploi')}</th>
+                <th className={th}>{t('employees.situation')}</th>
+                <th className={th}>{t('employees.contract')}</th>
+                <th className={`${th} text-right`}>{t('employees.actions')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {employees.map((e) => {
+                const p = periodePourMois(e.periodes, ym) || e.periodes[e.periodes.length - 1];
+                return (
+                  <tr key={e.id}>
+                    <td className={td}>
+                      <p className="font-medium text-stone-800">{e.nom}</p>
+                      <p className="text-xs text-stone-500">{e.matricule || '—'} · {e.cnps || '—'}</p>
+                    </td>
+                    <td className={td}>{e.emploi || '—'}</td>
+                    <td className={td}>
+                      {t('situation.' + e.situation)}
+                      <span className="text-stone-400"> · {e.enfants} enf.</span>
+                    </td>
+                    <td className={td}>
+                      <Badge tone={p?.kind === 'cdi' ? 'success' : 'warning'}>
+                        {p ? t('contract.' + p.kind) : '—'}
+                      </Badge>
+                      {p && <span className="ml-2 text-xs text-stone-500">{formatFCFA(p.netCible)}</span>}
+                    </td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      <button className="text-sm font-medium text-brand-700 hover:underline" onClick={() => navigate('/bulletins?e=' + e.id)}>
+                        {t('employees.view')}
+                      </button>
+                      <button className="ml-3 text-sm font-medium text-stone-600 hover:underline" onClick={() => openEdit(e)}>
+                        {t('employees.edit')}
+                      </button>
+                      <button className="ml-3 text-sm font-medium text-red-600 hover:underline" onClick={() => remove(e.id)}>
+                        {t('employees.delete')}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </TableWrap>
+        )}
+      </Card>
+
+      {form && (
+        <Modal title={form.id ? t('employees.edit') : t('employees.add')} onClose={() => setForm(null)} wide>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label={t('employees.name')}>
+                <input className={inputClass} value={form.nom} onChange={(e) => setField('nom', e.target.value)} required />
+              </Field>
+              <Field label={t('employees.matricule')}>
+                <input className={inputClass} value={form.matricule} onChange={(e) => setField('matricule', e.target.value)} />
+              </Field>
+              <Field label={t('employees.situation')}>
+                <select className={inputClass} value={form.situation} onChange={(e) => setField('situation', e.target.value)}>
+                  {SITUATIONS.map((s) => <option key={s} value={s}>{t('situation.' + s)}</option>)}
+                </select>
+              </Field>
+              <Field label={t('employees.children')}>
+                <input className={inputClass} type="number" min="0" value={form.enfants} onChange={(e) => setField('enfants', e.target.value)} />
+              </Field>
+              <Field label={t('employees.cnps')}>
+                <input className={inputClass} value={form.cnps} onChange={(e) => setField('cnps', e.target.value)} />
+              </Field>
+              <Field label={t('employees.emploi')}>
+                <input className={inputClass} value={form.emploi} onChange={(e) => setField('emploi', e.target.value)} />
+              </Field>
+              <Field label={t('employees.dateEmbauche')} help={t('employees.dateEmbaucheHelp')}>
+                <input className={inputClass} type="date" value={form.dateEmbauche} onChange={(e) => setField('dateEmbauche', e.target.value)} />
+              </Field>
+              <Field label={t('employees.salaireCategoriel')} help={t('employees.salaireCategorielHelp')}>
+                <input className={inputClass} type="number" min="0" value={form.salaireCategoriel} onChange={(e) => setField('salaireCategoriel', e.target.value)} placeholder="auto" />
+              </Field>
+            </div>
+
+            <div className="border-t border-stone-100 pt-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-stone-800">{t('employees.periods')}</h3>
+                <Button type="button" variant="secondary" onClick={addPeriode}>+ {t('employees.addPeriod')}</Button>
+              </div>
+              <InfoNote>{t('employees.periodsHelp')}</InfoNote>
+
+              <div className="mt-3 space-y-3">
+                {form.periodes.map((p, i) => (
+                  <div key={p.id} className="rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-stone-500">#{i + 1}</span>
+                      {form.periodes.length > 1 && (
+                        <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => removePeriode(i)}>
+                          {t('period.remove')}
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Field label={t('period.kind')}>
+                        <select className={inputClass} value={p.kind} onChange={(e) => setPeriode(i, { kind: e.target.value })}>
+                          {TYPES_CONTRAT.map((k) => <option key={k} value={k}>{t('contract.' + k)}</option>)}
+                        </select>
+                      </Field>
+                      <Field label={t('period.label')}>
+                        <input className={inputClass} value={p.label} onChange={(e) => setPeriode(i, { label: e.target.value })} placeholder={t('period.labelPlaceholder')} />
+                      </Field>
+                      <Field label={t('period.debut')}>
+                        <input className={inputClass} type="month" value={p.debut} onChange={(e) => setPeriode(i, { debut: e.target.value })} required />
+                      </Field>
+                      <Field label={t('period.fin')} help={p.kind === 'cdi' ? t('period.finHelp') : undefined}>
+                        <input className={inputClass} type="month" value={p.kind === 'cdi' ? '' : p.fin} disabled={p.kind === 'cdi'} onChange={(e) => setPeriode(i, { fin: e.target.value })} />
+                      </Field>
+                      <Field label={t('period.salaireBase')}>
+                        <input className={inputClass} type="number" min="0" value={p.salaireBase} onChange={(e) => setPeriode(i, { salaireBase: e.target.value })} required />
+                      </Field>
+                      <Field label={t('period.netCible')}>
+                        <input className={inputClass} type="number" min="0" value={p.netCible} onChange={(e) => setPeriode(i, { netCible: e.target.value })} required />
+                      </Field>
+                      <Field label={t('period.transport')}>
+                        <input className={inputClass} type="number" min="0" value={p.transport} onChange={(e) => setPeriode(i, { transport: e.target.value })} />
+                      </Field>
+                    </div>
+                    <p className="mt-1 text-xs text-stone-500">{t('period.netCibleHelp')}</p>
+
+                    <div className="mt-2">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs font-medium text-stone-600">{t('period.primes')}</span>
+                        <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => addPrime(i)}>
+                          + {t('period.addPrime')}
+                        </button>
+                      </div>
+                      {p.primes.map((pr, j) => (
+                        <div key={j} className="mb-1 flex items-center gap-2">
+                          <input className={inputClass + ' flex-1'} value={pr.label} onChange={(e) => setPrime(i, j, { label: e.target.value })} placeholder={t('period.primeLabel')} />
+                          <input className={inputClass + ' w-28'} type="number" min="0" value={pr.montant} onChange={(e) => setPrime(i, j, { montant: e.target.value })} placeholder={t('period.primeMontant')} />
+                          <label className="flex items-center gap-1 whitespace-nowrap text-xs text-stone-600">
+                            <input type="checkbox" checked={pr.imposable !== false} onChange={(e) => setPrime(i, j, { imposable: e.target.checked })} />
+                            {t('period.primeImposable')}
+                          </label>
+                          <button type="button" className="text-red-500 hover:text-red-700" onClick={() => removePrime(i, j)} aria-label={t('period.remove')}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <ErrorNote>{error}</ErrorNote>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
+              <Button type="submit">{t('common.save')}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}

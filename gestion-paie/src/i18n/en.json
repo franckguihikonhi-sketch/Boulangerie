@@ -1,0 +1,75 @@
+{
+  "app.name": "PaieCI",
+  "app.tagline": "Payslips — Côte d'Ivoire",
+
+  "nav.dashboard": "Dashboard",
+  "nav.employees": "Employees",
+  "nav.bulletins": "Payslips",
+  "nav.settings": "Settings",
+  "nav.about": "About",
+  "nav.logout": "Sign out",
+
+  "role.admin": "Payroll Manager",
+  "role.gestionnaire": "HR Officer",
+
+  "db.loading": "Loading…",
+
+  "login.title": "Sign in",
+  "login.subtitle": "Access your payroll workspace",
+  "login.email": "Email address",
+  "login.password": "Password",
+  "login.submit": "Sign in",
+  "login.guest": "Try the demo",
+  "login.error": "Invalid email or password.",
+  "login.demoHint": "Demo accounts: admin@paie.ci / admin123",
+
+  "dashboard.title": "Dashboard",
+  "dashboard.employees": "Employees",
+  "dashboard.masseNet": "Net payroll (current month)",
+  "dashboard.masseBrut": "Gross payroll (current month)",
+  "dashboard.coutEmployeur": "Total employer cost (current month)",
+  "dashboard.currentMonth": "Reference month",
+  "dashboard.recent": "Recent employees",
+  "dashboard.noEmployees": "No employees yet. Start by adding one.",
+  "dashboard.goEmployees": "Manage employees",
+  "dashboard.goBulletins": "Generate payslips",
+
+  "employees.title": "Employees",
+  "employees.add": "New employee",
+  "employees.empty": "No employees yet.",
+  "employees.name": "Full name",
+  "employees.matricule": "Staff ID",
+  "employees.situation": "Marital status",
+  "employees.children": "Number of children",
+  "employees.cnps": "CNPS number",
+  "employees.emploi": "Job / position",
+  "employees.contract": "Current contract",
+  "employees.view": "Payslips",
+  "employees.edit": "Edit",
+  "employees.delete": "Delete",
+  "employees.deleteConfirm": "Permanently delete this employee?",
+
+  "situation.celibataire": "Single",
+  "situation.marie": "Married",
+  "situation.divorce": "Divorced",
+  "situation.veuf": "Widowed",
+
+  "contract.cdd": "Fixed-term",
+  "contract.cdi": "Permanent",
+
+  "bulletins.title": "Payslip generation",
+  "bulletins.scopeAll": "All employees (batch)",
+  "bulletins.scopeOne": "Single employee",
+  "bulletins.from": "From month",
+  "bulletins.to": "To month",
+  "bulletins.generate": "Preview",
+
+  "settings.title": "Settings",
+  "settings.save": "Save",
+
+  "common.cancel": "Cancel",
+  "common.save": "Save",
+  "common.close": "Close",
+
+  "about.title": "About"
+}
