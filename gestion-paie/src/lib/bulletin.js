@@ -286,6 +286,10 @@ const PRINT_CSS = `
   .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 10.5px; margin: 8px 0 0; }
   .foot { margin-top: 12px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
   @media print {
+    /* Marge de page nulle : supprime l'en-tête/pied automatique du navigateur
+       (date, URL, titre, n° de page). Les marges réelles sont portées par le
+       padding de .slip. */
+    @page { margin: 0; }
     body { background: #fff; }
     /* Marge haute réservée au papier à en-tête pré-imprimé (≈ 3,5 cm). */
     .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 35mm 9mm 10mm; }
