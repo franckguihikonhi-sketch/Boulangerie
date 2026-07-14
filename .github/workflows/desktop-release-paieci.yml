@@ -1,0 +1,69 @@
+name: Application bureau (PaieCI)
+
+# Génère UNIQUEMENT l'installateur Windows (.exe) de « PaieCI » et le publie
+# dans une Release téléchargeable. Déclenché en poussant un tag
+# « paieci-desktop-v* », en poussant la branche « paieci-desktop-build », ou
+# manuellement.
+on:
+  push:
+    tags:
+      - 'paieci-desktop-v*'
+    branches:
+      - paieci-desktop-build
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: gestion-paie
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Dépendances de l'app + build du renderer (Vite -> dist/). Les clés
+      # Supabase sont facultatives : sans elles, l'app tourne en mode
+      # démonstration / admin local (stockage sur l'appareil).
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_PAIE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_PAIE_SUPABASE_ANON_KEY }}
+      # Outils d'empaquetage (installés à la volée, hors dépendances de l'app).
+      - run: npm install --no-save electron@31 electron-builder@24
+      # Construit les installateurs Windows uniquement.
+      - run: npx --no-install electron-builder --config electron-builder.yml --win --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Artefacts de build (téléchargeables depuis l'exécution du workflow).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paieci-windows
+          path: |
+            gestion-paie/release/*.exe
+          if-no-files-found: ignore
+      # Publie/attache les installateurs à la Release (tag dédié ou branche
+      # paieci-desktop-build). Le tag est créé côté serveur par l'action.
+      - name: Publier la Release
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/paieci-desktop-build'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'paieci-desktop-v1.0.0' }}
+          files: |
+            gestion-paie/release/*.exe
+          fail_on_unmatched_files: false
+          name: PaieCI — application de bureau (Windows)
+          body: |
+            Application de bureau **PaieCI** — bulletins de paie Côte d'Ivoire (Windows uniquement).
+
+            - `PaieCI-Setup-*.exe` : installateur (recommandé).
+            - `PaieCI-Portable-*.exe` : version portable, sans installation (à lancer directement, par exemple depuis une clé USB).
+
+            Application non signée : au premier lancement, Windows peut afficher
+            « Windows a protégé votre ordinateur » — cliquez sur
+            **« Informations complémentaires »** puis **« Exécuter quand même »**.

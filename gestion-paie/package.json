@@ -3,6 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "description": "PaieCI — bulletins de paie conformes à la législation ivoirienne (CNPS, CMU, ITS/IGR).",
+  "author": {
+    "name": "Franck G. KONHI",
+    "email": "franckguihikonhi@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/franckguihikonhi-sketch/Boulangerie.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

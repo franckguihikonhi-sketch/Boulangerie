@@ -1,0 +1,41 @@
+# Configuration d'empaquetage de l'application de bureau « PaieCI »
+# (electron-builder). Le renderer est le build Vite (dossier dist/), le
+# process principal est electron/main.cjs. Cible Windows uniquement.
+appId: com.franckkonhi.paieci
+productName: PaieCI
+copyright: © Mr Franck G. KONHI
+
+directories:
+  output: release
+  buildResources: build
+
+# Fournisseur de publication (nécessaire pour qu'electron-builder calcule les
+# métadonnées, même avec « --publish never » ; la publication réelle de la
+# Release est faite par l'action GitHub).
+publish:
+  provider: github
+  owner: franckguihikonhi-sketch
+  repo: Boulangerie
+
+# Fichiers embarqués dans l'application.
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+# Injecte le point d'entrée Electron dans le package.json empaqueté.
+extraMetadata:
+  main: electron/main.cjs
+
+# Windows uniquement : installateur NSIS (.exe) + version portable (un seul .exe).
+win:
+  target:
+    - nsis
+    - portable
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: PaieCI-Setup-${version}.${ext}
+portable:
+  artifactName: PaieCI-Portable-${version}.${ext}
