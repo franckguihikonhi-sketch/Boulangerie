@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - claude/responsive-web-app-59m2qn
+      - claude/ci-payroll-saas-ftjsdo
   workflow_dispatch:
 
 permissions:
