@@ -41,9 +41,11 @@ export default function About() {
 
         <h2 className="mt-5 mb-2 text-sm font-semibold text-stone-800">{t('about.migrationTitle')}</h2>
         <p className="text-xs leading-relaxed text-stone-600">
-          Les données de paie sont stockées localement sur cet appareil (aucune transmission à un
-          serveur). Un schéma PostgreSQL complet est fourni dans <code>supabase/schema.sql</code> pour
-          une migration vers Supabase (multi-utilisateurs, sauvegarde centralisée, Row Level Security).
+          Les données de paie sont enregistrées dans une base <strong>Supabase (PostgreSQL)</strong> —
+          sauvegarde centralisée, multi-appareils, synchronisation temps réel. Le schéma complet et la
+          fonction d'enregistrement transactionnelle sont fournis dans <code>supabase/setup.sql</code>.
+          En l'absence de base configurée, le <strong>mode démonstration</strong> rejoue toute la
+          logique dans un bac à sable local, sans rien transmettre à un serveur.
         </p>
       </Card>
     </div>

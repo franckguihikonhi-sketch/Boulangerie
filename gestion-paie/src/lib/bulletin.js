@@ -266,19 +266,59 @@ const PRINT_CSS = `
   }
 `;
 
-// Ouvre la fenêtre d'impression avec l'ensemble des bulletins fournis.
-// `slips` : liste d'objets renvoyés par bulletinData().
+// Construit le document HTML complet (autonome) regroupant les bulletins.
+// Sert à la fois à l'aperçu (iframe) et à l'impression, garantissant que
+// « ce qui est affiché est ce qui est imprimé ».
+export function slipDocumentHtml(slips, { t, locale }) {
+  const body = (slips || []).map((s) => slipHtml(s, t, locale)).join('\n');
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
+    <title>${esc(t('slip.title'))}</title>
+    <style>${PRINT_CSS}</style></head><body>${body}</body></html>`;
+}
+
+// Repli : ouvre le document dans un nouvel onglet (si l'impression directe est
+// impossible), l'utilisateur y déclenche l'impression manuellement.
+function ouvrirDansOnglet(html) {
+  try {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) URL.revokeObjectURL(url);
+    return Boolean(w);
+  } catch {
+    return false;
+  }
+}
+
+// Imprime (ou exporte en PDF) l'ensemble des bulletins. On passe par un iframe
+// caché SAME-ORIGIN plutôt que window.open : cela contourne les bloqueurs de
+// pop-ups et fonctionne à l'intérieur d'un cadre restreint. Repli automatique
+// vers un onglet si l'impression directe échoue.
 export function imprimerBulletins(slips, { t, locale }) {
   if (!slips || slips.length === 0) return false;
-  const win = window.open('', '_blank', 'width=880,height=920');
-  if (!win) return false;
-  const body = slips.map((s) => slipHtml(s, t, locale)).join('\n');
-  win.document.write(`<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
-    <title>${esc(t('slip.title'))}</title>
-    <style>${PRINT_CSS}</style></head><body>
-    ${body}
-    <script>window.onload = function () { setTimeout(function(){ window.print(); }, 150); };</script>
-    </body></html>`);
-  win.document.close();
+  const html = slipDocumentHtml(slips, { t, locale });
+
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  const cleanup = () => setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 1000);
+
+  iframe.onload = () => {
+    try {
+      const cw = iframe.contentWindow;
+      cw.focus();
+      cw.onafterprint = cleanup;
+      cw.print();
+      // Filet de sécurité si onafterprint ne se déclenche pas.
+      setTimeout(cleanup, 60000);
+    } catch {
+      iframe.remove();
+      ouvrirDansOnglet(html);
+    }
+  };
+
+  document.body.appendChild(iframe);
+  // srcdoc garde le contenu same-origin (compatible cadres restreints).
+  iframe.srcdoc = html;
   return true;
 }

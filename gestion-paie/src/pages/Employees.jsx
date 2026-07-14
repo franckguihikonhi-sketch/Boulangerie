@@ -69,19 +69,29 @@ export default function Employees() {
   const removePrime = (i, j) =>
     setPeriode(i, { primes: form.periodes[i].primes.filter((_, idx) => idx !== j) });
 
-  const submit = (e) => {
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
+    setSaving(true);
     try {
-      saveEmployee(form);
+      await saveEmployee(form);
       setForm(null);
     } catch (err) {
       setError(t(err.message) || err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const remove = (id) => {
-    if (window.confirm(t('employees.deleteConfirm'))) deleteEmployee(id);
+  const remove = async (id) => {
+    if (!window.confirm(t('employees.deleteConfirm'))) return;
+    try {
+      await deleteEmployee(id);
+    } catch (err) {
+      window.alert(t(err.message) || err.message);
+    }
   };
 
   return (
@@ -251,7 +261,7 @@ export default function Employees() {
             <ErrorNote>{error}</ErrorNote>
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setForm(null)}>{t('common.cancel')}</Button>
-              <Button type="submit">{t('common.save')}</Button>
+              <Button type="submit" disabled={saving}>{t('common.save')}</Button>
             </div>
           </form>
         </Modal>

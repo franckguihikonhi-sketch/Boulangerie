@@ -17,10 +17,22 @@ pour atteindre exactement ce net.
 ## Pile technique
 
 - **Frontend** : React 18 + Vite + Tailwind CSS (responsive mobile / desktop)
-- **Données** : couche locale (localStorage) — l'application fonctionne
-  immédiatement, hors-ligne, sans compte. Le schéma PostgreSQL cible est prêt
-  dans [`supabase/schema.sql`](supabase/schema.sql) pour une migration Supabase.
+- **Données** : **Supabase (PostgreSQL)** + cache mémoire hydraté et
+  synchronisation temps réel — même architecture que les autres modules du
+  dépôt. Un **mode démonstration** (accès invité, 30 min) rejoue toute la
+  logique dans un bac à sable **entièrement local**, sans toucher la base.
 - **Moteur de paie** : [`src/lib/payroll.js`](src/lib/payroll.js), isolé et testé.
+
+### Base de données
+
+1. Créer un projet Supabase, ouvrir **SQL Editor** et exécuter
+   [`supabase/setup.sql`](supabase/setup.sql) (tables `settings` / `employees` /
+   `periodes` / `primes`, fonction transactionnelle `save_employee`, politiques
+   RLS pour la clé `anon`).
+2. Renseigner les variables d'environnement `VITE_SUPABASE_URL` et
+   `VITE_SUPABASE_ANON_KEY` (fichier `.env`), puis `npm run dev`.
+3. Sans configuration Supabase, l'écran d'accueil propose le **mode
+   démonstration** (bac à sable local) : idéal pour tester sans compte.
 
 ## Démarrage
 
@@ -71,19 +83,21 @@ sélectionne la période applicable (`periodePourMois`) et calcule le bulletin.
 Ce modèle couvre nativement **un CDD renouvelé plusieurs fois puis basculé en CDI**,
 chaque période ayant son propre salaire et ses primes.
 
-## Génération PDF
+## Génération & aperçu PDF
 
 `src/lib/bulletin.js` construit un document HTML autonome (un bulletin par page,
-saut de page automatique) ouvert dans la boîte d'impression du navigateur —
-« Enregistrer en PDF ». Aucune dépendance PDF externe : le rendu imprimé est
-identique à l'aperçu écran, en lot comme à l'unité.
+saut de page automatique). **L'aperçu à l'écran affiche exactement le bulletin
+imprimé** (parts salariale ET patronale, cotisations, cumuls, net) via un iframe
+isolé : « ce qui est affiché est ce qui est imprimé ». L'impression passe par un
+**iframe caché same-origin** (et non `window.open`), ce qui contourne les
+bloqueurs de pop-ups et fonctionne dans un cadre restreint, avec repli sur un
+onglet si l'impression directe échoue. Aucune dépendance PDF externe.
 
-## Migration Supabase
+## Production
 
-1. Créer le projet Supabase et exécuter `supabase/schema.sql`.
-2. Renseigner `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
-3. Remplacer les fonctions de `src/lib/db.js` par des appels `supabase.from(...)`
-   (l'API applicative — `saveEmployee`, `deleteEmployee`, `saveSettings` — reste
-   identique).
-4. Activer Supabase Auth + Row Level Security (colonne `owner`).
-5. Déployer sur Cloudflare Pages (`npm run build`, dossier `dist/`).
+1. Exécuter `supabase/setup.sql` dans Supabase (voir « Base de données »).
+2. Activer Supabase **Auth + Row Level Security** par utilisateur (ajouter une
+   colonne `owner uuid references auth.users` et des policies par propriétaire).
+   Le calcul de paie reste côté client (`src/lib/payroll.js`).
+3. Déployer sur Cloudflare Pages (`npm run build`, dossier `dist/`), avec les
+   variables `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.

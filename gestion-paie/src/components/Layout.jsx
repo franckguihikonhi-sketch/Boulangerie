@@ -4,6 +4,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
 import DbGate from './DbGate';
 import Logo from './Logo';
+import DemoCountdown from './DemoCountdown';
 
 const NAV_ITEMS = [
   { to: '/', key: 'nav.dashboard', icon: 'M3 12l9-8 9 8M5 10v10h5v-6h4v6h5V10' },
@@ -91,6 +92,7 @@ export default function Layout() {
           <span className="text-sm font-semibold text-stone-800 lg:hidden">{t('app.name')}</span>
         </div>
         <div className="flex items-center gap-2">
+          <DemoCountdown />
           <div className="flex overflow-hidden rounded-lg border border-stone-300 text-xs font-semibold">
             {['fr', 'en'].map((l) => (
               <button

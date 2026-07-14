@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
-import { saveSettings, resetDemoData } from '../lib/db';
+import { saveSettings, resetDemoData, isDemoMode } from '../lib/db';
 import { DEFAULT_PARAMS } from '../lib/payroll';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote } from '../components/ui';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
 export default function Parametres() {
   const { settings } = useStore();
@@ -17,20 +17,30 @@ export default function Parametres() {
     transportExonere: settings.transportExonere
   });
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false); };
 
-  const save = (e) => {
+  const save = async (e) => {
     e.preventDefault();
-    saveSettings({
-      raisonSociale: form.raisonSociale.trim(),
-      employeurCnps: form.employeurCnps.trim(),
-      adresse: form.adresse.trim(),
-      modePaiement: form.modePaiement,
-      tauxAccidentTravail: Math.max(0, Number(form.tauxAT) || 0) / 100,
-      transportExonere: Math.max(0, Number(form.transportExonere) || 0)
-    });
-    setSaved(true);
+    setError('');
+    setSaving(true);
+    try {
+      await saveSettings({
+        raisonSociale: form.raisonSociale.trim(),
+        employeurCnps: form.employeurCnps.trim(),
+        adresse: form.adresse.trim(),
+        modePaiement: form.modePaiement,
+        tauxAccidentTravail: Math.max(0, Number(form.tauxAT) || 0) / 100,
+        transportExonere: Math.max(0, Number(form.transportExonere) || 0)
+      });
+      setSaved(true);
+    } catch (err) {
+      setError(t(err.message) || err.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const reset = () => {
@@ -86,8 +96,9 @@ export default function Parametres() {
               </Field>
             </div>
 
+            <ErrorNote>{error}</ErrorNote>
             <div className="flex items-center gap-3 pt-1">
-              <Button type="submit">{t('settings.save')}</Button>
+              <Button type="submit" disabled={saving}>{t('settings.save')}</Button>
               {saved && <span className="text-sm text-green-700">{t('settings.saved')}</span>}
             </div>
           </form>
@@ -103,9 +114,11 @@ export default function Parametres() {
               </li>
             ))}
           </ul>
-          <div className="mt-4 border-t border-stone-100 pt-3">
-            <Button variant="danger" onClick={reset}>{t('settings.reset')}</Button>
-          </div>
+          {isDemoMode() && (
+            <div className="mt-4 border-t border-stone-100 pt-3">
+              <Button variant="danger" onClick={reset}>{t('settings.reset')}</Button>
+            </div>
+          )}
         </Card>
       </div>
 

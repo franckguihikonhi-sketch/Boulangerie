@@ -13,6 +13,12 @@
   "role.gestionnaire": "HR Officer",
 
   "db.loading": "Loading…",
+  "db.retry": "Retry",
+  "db.errorTitle": "Connection error",
+  "db.notConfiguredTitle": "Database not configured",
+  "db.notConfiguredHelp": "Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to connect your Supabase database, or launch the demo (local sandbox).",
+  "db.notReadyTitle": "Database not initialised",
+  "db.notReadyHelp": "The database is reachable but the tables are missing. Run supabase/setup.sql in the Supabase SQL editor, then retry.",
 
   "login.title": "Sign in",
   "login.subtitle": "Access your payroll workspace",

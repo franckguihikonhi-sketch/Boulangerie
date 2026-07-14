@@ -2,73 +2,40 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
-import { formatFCFA, formatNum } from '../lib/money';
-import { periodePourMois, listerMois, libelleMois } from '../lib/payroll';
-import { bulletinData, imprimerBulletins } from '../lib/bulletin';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, Badge } from '../components/ui';
+import { formatFCFA } from '../lib/money';
+import { periodePourMois, listerMois } from '../lib/payroll';
+import { bulletinData, imprimerBulletins, slipDocumentHtml } from '../lib/bulletin';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
 function currentYm() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-// Ligne d'aperçu (gain / retenue) dans le bulletin affiché à l'écran.
-function Line({ label, gain, retenue, base, taux, strong }) {
-  return (
-    <div className={`grid grid-cols-12 gap-2 px-2 py-1 text-sm ${strong ? 'bg-brand-50 font-semibold' : ''}`}>
-      <span className="col-span-5 text-stone-700">{label}</span>
-      <span className="col-span-2 text-right text-xs text-stone-400">{base != null ? formatNum(base) : ''}</span>
-      <span className="col-span-1 text-right text-xs text-stone-400">{taux || ''}</span>
-      <span className="col-span-2 text-right tabular-nums text-green-700">{gain != null ? formatNum(gain) : ''}</span>
-      <span className="col-span-2 text-right tabular-nums text-red-700">{retenue != null ? formatNum(retenue) : ''}</span>
-    </div>
-  );
-}
-
+// Aperçu fidèle : on affiche EXACTEMENT le bulletin imprimé (part salariale ET
+// part patronale, cumuls, net) dans un iframe isolé. « Ce qui est affiché est
+// ce qui est imprimé. » L'iframe s'ajuste à la hauteur de son contenu.
 function SlipPreview({ data }) {
   const { t, locale } = useI18n();
-  const { employee: e, periode: p, ym, calc, anciennete } = data;
-  const pct = calc.tauxAnciennete ? (calc.tauxAnciennete * 100).toFixed(0) + ' %' : null;
+  const html = slipDocumentHtml([data], { t, locale });
+  const onLoad = (ev) => {
+    try {
+      const doc = ev.target.contentDocument;
+      ev.target.style.height = `${doc.documentElement.scrollHeight + 8}px`;
+    } catch {
+      /* iframe inaccessible : on garde la hauteur par défaut */
+    }
+  };
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 bg-stone-50 px-4 py-3">
-        <div>
-          <p className="font-semibold text-stone-800">{e.nom}</p>
-          <p className="text-xs text-stone-500">{e.emploi || '—'} · {libelleMois(ym, locale)}</p>
-        </div>
-        <Badge tone={p.kind === 'cdi' ? 'success' : 'warning'}>{t('contract.' + p.kind)}{p.label ? ' — ' + p.label : ''}</Badge>
-      </div>
-      <div className="divide-y divide-stone-50">
-        <Line label={t('slip.salaireBase')} gain={calc.salaireBase} />
-        <Line label={t('slip.sursalaire')} gain={calc.sursalaire} />
-        {calc.primeAnciennete > 0 && (
-          <Line label={t('slip.primeAnciennete')} base={calc.salaireCategoriel} taux={pct} gain={calc.primeAnciennete} />
-        )}
-        {calc.primes.map((pr, i) => (
-          <Line key={i} label={pr.label + (pr.imposable === false ? ' *' : '')} gain={pr.montant} />
-        ))}
-        {calc.transport > 0 && <Line label={t('slip.transport')} gain={calc.transport} />}
-        <Line label={t('slip.brutImposable')} gain={calc.brutImposable} strong />
-        <Line label={t('slip.cnpsRetraite')} base={calc.baseCotisable} taux="6,3 %" retenue={calc.cnpsRetraite} />
-        <Line label={t('slip.cmu')} retenue={calc.cmu} />
-        <Line label={t('slip.impotBrut')} base={calc.brutImposable} retenue={calc.impotBrutAvantRicf} />
-        {calc.reductionRicf > 0 && <Line label={t('slip.ricf')} retenue={-calc.reductionRicf} />}
-        <Line label={t('slip.its')} retenue={calc.impotNet} strong />
-      </div>
-      <div className="flex items-center justify-between bg-brand-600 px-4 py-3 text-white">
-        <span className="text-sm font-semibold uppercase tracking-wide">{t('slip.netAPayer')}</span>
-        <span className="text-lg font-bold">{formatFCFA(calc.netAPayer, locale)}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 px-4 py-2 text-xs text-stone-500">
-        <span>{t('slip.parts')} : {calc.parts} · {t('slip.seniority')} : {t('slip.years', { n: anciennete })}</span>
-        <span className="text-right">{t('slip.coutTotal')} : {formatFCFA(calc.coutTotalEmployeur, locale)}</span>
-      </div>
-      {calc.sursalaire === 0 && calc.netAPayer > calc.netCible + 1 && (
-        <p className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
-          {t('slip.netWarning', { net: formatFCFA(calc.netAPayer, locale) })}
-        </p>
-      )}
-    </Card>
+    <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-100 shadow-sm">
+      <iframe
+        title={`Bulletin ${data.employee.nom} ${data.ym}`}
+        srcDoc={html}
+        onLoad={onLoad}
+        className="block w-full"
+        style={{ border: 0, minHeight: 420 }}
+      />
+    </div>
   );
 }
 
@@ -144,7 +111,7 @@ export default function Bulletins() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button onClick={build}>{t('bulletins.generate')}</Button>
           {slips && slips.length > 0 && (
-            <Button variant="secondary" onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
+            <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
           )}
         </div>
         <ErrorNote>{error}</ErrorNote>
@@ -161,13 +128,16 @@ export default function Bulletins() {
                   {t('bulletins.count', { n: slips.length })} ·{' '}
                   <span className="font-semibold text-stone-800">{t('slip.netAPayer')} : {formatFCFA(total, locale)}</span>
                 </p>
+                <Button variant="secondary" onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
               </div>
               <InfoNote>{t('bulletins.previewNote')}</InfoNote>
-              <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {slips.slice(0, 6).map((s, i) => <SlipPreview key={i} data={s} />)}
+              <div className="mt-3 flex flex-col gap-5">
+                {slips.slice(0, 12).map((s, i) => <SlipPreview key={i} data={s} />)}
               </div>
-              {slips.length > 6 && (
-                <p className="mt-3 text-center text-xs text-stone-500">+ {slips.length - 6} …</p>
+              {slips.length > 12 && (
+                <p className="mt-4 text-center text-sm text-stone-500">
+                  + {slips.length - 12} bulletin(s) supplémentaire(s) inclus à l'impression.
+                </p>
               )}
             </>
           )}

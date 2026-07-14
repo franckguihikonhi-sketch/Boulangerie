@@ -13,6 +13,12 @@
   "role.gestionnaire": "Gestionnaire RH",
 
   "db.loading": "Chargement…",
+  "db.retry": "Réessayer",
+  "db.errorTitle": "Erreur de connexion",
+  "db.notConfiguredTitle": "Base de données non configurée",
+  "db.notConfiguredHelp": "Renseignez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY pour brancher votre base Supabase, ou lancez la démonstration (bac à sable local).",
+  "db.notReadyTitle": "Base non initialisée",
+  "db.notReadyHelp": "La base est joignable mais les tables ne sont pas créées. Exécutez supabase/setup.sql dans l'éditeur SQL de Supabase, puis réessayez.",
 
   "login.title": "Connexion",
   "login.subtitle": "Accédez à votre espace de gestion de la paie",
@@ -103,7 +109,7 @@
   "bulletins.none": "Aucun bulletin sur cette période (vérifiez les dates des contrats).",
   "bulletins.badRange": "Le mois de fin doit être postérieur ou égal au mois de début.",
   "bulletins.noEmployees": "Ajoutez d'abord au moins un salarié.",
-  "bulletins.previewNote": "Aperçu du premier bulletin. Le bouton « Imprimer / PDF » génère tous les bulletins de la période dans un document unique, prêt à enregistrer en PDF.",
+  "bulletins.previewNote": "Aperçu fidèle du bulletin imprimé (parts salariale ET patronale, cotisations, cumuls). Le bouton « Imprimer / PDF » ouvre la fenêtre d'impression avec tous les bulletins de la période, prêts à enregistrer en PDF.",
 
   "slip.title": "BULLETIN DE PAIE",
   "slip.period": "Période",
