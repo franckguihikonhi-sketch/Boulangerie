@@ -9,11 +9,60 @@
 // ===========================================================================
 
 import { formatFCFA, formatNum } from './money';
-import { calculerDepuisNet, libelleMois, anneesAnciennete } from './payroll';
+import { calculerDepuisNet, libelleMois, anneesAnciennete, periodePourMois } from './payroll';
 import { paramsFromSettings } from './db';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Calcule le bulletin d'un salarié pour un mois « aaaa-mm » donné, en
+// sélectionnant automatiquement la période contractuelle applicable. Renvoie
+// null si aucune période ne couvre ce mois (salarié pas encore embauché, etc.).
+function calcMois(employee, ym, params) {
+  const periode = periodePourMois(employee.periodes, ym);
+  if (!periode) return null;
+  const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
+  const calc = calculerDepuisNet(
+    periode.netCible,
+    {
+      salaireBase: periode.salaireBase,
+      salaireCategoriel: employee.salaireCategoriel || periode.salaireBase,
+      transport: periode.transport,
+      primes: periode.primes,
+      situation: employee.situation,
+      enfants: employee.enfants,
+      expatrie: employee.expatrie,
+      anciennete
+    },
+    params
+  );
+  return { periode, anciennete, calc };
+}
+
+// Cumule les montants clés de janvier au mois courant de la même année : ce
+// sont les vrais cumuls annuels (« Année »), reconstitués mois par mois à
+// partir des périodes contractuelles du salarié.
+function cumulsAnnuels(employee, ym, params, courant) {
+  const [y, m] = ym.split('-').map(Number);
+  const acc = { salaireBrut: 0, chargesSal: 0, chargesPat: 0, netImposable: 0, netAPayer: 0 };
+  for (let mo = 1; mo <= m; mo++) {
+    const r = calcMois(employee, `${y}-${String(mo).padStart(2, '0')}`, params);
+    if (!r) continue;
+    acc.salaireBrut += r.calc.brutImposable;
+    acc.chargesSal += r.calc.totalRetenues;
+    acc.chargesPat += r.calc.totalPatronal;
+    acc.netImposable += r.calc.netImposable;
+    acc.netAPayer += r.calc.netAPayer;
+  }
+  const periode = {
+    salaireBrut: courant.brutImposable,
+    chargesSal: courant.totalRetenues,
+    chargesPat: courant.totalPatronal,
+    netImposable: courant.netImposable,
+    netAPayer: courant.netAPayer
+  };
+  return { periode, annee: acc };
+}
 
 // Construit les données de calcul d'un bulletin pour un salarié et un mois
 // donnés, à partir de la période contractuelle applicable.
@@ -35,6 +84,8 @@ export function bulletinData(employee, periode, ym, settings) {
     },
     params
   );
+  // Cumuls annuels réels (janvier → mois du bulletin).
+  const cumuls = cumulsAnnuels(employee, ym, params, calc);
   // Bornes du mois (jj/mm/aa) pour l'en-tête « Période du … au … ».
   const [y, m] = ym.split('-').map(Number);
   const debutMois = new Date(Date.UTC(y, m - 1, 1));
@@ -42,7 +93,7 @@ export function bulletinData(employee, periode, ym, settings) {
   const fdate = (d) =>
     `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCFullYear()).slice(2)}`;
   const periodeDates = { du: fdate(debutMois), au: fdate(finMois) };
-  return { employee, periode, ym, settings, params, anciennete, calc, periodeDates };
+  return { employee, periode, ym, settings, params, anciennete, calc, periodeDates, cumuls };
 }
 
 // --------------------------- Rendu HTML d'un bulletin ----------------------
@@ -85,10 +136,11 @@ function slipHtml(data, t, locale) {
       ? `<p class="warn">${esc(t('slip.netWarning', { net: formatFCFA(calc.netAPayer, locale) }))}</p>`
       : '';
 
-  // Bloc « Cumuls » (Période / Année). Sur un bulletin mensuel isolé, la colonne
-  // Année reprend le mois (les cumuls annuels supposeraient un historique).
-  const cumul = (lib, v) =>
-    `<tr><td class="lib">${esc(lib)}</td><td class="num">${money(v)}</td><td class="num">${money(v)}</td></tr>`;
+  // Bloc « Cumuls » : colonne Période (le mois du bulletin) et colonne Année
+  // (cumul réel de janvier au mois courant, reconstitué mois par mois).
+  const cu = data.cumuls;
+  const cumul = (lib, per, ann) =>
+    `<tr><td class="lib">${esc(lib)}</td><td class="num">${money(per)}</td><td class="num">${money(ann)}</td></tr>`;
 
   return `
   <section class="slip">
@@ -162,10 +214,11 @@ function slipHtml(data, t, locale) {
       <table class="cumuls">
         <thead><tr><th class="lib">Cumuls</th><th class="num">Période</th><th class="num">Année</th></tr></thead>
         <tbody>
-          ${cumul('Salaire brut', calc.brutImposable)}
-          ${cumul('Charges salariales', calc.totalRetenues)}
-          ${cumul('Charges patronales', calc.totalPatronal)}
-          ${cumul('Net imposable', calc.netImposable)}
+          ${cumul('Salaire brut', cu.periode.salaireBrut, cu.annee.salaireBrut)}
+          ${cumul('Charges salariales', cu.periode.chargesSal, cu.annee.chargesSal)}
+          ${cumul('Charges patronales', cu.periode.chargesPat, cu.annee.chargesPat)}
+          ${cumul('Net imposable', cu.periode.netImposable, cu.annee.netImposable)}
+          ${cumul('Net à payer', cu.periode.netAPayer, cu.annee.netAPayer)}
         </tbody>
       </table>
       <div class="net">
