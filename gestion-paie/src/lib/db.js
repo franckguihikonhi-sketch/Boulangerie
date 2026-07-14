@@ -29,6 +29,9 @@ export const TYPES_CONTRAT = ['cdd', 'cdi'];
 // Durée d'une session de démonstration (accès invité) : 30 minutes.
 export const DEMO_MS = 30 * 60 * 1000;
 const DEMO_STATE_KEY = 'gpaie-demo-state';
+// Espace de travail PERSISTANT (mode admin / gestionnaire sans Supabase) :
+// contrairement au bac à sable démo, il ne s'efface pas et n'expire pas.
+const LOCAL_STATE_KEY = 'gpaie-local-state';
 const SESSION_KEY = 'gpaie-session';
 
 // --------------------------- Cache & abonnement ----------------------------
@@ -152,23 +155,35 @@ export function isDemoMode() {
   return demoMode;
 }
 
+// Vrai en mode « admin local » : connecté (hors invité) mais sans base Supabase
+// configurée. Les données sont alors persistées dans le navigateur.
+export function isLocalMode() {
+  return !demoMode && !supabaseConfigured;
+}
+
 function seededState() {
   const s = emptyState();
   seedDemo(s);
   return s;
 }
 
-function persistDemo() {
-  safeSet(DEMO_STATE_KEY, JSON.stringify(state));
+// Clé de persistance locale selon le mode : bac à sable invité (démo, éphémère)
+// ou espace de travail persistant (admin/gestionnaire hors Supabase).
+function localKey() {
+  return demoMode ? DEMO_STATE_KEY : LOCAL_STATE_KEY;
+}
+
+function persistLocal() {
+  safeSet(localKey(), JSON.stringify(state));
 }
 
 // Transaction locale : fn reçoit une copie profonde ; en cas d'exception,
 // l'état courant reste intact (aucune écriture partielle).
-function demoMutate(fn) {
+function memMutate(fn) {
   const draft = JSON.parse(JSON.stringify(state));
   const result = fn(draft);
   state = draft;
-  persistDemo();
+  persistLocal();
   notify();
   return result;
 }
@@ -177,7 +192,7 @@ export function startDemo() {
   demoMode = true;
   hydratePromise = Promise.resolve(); // neutralise toute hydratation Supabase
   state = seededState();
-  persistDemo();
+  persistLocal();
   setStatus('ready');
   notify();
 }
@@ -215,7 +230,7 @@ function guestSessionActive() {
   state = restored && Array.isArray(restored.employees)
     ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees }
     : seededState();
-  persistDemo();
+  persistLocal();
   setStatus('ready');
 })();
 
@@ -272,7 +287,20 @@ async function fetchAll() {
 export async function hydrate() {
   if (demoMode) { setStatus('ready'); notify(); return; }
   if (!supabaseConfigured) {
-    setStatus('error', 'errors.dbNotConfigured');
+    // Mode LOCAL (admin / gestionnaire sans Supabase) : espace de travail
+    // PERSISTANT dans le navigateur. On restaure l'état sauvegardé ; sinon on
+    // démarre sur un espace vierge, à peupler par l'utilisateur (aucune donnée
+    // de démonstration ici, contrairement au mode invité).
+    let restored = null;
+    try {
+      restored = JSON.parse(safeGet(LOCAL_STATE_KEY));
+    } catch {
+      /* ignore */
+    }
+    state = restored && Array.isArray(restored.employees)
+      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees }
+      : emptyState();
+    setStatus('ready');
     notify();
     return;
   }
@@ -342,8 +370,8 @@ function rpcError(err) {
 // ===========================================================================
 
 export async function saveSettings(patch) {
-  if (demoMode) {
-    return demoMutate((s) => {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
       s.settings = { ...s.settings, ...patch };
     });
   }
@@ -362,8 +390,8 @@ export async function saveSettings(patch) {
 
 export async function saveEmployee(input) {
   const record = buildEmployee(input);
-  if (demoMode) {
-    return demoMutate((s) => {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
       if (record.id) {
         const e = s.employees.find((x) => x.id === record.id);
         if (!e) throw new Error('errors.notFound');
@@ -382,8 +410,8 @@ export async function saveEmployee(input) {
 }
 
 export async function deleteEmployee(id) {
-  if (demoMode) {
-    return demoMutate((s) => {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
       s.employees = s.employees.filter((e) => e.id !== id);
     });
   }
@@ -400,7 +428,7 @@ export function getEmployee(id) {
 export function resetDemoData() {
   if (!demoMode) return;
   state = seededState();
-  persistDemo();
+  persistLocal();
   notify();
 }
 

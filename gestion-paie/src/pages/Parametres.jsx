@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
-import { saveSettings, resetDemoData, isDemoMode } from '../lib/db';
+import { saveSettings, resetDemoData, isDemoMode, isLocalMode } from '../lib/db';
 import { DEFAULT_PARAMS } from '../lib/payroll';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
@@ -64,6 +64,12 @@ export default function Parametres() {
   return (
     <div>
       <PageTitle>{t('settings.title')}</PageTitle>
+
+      {isLocalMode() && (
+        <div className="mb-4">
+          <InfoNote>{t('settings.localMode')}</InfoNote>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-2">
