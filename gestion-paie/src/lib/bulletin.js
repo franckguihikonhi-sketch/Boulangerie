@@ -145,16 +145,8 @@ function slipHtml(data, t, locale) {
   return `
   <section class="slip">
     <header class="slip-head">
-      <div class="emp">
-        <p class="raison">${esc(settings.raisonSociale || '')}</p>
-        <p class="muted">${esc(settings.adresse || '')}</p>
-        ${settings.employeurCnps ? `<p class="muted">N° employeur CNPS : ${esc(settings.employeurCnps)}</p>` : ''}
-      </div>
-      <div class="doc">
-        <p class="badge">BULLETIN DE PAIE</p>
-        <p class="period">Période du <strong>${esc(periodeDates.du)}</strong> au <strong>${esc(periodeDates.au)}</strong></p>
-        <p class="period">Paiement le <strong>${esc(periodeDates.au)}</strong> par <strong>${esc(modePaiement)}</strong></p>
-      </div>
+      <p class="badge">BULLETIN DE PAIE</p>
+      <p class="period">Période du <strong>${esc(periodeDates.du)}</strong> au <strong>${esc(periodeDates.au)}</strong> · Paiement le <strong>${esc(periodeDates.au)}</strong> par <strong>${esc(modePaiement)}</strong></p>
     </header>
 
     <div class="ident">
@@ -236,12 +228,12 @@ const PRINT_CSS = `
   body { font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: #1c1917; margin: 0; padding: 0; background: #f5f5f4; }
   .slip { background: #fff; max-width: 820px; margin: 16px auto; padding: 22px 26px; border: 1px solid #e7e5e4; border-radius: 8px; page-break-after: always; }
   .slip:last-child { page-break-after: auto; }
-  .slip-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
-  .raison { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
-  .doc { text-align: right; }
+  /* En-tête volontairement sans informations employeur : le bulletin est
+     imprimé sur papier à en-tête de l'entreprise. Titre centré. */
+  .slip-head { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
   .muted { color: #57534e; font-size: 11px; margin: 1.5px 0; }
-  .period { font-size: 11px; margin: 1.5px 0; color: #44403c; }
-  .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 3px 12px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; margin: 0 0 5px; }
+  .period { font-size: 11px; margin: 4px 0 0; color: #44403c; }
+  .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 4px 20px; font-size: 14px; font-weight: 700; letter-spacing: .08em; margin: 0; }
   .ident { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 9px 12px; margin-bottom: 12px; }
   .ident p { margin: 1.5px 0; }
   .nom { font-size: 13px; font-weight: 700; margin: 0 0 3px; }
@@ -269,7 +261,8 @@ const PRINT_CSS = `
   .foot { margin-top: 12px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
   @media print {
     body { background: #fff; }
-    .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 10mm 9mm; }
+    /* Marge haute réservée au papier à en-tête pré-imprimé (≈ 3,5 cm). */
+    .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 35mm 9mm 10mm; }
   }
 `;
 

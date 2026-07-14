@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react';
+import { safeGet, safeSet, safeRemove } from './storage';
 
 // Authentification (démonstration) avec deux rôles :
 //   - admin        : le « Responsable RH / paie » — accès complet ;
@@ -12,7 +13,7 @@ const SESSION_KEY = 'gpaie-session';
 
 function loadUsers() {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
+    const raw = safeGet(USERS_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     /* ignore */
@@ -21,7 +22,7 @@ function loadUsers() {
     { email: 'admin@paie.ci', password: 'admin123', name: 'Responsable Paie', role: 'admin' },
     { email: 'rh@paie.ci', password: 'rh123', name: 'Gestionnaire RH', role: 'gestionnaire' }
   ];
-  localStorage.setItem(USERS_KEY, JSON.stringify(defaults));
+  safeSet(USERS_KEY, JSON.stringify(defaults));
   return defaults;
 }
 
@@ -30,7 +31,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem(SESSION_KEY));
+      return JSON.parse(safeGet(SESSION_KEY));
     } catch {
       return null;
     }
@@ -46,18 +47,18 @@ export function AuthProvider({ children }) {
         );
         if (!found) return false;
         const session = { email: found.email, name: found.name, role: found.role };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        safeSet(SESSION_KEY, JSON.stringify(session));
         setUser(session);
         return true;
       },
       startGuest() {
         const session = { email: 'invite@paie.ci', name: 'Invité (démo)', role: 'admin', guest: true };
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        safeSet(SESSION_KEY, JSON.stringify(session));
         setUser(session);
         return session;
       },
       logout() {
-        localStorage.removeItem(SESSION_KEY);
+        safeRemove(SESSION_KEY);
         setUser(null);
       }
     }),

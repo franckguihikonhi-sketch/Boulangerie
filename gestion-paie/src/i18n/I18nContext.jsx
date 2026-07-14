@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import fr from './fr.json';
 import en from './en.json';
+import { safeGet, safeSet } from '../lib/storage';
 
 // Interface bilingue FR / EN via fichiers statiques. Le contenu saisi par
 // l'utilisateur (noms, primes) n'est jamais traduit automatiquement.
@@ -8,7 +9,7 @@ const DICTS = { fr, en };
 const I18nContext = createContext(null);
 
 export function I18nProvider({ children }) {
-  const [locale, setLocale] = useState(() => localStorage.getItem('gpaie-locale') || 'fr');
+  const [locale, setLocale] = useState(() => safeGet('gpaie-locale') || 'fr');
 
   useEffect(() => {
     document.documentElement.setAttribute('lang', locale);
@@ -32,7 +33,7 @@ export function I18nProvider({ children }) {
       locale,
       t,
       setLocale: (l) => {
-        localStorage.setItem('gpaie-locale', l);
+        safeSet('gpaie-locale', l);
         setLocale(l);
       }
     }),
