@@ -42,6 +42,8 @@ function defaultSettings() {
     raisonSociale: 'Mon Entreprise',
     employeurCnps: '',
     adresse: 'Abidjan, Côte d’Ivoire',
+    // Mode de règlement affiché sur le bulletin (Virement / Espèces / Chèque).
+    modePaiement: 'Virement',
     // Paramètres de paie modifiables (les autres taux légaux restent figés
     // dans payroll.js — DEFAULT_PARAMS).
     tauxAccidentTravail: DEFAULT_PARAMS.cnpsAccidentTravail,
@@ -171,6 +173,9 @@ export function saveEmployee(input) {
       enfants: Math.max(0, Math.floor(Number(input.enfants) || 0)),
       cnps: input.cnps?.trim() || '',
       emploi: input.emploi?.trim() || '',
+      // Salarié expatrié : déclenche l'impôt sur salaires « part patronale
+      // expatriés » (11,5 %) en lieu et place de la seule part locale.
+      expatrie: input.expatrie === true,
       dateEmbauche: input.dateEmbauche || periodes[0].debut + '-01',
       // Salaire catégoriel (minimum conventionnel) servant d'assiette à la prime
       // d'ancienneté ; par défaut le salaire de base de la première période.
@@ -217,6 +222,7 @@ function seedDemo(s) {
     enfants: 2,
     cnps: '9988776 C',
     emploi: 'Vendeuse',
+    expatrie: false,
     dateEmbauche: '2023-01-01',
     salaireCategoriel: 120000,
     periodes: [
@@ -246,6 +252,7 @@ function seedDemo(s) {
     enfants: 3,
     cnps: '5566778 D',
     emploi: 'Chef de production',
+    expatrie: false,
     dateEmbauche: '2020-03-01',
     salaireCategoriel: 250000,
     periodes: [

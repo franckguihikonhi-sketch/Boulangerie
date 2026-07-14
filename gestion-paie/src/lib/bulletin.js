@@ -30,176 +30,193 @@ export function bulletinData(employee, periode, ym, settings) {
       primes: periode.primes,
       situation: employee.situation,
       enfants: employee.enfants,
+      expatrie: employee.expatrie,
       anciennete
     },
     params
   );
-  return { employee, periode, ym, settings, params, anciennete, calc };
+  // Bornes du mois (jj/mm/aa) pour l'en-tête « Période du … au … ».
+  const [y, m] = ym.split('-').map(Number);
+  const debutMois = new Date(Date.UTC(y, m - 1, 1));
+  const finMois = new Date(Date.UTC(y, m, 0));
+  const fdate = (d) =>
+    `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCFullYear()).slice(2)}`;
+  const periodeDates = { du: fdate(debutMois), au: fdate(finMois) };
+  return { employee, periode, ym, settings, params, anciennete, calc, periodeDates };
 }
 
 // --------------------------- Rendu HTML d'un bulletin ----------------------
 
 function slipHtml(data, t, locale) {
-  const { employee: e, periode: p, ym, settings, calc, anciennete } = data;
-  const money = (n) => esc(formatNum(n, locale));
+  const { employee: e, periode: p, settings, calc, anciennete, periodeDates, params } = data;
+  const money = (n) => (n === 0 ? '0' : esc(formatNum(n, locale)));
+  const rt = (x) => (x * 100).toFixed(2).replace('.', ','); // taux « 6,30 »
+  const nb = (n) => n.toFixed(2).replace('.', ','); // nombre « 30,00 »
 
-  const gainRow = (label, base, taux, gain) => `
-    <tr>
-      <td>${esc(label)}</td>
-      <td class="num">${base != null ? money(base) : ''}</td>
-      <td class="num">${taux != null ? taux : ''}</td>
-      <td class="num">${gain != null ? money(gain) : ''}</td>
-      <td class="num"></td>
+  // Ligne du corps : 9 colonnes.
+  //   code | désignation | nombre | base | txSal | gain | retSal | txPat | retPat
+  const row = (o) => {
+    const cls = o.cls ? ` class="${o.cls}"` : '';
+    return `<tr${cls}>
+      <td class="code">${o.code != null ? o.code : ''}</td>
+      <td class="lib">${esc(o.lib)}</td>
+      <td class="num sm">${o.nombre != null ? nb(o.nombre) : ''}</td>
+      <td class="num">${o.base != null ? money(o.base) : ''}</td>
+      <td class="num sm">${o.txSal != null ? rt(o.txSal) : ''}</td>
+      <td class="num">${o.gain != null ? money(o.gain) : ''}</td>
+      <td class="num">${o.retSal != null ? money(o.retSal) : ''}</td>
+      <td class="num sm">${o.txPat != null ? rt(o.txPat) : ''}</td>
+      <td class="num">${o.retPat != null ? money(o.retPat) : ''}</td>
     </tr>`;
-  const retRow = (label, base, taux, ret) => `
-    <tr>
-      <td>${esc(label)}</td>
-      <td class="num">${base != null ? money(base) : ''}</td>
-      <td class="num">${taux != null ? taux : ''}</td>
-      <td class="num"></td>
-      <td class="num">${ret != null ? money(ret) : ''}</td>
-    </tr>`;
+  };
 
   const primesRows = (calc.primes || [])
-    .map((pr) => gainRow(pr.label + (pr.imposable === false ? ' *' : ''), null, null, pr.montant))
+    .map((pr) => row({ lib: pr.label + (pr.imposable === false ? ' (exonérée)' : ''), nombre: 1, base: pr.montant, gain: pr.montant }))
     .join('');
 
-  const transportLabel =
-    calc.transportExonere > 0
-      ? `${t('slip.transport')} (${t('slip.transportExonere')} ${money(calc.transportExonere)})`
-      : t('slip.transport');
+  const modePaiement = settings.modePaiement || 'Virement';
+
+  // Total des cotisations / retenues salariales (inclut l'ITS) et patronales.
+  const totalRetSal = calc.totalRetenues;
+  const totalRetPat = calc.totalPatronal;
 
   const netWarn =
     calc.sursalaire === 0 && calc.netAPayer > calc.netCible + 1
       ? `<p class="warn">${esc(t('slip.netWarning', { net: formatFCFA(calc.netAPayer, locale) }))}</p>`
       : '';
 
-  const pctAnc = calc.tauxAnciennete ? (calc.tauxAnciennete * 100).toFixed(0) + ' %' : null;
+  // Bloc « Cumuls » (Période / Année). Sur un bulletin mensuel isolé, la colonne
+  // Année reprend le mois (les cumuls annuels supposeraient un historique).
+  const cumul = (lib, v) =>
+    `<tr><td class="lib">${esc(lib)}</td><td class="num">${money(v)}</td><td class="num">${money(v)}</td></tr>`;
 
   return `
   <section class="slip">
     <header class="slip-head">
-      <div>
-        <h1>${esc(settings.raisonSociale || '')}</h1>
+      <div class="emp">
+        <p class="raison">${esc(settings.raisonSociale || '')}</p>
         <p class="muted">${esc(settings.adresse || '')}</p>
-        ${settings.employeurCnps ? `<p class="muted">${esc(t('slip.cnps'))} employeur : ${esc(settings.employeurCnps)}</p>` : ''}
+        ${settings.employeurCnps ? `<p class="muted">N° employeur CNPS : ${esc(settings.employeurCnps)}</p>` : ''}
       </div>
-      <div class="slip-title">
-        <p class="badge">${esc(t('slip.title'))}</p>
-        <p class="muted">${esc(t('slip.period'))} : <strong>${esc(libelleMois(ym, locale))}</strong></p>
+      <div class="doc">
+        <p class="badge">BULLETIN DE PAIE</p>
+        <p class="period">Période du <strong>${esc(periodeDates.du)}</strong> au <strong>${esc(periodeDates.au)}</strong></p>
+        <p class="period">Paiement le <strong>${esc(periodeDates.au)}</strong> par <strong>${esc(modePaiement)}</strong></p>
       </div>
     </header>
 
     <div class="ident">
-      <div>
-        <p><strong>${esc(e.nom)}</strong></p>
-        <p class="muted">${esc(t('slip.emploi'))} : ${esc(e.emploi || '—')}</p>
-        ${e.matricule ? `<p class="muted">${esc(t('slip.matricule'))} : ${esc(e.matricule)}</p>` : ''}
-        <p class="muted">${esc(t('slip.cnps'))} : ${esc(e.cnps || '—')}</p>
+      <div class="who">
+        <p class="nom">${esc(e.nom)}</p>
+        <p class="muted">Emploi : ${esc(e.emploi || '—')}${e.expatrie ? ' — Expatrié' : ''}</p>
+        <p class="muted">Matricule : ${esc(e.matricule || '—')}</p>
+        <p class="muted">N° Séc. Soc. (CNPS) : ${esc(e.cnps || '—')}</p>
       </div>
-      <div>
-        <p class="muted">${esc(t('slip.situation'))} : ${esc(t('situation.' + e.situation))}</p>
-        <p class="muted">${esc(t('slip.children'))} : ${esc(e.enfants)} &nbsp;·&nbsp; ${esc(t('slip.parts'))} : ${esc(calc.parts)}</p>
-        <p class="muted">${esc(t('slip.contract'))} : ${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</p>
-        <p class="muted">${esc(t('slip.seniority'))} : ${esc(t('slip.years', { n: anciennete }))}</p>
+      <div class="stat">
+        <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
+        <p class="muted">Nombre de parts : <strong>${nb(calc.parts)}</strong></p>
+        <p class="muted">Ancienneté : <strong>${anciennete}</strong> an(s)</p>
+        <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong> · Rémunération : Mensuelle</p>
       </div>
     </div>
 
     <table class="lines">
       <thead>
-        <tr>
-          <th>${esc(t('slip.rubrique'))}</th>
-          <th class="num">${esc(t('slip.base'))}</th>
-          <th class="num">${esc(t('slip.taux'))}</th>
-          <th class="num">${esc(t('slip.gain'))}</th>
-          <th class="num">${esc(t('slip.retenue'))}</th>
+        <tr class="grp">
+          <th rowspan="2" class="code">N°</th>
+          <th rowspan="2" class="lib">Désignation</th>
+          <th rowspan="2" class="num sm">Nombre</th>
+          <th rowspan="2" class="num">Base</th>
+          <th colspan="3" class="grphead">Part salariale</th>
+          <th colspan="2" class="grphead">Part patronale</th>
+        </tr>
+        <tr class="grp2">
+          <th class="num sm">Taux</th><th class="num">Gain</th><th class="num">Retenue</th>
+          <th class="num sm">Taux</th><th class="num">Retenue</th>
         </tr>
       </thead>
       <tbody>
-        ${gainRow(t('slip.salaireBase'), null, null, calc.salaireBase)}
-        ${gainRow(t('slip.sursalaire'), null, null, calc.sursalaire)}
-        ${calc.primeAnciennete > 0 ? gainRow(t('slip.primeAnciennete'), calc.salaireCategoriel, pctAnc, calc.primeAnciennete) : ''}
+        ${row({ code: 10, lib: 'SALAIRE DE BASE', nombre: 30, base: calc.salaireBase, gain: calc.salaireBase })}
+        ${row({ code: 12, lib: 'PART I.G.R', nombre: calc.parts, cls: 'info' })}
+        ${calc.sursalaire > 0 ? row({ code: 20, lib: 'SURSALAIRE', nombre: 30, base: calc.sursalaire, gain: calc.sursalaire }) : ''}
+        ${calc.primeAnciennete > 0 ? row({ code: 40, lib: 'PRIME D’ANCIENNETÉ', base: calc.salaireCategoriel, txSal: calc.tauxAnciennete, gain: calc.primeAnciennete }) : ''}
         ${primesRows}
-        ${calc.transport > 0 ? gainRow(transportLabel, null, null, calc.transport) : ''}
-        <tr class="subtotal">
-          <td>${esc(t('slip.brutImposable'))}</td>
-          <td class="num"></td><td class="num"></td>
-          <td class="num">${money(calc.brutImposable)}</td><td class="num"></td>
-        </tr>
-        ${retRow(t('slip.cnpsRetraite'), calc.baseCotisable, '6,3 %', calc.cnpsRetraite)}
-        ${retRow(t('slip.cmu'), null, null, calc.cmu)}
-        ${retRow(t('slip.impotBrut'), calc.brutImposable, null, calc.impotBrutAvantRicf)}
-        ${calc.reductionRicf > 0 ? retRow(t('slip.ricf'), null, null, -calc.reductionRicf) : ''}
-        <tr class="subtotal">
-          <td>${esc(t('slip.its'))}</td>
-          <td class="num"></td><td class="num"></td><td class="num"></td>
-          <td class="num">${money(calc.impotNet)}</td>
-        </tr>
+        ${row({ lib: 'TOTAL BRUT', base: calc.brutImposable, gain: calc.brutImposable, cls: 'tot' })}
+        ${row({ code: 412, lib: 'IMPÔT BRUT AVANT RICF', base: calc.brutImposable, retSal: calc.impotBrutAvantRicf })}
+        ${calc.reductionRicf > 0 ? row({ code: 413, lib: 'RÉDUCTION D’IMPÔT CHGE FAMILLE', retSal: -calc.reductionRicf }) : ''}
+        ${row({ code: 416, lib: 'I.T.S (IMPÔT SUR SALAIRE)', base: calc.brutImposable, retSal: calc.impotNet, cls: 'sub' })}
+        ${row({ code: 452, lib: 'C.R.T.C.I (C.N.P.S) RETRAITE', base: calc.baseCotisable, txSal: params.cnpsRetraiteSalarie, retSal: calc.cnpsRetraite, txPat: params.cnpsRetraitePatronale, retPat: calc.patronal.retraite })}
+        ${row({ code: 480, lib: 'PRESTATION FAMILIALE', base: calc.basePfAt, txPat: params.cnpsPrestationsFamiliales, retPat: calc.patronal.prestationsFamiliales })}
+        ${row({ code: 490, lib: 'ACCIDENT DE TRAVAIL', base: calc.basePfAt, txPat: params.cnpsAccidentTravail, retPat: calc.patronal.accidentTravail })}
+        ${row({ code: 500, lib: 'IMPÔT SUR SALAIRES (LOCAUX)', base: calc.brutImposable, txPat: params.isLocal, retPat: calc.patronal.isLocal })}
+        ${calc.expatrie ? row({ code: 511, lib: 'IMPÔT SUR SALAIRES (EXPATRIÉS)', base: calc.brutImposable, txPat: params.isExpatrie, retPat: calc.patronal.isExpatrie }) : ''}
+        ${row({ code: 520, lib: 'TAXE D’APPRENTISSAGE', base: calc.brutImposable, txPat: params.taxeApprentissage, retPat: calc.patronal.taxeApprentissage })}
+        ${row({ code: 530, lib: 'TAXE F.P.C', base: calc.brutImposable, txPat: params.fpc, retPat: calc.patronal.fpc })}
+        ${row({ code: 551, lib: 'C.M.U', nombre: 1, base: params.cmuSalarie + params.cmuPatronale, txSal: 0.5, retSal: calc.cmu, txPat: 0.5, retPat: calc.patronal.cmu })}
+        ${row({ lib: 'TOTAL COTISATIONS', retSal: totalRetSal, retPat: totalRetPat, cls: 'tot' })}
+        ${calc.transport > 0 ? row({ code: 708, lib: 'PRIME DE TRANSPORT', nombre: 30, base: calc.transport, gain: calc.transport }) : ''}
       </tbody>
-      <tfoot>
-        <tr class="totals-row">
-          <td colspan="2">${esc(t('slip.brutTotal'))} : <strong>${money(calc.brutTotal)}</strong></td>
-          <td class="num"><strong>${money(calc.brutTotal)}</strong></td>
-          <td class="num" colspan="2"><strong>${esc(t('slip.totalRetenues'))} : ${money(calc.totalRetenues)}</strong></td>
-        </tr>
-      </tfoot>
     </table>
 
-    <div class="net">
-      <span>${esc(t('slip.netAPayer'))}</span>
-      <span>${esc(formatFCFA(calc.netAPayer, locale))}</span>
-    </div>
-    ${netWarn}
-
-    <details class="patronal" open>
-      <summary>${esc(t('slip.employerCharges'))}</summary>
-      <table class="lines small">
+    <div class="bottom">
+      <table class="cumuls">
+        <thead><tr><th class="lib">Cumuls</th><th class="num">Période</th><th class="num">Année</th></tr></thead>
         <tbody>
-          <tr><td>${esc(t('slip.prestationsFam'))}</td><td class="num">${money(calc.patronal.prestationsFamiliales)}</td></tr>
-          <tr><td>${esc(t('slip.accidentTravail'))}</td><td class="num">${money(calc.patronal.accidentTravail)}</td></tr>
-          <tr><td>${esc(t('slip.retraitePat'))}</td><td class="num">${money(calc.patronal.retraite)}</td></tr>
-          <tr><td>${esc(t('slip.taxeApprentissage'))}</td><td class="num">${money(calc.patronal.taxeApprentissage)}</td></tr>
-          <tr><td>${esc(t('slip.fpc'))}</td><td class="num">${money(calc.patronal.fpc)}</td></tr>
-          <tr><td>${esc(t('slip.isLocal'))}</td><td class="num">${money(calc.patronal.isLocal)}</td></tr>
-          <tr><td>${esc(t('slip.cmu'))} (employeur)</td><td class="num">${money(calc.patronal.cmu)}</td></tr>
-          <tr class="subtotal"><td>${esc(t('slip.totalPatronal'))}</td><td class="num">${money(calc.totalPatronal)}</td></tr>
-          <tr class="subtotal"><td>${esc(t('slip.coutTotal'))}</td><td class="num">${money(calc.coutTotalEmployeur)}</td></tr>
+          ${cumul('Salaire brut', calc.brutImposable)}
+          ${cumul('Charges salariales', calc.totalRetenues)}
+          ${cumul('Charges patronales', calc.totalPatronal)}
+          ${cumul('Net imposable', calc.netImposable)}
         </tbody>
       </table>
-    </details>
-
+      <div class="net">
+        <span>NET À PAYER</span>
+        <span>${esc(formatFCFA(calc.netAPayer, locale))}</span>
+      </div>
+    </div>
+    ${netWarn}
     <p class="foot">${esc(t('slip.footer'))}</p>
   </section>`;
 }
 
 const PRINT_CSS = `
   * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1c1917; margin: 0; padding: 0; background: #f5f5f4; }
-  .slip { background: #fff; max-width: 780px; margin: 16px auto; padding: 26px 30px; border: 1px solid #e7e5e4; border-radius: 10px; page-break-after: always; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: #1c1917; margin: 0; padding: 0; background: #f5f5f4; }
+  .slip { background: #fff; max-width: 820px; margin: 16px auto; padding: 22px 26px; border: 1px solid #e7e5e4; border-radius: 8px; page-break-after: always; }
   .slip:last-child { page-break-after: auto; }
-  .slip-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 14px; }
-  .slip-head h1 { font-size: 18px; margin: 0 0 2px; }
-  .slip-title { text-align: right; }
-  .muted { color: #78716c; font-size: 11.5px; margin: 2px 0; }
-  .badge { display: inline-block; background: #eef2ff; color: #4338ca; border-radius: 999px; padding: 3px 12px; font-size: 12px; font-weight: 700; letter-spacing: .03em; margin: 0 0 4px; }
-  .ident { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fafaf9; border: 1px solid #ececeb; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; }
-  .ident p { margin: 2px 0; font-size: 12.5px; }
-  table.lines { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  table.lines th, table.lines td { padding: 5px 8px; border-bottom: 1px solid #efeeed; text-align: left; }
-  table.lines th { text-transform: uppercase; font-size: 10px; letter-spacing: .04em; color: #78716c; background: #fafaf9; }
-  table.lines .num { text-align: right; font-variant-numeric: tabular-nums; }
-  table.lines tr.subtotal td { font-weight: 700; background: #f5f3ff; border-top: 1px solid #ddd6fe; }
-  table.lines tfoot td { border-top: 2px solid #d6d3d1; padding-top: 8px; font-size: 12.5px; }
-  .net { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 6px; padding: 12px 16px; background: #4f46e5; color: #fff; border-radius: 8px; font-size: 15px; font-weight: 700; letter-spacing: .02em; }
-  .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 11px; margin: 6px 0; }
-  details.patronal { margin-top: 12px; border: 1px solid #ececeb; border-radius: 8px; padding: 4px 12px 8px; }
-  details.patronal summary { cursor: pointer; font-size: 12px; font-weight: 600; color: #4338ca; padding: 6px 0; }
-  table.lines.small td { font-size: 12px; padding: 3px 6px; }
-  .foot { margin-top: 16px; font-size: 10px; color: #a8a29e; text-align: center; line-height: 1.5; }
+  .slip-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
+  .raison { font-size: 16px; font-weight: 700; margin: 0 0 2px; }
+  .doc { text-align: right; }
+  .muted { color: #57534e; font-size: 11px; margin: 1.5px 0; }
+  .period { font-size: 11px; margin: 1.5px 0; color: #44403c; }
+  .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 3px 12px; font-size: 12.5px; font-weight: 700; letter-spacing: .04em; margin: 0 0 5px; }
+  .ident { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 9px 12px; margin-bottom: 12px; }
+  .ident p { margin: 1.5px 0; }
+  .nom { font-size: 13px; font-weight: 700; margin: 0 0 3px; }
+  table.lines { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.lines th, table.lines td { padding: 3.5px 6px; border: 1px solid #ececeb; text-align: left; }
+  table.lines thead th { background: #eef2ff; color: #3730a3; font-size: 10px; text-transform: uppercase; letter-spacing: .02em; text-align: center; }
+  table.lines th.grphead { text-align: center; background: #e0e7ff; }
+  table.lines td.code { color: #a8a29e; text-align: center; width: 34px; font-size: 10px; }
+  table.lines td.lib, table.lines th.lib { text-align: left; }
+  table.lines .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.lines .sm { font-size: 10px; color: #57534e; }
+  table.lines tr.info td { color: #78716c; font-style: italic; }
+  table.lines tr.tot td { font-weight: 700; background: #f5f3ff; }
+  table.lines tr.sub td { font-weight: 600; background: #faf9ff; }
+  .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  table.cumuls { border-collapse: collapse; font-size: 10.5px; min-width: 320px; }
+  table.cumuls th, table.cumuls td { border: 1px solid #ececeb; padding: 3px 8px; }
+  table.cumuls thead th { background: #fafaf9; color: #57534e; text-transform: uppercase; font-size: 9.5px; }
+  table.cumuls .num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.cumuls .lib { text-align: left; }
+  .net { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; padding: 10px 18px; background: #4f46e5; color: #fff; border-radius: 6px; min-width: 240px; margin-left: auto; }
+  .net span:first-child { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: .9; }
+  .net span:last-child { font-size: 19px; font-weight: 800; }
+  .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 10.5px; margin: 8px 0 0; }
+  .foot { margin-top: 12px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
   @media print {
     body { background: #fff; }
-    .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 14mm 12mm; }
-    details.patronal { border-color: #ddd; }
+    .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 10mm 9mm; }
   }
 `;
 

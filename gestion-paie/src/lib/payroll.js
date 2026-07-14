@@ -24,22 +24,32 @@ import { roundFCFA } from './money';
 // --------------------------- Paramètres légaux -----------------------------
 
 export const DEFAULT_PARAMS = {
-  // Plafond mensuel des cotisations CNPS (retraite / prestations / AT) :
-  // 45 × SMIG (75 000) = 3 375 000 FCFA. Au-delà, l'assiette est écrêtée.
+  // Plafond mensuel de l'assiette RETRAITE CNPS : 45 × SMIG (75 000) =
+  // 3 375 000 FCFA. Au-delà, l'assiette de la retraite est écrêtée.
   plafondCnps: 3375000,
+  // Plafond mensuel de l'assiette PRESTATIONS FAMILIALES & ACCIDENT DU TRAVAIL :
+  // 70 000 à 75 000 FCFA/mois selon les textes (le bulletin de référence
+  // applique 75 000). Distinct du plafond retraite.
+  plafondPfAt: 75000,
 
   // Cotisations salariales.
-  cnpsRetraiteSalarie: 0.063, // 6,3 %
-  cmuSalarie: 1000, // 1 000 FCFA / mois / assuré
+  cnpsRetraiteSalarie: 0.063, // 6,3 % (assiette plafonnée à plafondCnps)
+  // CMU : 1 000 FCFA/mois/assuré au total, répartis 500 salarié + 500 employeur.
+  cmuSalarie: 500,
 
-  // Cotisations patronales.
-  cnpsPrestationsFamiliales: 0.05, // 5 %
-  cnpsAccidentTravail: 0.03, // 2 % à 5 % selon le risque notifié — défaut 3 %
-  cnpsRetraitePatronale: 0.077, // 7,7 %
-  taxeApprentissage: 0.004, // 0,4 %
-  fpc: 0.012, // 1,2 % (Formation Professionnelle Continue)
-  isLocal: 0.012, // 1,2 % (Impôt sur salaires locaux)
-  cmuPatronale: 1000, // part employeur CMU (1 000 FCFA / assuré)
+  // Cotisations patronales (coût employeur).
+  // Prestations familiales 5 % + assurance maternité 0,75 % = 5,75 %,
+  // sur l'assiette plafonnée à plafondPfAt.
+  cnpsPrestationsFamiliales: 0.0575,
+  // Accident du travail : 2 % à 5 % selon le risque notifié par la CNPS,
+  // sur l'assiette plafonnée à plafondPfAt.
+  cnpsAccidentTravail: 0.05,
+  cnpsRetraitePatronale: 0.077, // 7,7 % (assiette plafonnée à plafondCnps)
+  taxeApprentissage: 0.004, // 0,4 % (FDFP)
+  fpc: 0.006, // 0,6 % — quote-part mensuelle de la Taxe FPC (FDFP)
+  isLocal: 0.012, // 1,2 % — Impôt sur salaires, part patronale (locaux)
+  isExpatrie: 0.115, // 11,5 % — Impôt sur salaires, part patronale (expatriés)
+  cmuPatronale: 500, // part employeur CMU (500 FCFA / assuré)
 
   // Prime de transport : exonérée jusqu'à 30 000 FCFA ; l'excédent est
   // imposable ET soumis à cotisations.
@@ -166,8 +176,11 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
   // Salaire brut total (avant retenues) — inclut les éléments exonérés.
   const brutTotal = roundFCFA(brutImposable + transportExonere + autresPrimesExonerees);
 
-  // Assiette cotisable CNPS = brut imposable, écrêté au plafond.
+  // Assiette RETRAITE CNPS = brut imposable, écrêté au plafond retraite.
   const baseCotisable = Math.min(brutImposable, params.plafondCnps);
+  // Assiette PRESTATIONS FAMILIALES / ACCIDENT DU TRAVAIL = brut imposable,
+  // écrêté au plafond PF/AT (bien plus bas : 75 000).
+  const basePfAt = Math.min(brutImposable, params.plafondPfAt);
 
   // 6. Retenues salariales.
   const cnpsRetraite = roundFCFA(baseCotisable * params.cnpsRetraiteSalarie);
@@ -180,15 +193,19 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
 
   const totalRetenues = roundFCFA(cnpsRetraite + cmu + impotNet);
   const netAPayer = roundFCFA(brutTotal - totalRetenues);
+  // « Net imposable » tel qu'il figure sur le bulletin de référence.
+  const netImposable = roundFCFA(brutTotal - impotNet - cmu);
 
-  // Charges patronales (coût employeur) — sur l'assiette cotisable écrêtée.
+  // Charges patronales (coût employeur), chacune sur son assiette propre.
+  const isExpatrie = input.expatrie === true;
   const patronal = {
-    prestationsFamiliales: roundFCFA(baseCotisable * params.cnpsPrestationsFamiliales),
-    accidentTravail: roundFCFA(baseCotisable * params.cnpsAccidentTravail),
     retraite: roundFCFA(baseCotisable * params.cnpsRetraitePatronale),
-    taxeApprentissage: roundFCFA(baseCotisable * params.taxeApprentissage),
-    fpc: roundFCFA(baseCotisable * params.fpc),
+    prestationsFamiliales: roundFCFA(basePfAt * params.cnpsPrestationsFamiliales),
+    accidentTravail: roundFCFA(basePfAt * params.cnpsAccidentTravail),
     isLocal: roundFCFA(brutImposable * params.isLocal),
+    isExpatrie: isExpatrie ? roundFCFA(brutImposable * params.isExpatrie) : 0,
+    taxeApprentissage: roundFCFA(brutImposable * params.taxeApprentissage),
+    fpc: roundFCFA(brutImposable * params.fpc),
     cmu: roundFCFA(params.cmuPatronale)
   };
   const totalPatronal = roundFCFA(Object.values(patronal).reduce((a, b) => a + b, 0));
@@ -209,6 +226,7 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     brutImposable,
     brutTotal,
     baseCotisable,
+    basePfAt,
     cnpsRetraite,
     cmu,
     parts: nombreParts(input.situation, input.enfants),
@@ -216,7 +234,9 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     reductionRicf,
     impotNet,
     totalRetenues,
+    netImposable,
     netAPayer,
+    expatrie: isExpatrie,
     patronal,
     totalPatronal,
     coutTotalEmployeur

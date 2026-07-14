@@ -16,6 +16,8 @@ create table settings (
   raison_sociale text not null default 'Mon Entreprise',
   employeur_cnps text not null default '',
   adresse text not null default '',
+  -- Mode de règlement affiché sur le bulletin.
+  mode_paiement text not null default 'Virement',
   -- Taux d'accident du travail notifié par la CNPS (2 % à 5 %).
   taux_accident_travail numeric not null default 0.03 check (taux_accident_travail >= 0 and taux_accident_travail <= 0.10),
   -- Plafond de la prime de transport exonérée (FCFA entier).
@@ -33,6 +35,9 @@ create table employees (
   enfants int not null default 0 check (enfants >= 0),
   cnps text not null default '',
   emploi text not null default '',
+  -- Salarié expatrié : déclenche l'impôt sur salaires patronal « expatriés »
+  -- (11,5 %) en lieu et place de la seule part locale (1,2 %).
+  expatrie boolean not null default false,
   -- Date d'embauche : base du calcul de l'ancienneté.
   date_embauche date,
   -- Salaire catégoriel (minimum conventionnel) : assiette de la prime

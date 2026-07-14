@@ -12,6 +12,7 @@ export default function Parametres() {
     raisonSociale: settings.raisonSociale,
     employeurCnps: settings.employeurCnps,
     adresse: settings.adresse,
+    modePaiement: settings.modePaiement || 'Virement',
     tauxAT: (settings.tauxAccidentTravail * 100).toString(),
     transportExonere: settings.transportExonere
   });
@@ -25,6 +26,7 @@ export default function Parametres() {
       raisonSociale: form.raisonSociale.trim(),
       employeurCnps: form.employeurCnps.trim(),
       adresse: form.adresse.trim(),
+      modePaiement: form.modePaiement,
       tauxAccidentTravail: Math.max(0, Number(form.tauxAT) || 0) / 100,
       transportExonere: Math.max(0, Number(form.transportExonere) || 0)
     });
@@ -37,13 +39,16 @@ export default function Parametres() {
 
   const legalRates = [
     ['Retraite CNPS (salarié)', '6,3 %'],
-    ['CMU (salarié)', '1 000 FCFA / mois'],
-    ['Prestations familiales (patronal)', '5 %'],
+    ['CMU', '1 000 FCFA/mois (500 salarié + 500 employeur)'],
+    ['Prestations familiales (patronal)', '5,75 %'],
+    ['Accident du travail (patronal)', '2 à 5 %'],
     ['Retraite CNPS (patronal)', '7,7 %'],
     ['Taxe d’apprentissage', '0,4 %'],
-    ['FPC', '1,2 %'],
-    ['Impôt sur salaires locaux', '1,2 %'],
-    ['Plafond CNPS', DEFAULT_PARAMS.plafondCnps.toLocaleString('fr-FR') + ' FCFA']
+    ['Taxe FPC (mensuelle)', '0,6 %'],
+    ['Impôt sur salaires — locaux', '1,2 %'],
+    ['Impôt sur salaires — expatriés', '11,5 %'],
+    ['Plafond retraite CNPS', DEFAULT_PARAMS.plafondCnps.toLocaleString('fr-FR') + ' FCFA'],
+    ['Plafond prest. familiales / AT', DEFAULT_PARAMS.plafondPfAt.toLocaleString('fr-FR') + ' FCFA']
   ];
 
   return (
@@ -63,6 +68,11 @@ export default function Parametres() {
               </Field>
               <Field label={t('settings.adresse')}>
                 <input className={inputClass} value={form.adresse} onChange={(e) => set('adresse', e.target.value)} />
+              </Field>
+              <Field label={t('settings.modePaiement')}>
+                <select className={inputClass} value={form.modePaiement} onChange={(e) => set('modePaiement', e.target.value)}>
+                  {['Virement', 'Espèces', 'Chèque'].map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </Field>
             </div>
 

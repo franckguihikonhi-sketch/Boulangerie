@@ -43,6 +43,7 @@
   "employees.children": "Number of children",
   "employees.cnps": "CNPS number",
   "employees.emploi": "Job / position",
+  "employees.expatrie": "Expatriate employee (expat payroll tax 11.5%)",
   "employees.contract": "Current contract",
   "employees.view": "Payslips",
   "employees.edit": "Edit",

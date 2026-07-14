@@ -50,9 +50,15 @@ avec deux salariés d'exemple (dont un CDD renouvelé deux fois puis passé en C
 | **Impôt brut avant RICF** | Barème **ITS progressif** par tranches (0 / 16 / 21 / 24 / 28 / 32 %). |
 | **RICF** | Réduction pour charges de famille = **11 000 FCFA par demi-part** au-delà de la 1ʳᵉ part (parts IGR selon situation + enfants). |
 | **ITS** | `Impôt brut − RICF`, jamais négatif. |
-| **Retenues salariales** | Retraite CNPS **6,3 %** (dans la limite du plafond 3 375 000) + CMU **1 000 FCFA**. |
-| **Charges patronales** | Prestations familiales 5 % · accident du travail 2–5 % · retraite 7,7 % · taxe d'apprentissage 0,4 % · FPC 1,2 % · IS local 1,2 %. |
+| **Retenues salariales** | Retraite CNPS **6,3 %** (assiette plafonnée à 3 375 000) + CMU **500 FCFA** (part salariale du forfait de 1 000 FCFA, réparti 500/500). |
+| **Charges patronales** | Retraite **7,7 %** · prestations familiales **5,75 %** & accident du travail **2–5 %** (assiette plafonnée à **75 000**) · IS local **1,2 %** (ou **11,5 %** pour un expatrié) · taxe d'apprentissage **0,4 %** · FPC **0,6 %** · CMU **500**. |
 | **Prime de transport** | Exonérée jusqu'à **30 000 FCFA** ; l'excédent devient imposable et cotisable. |
+
+Le bulletin PDF reproduit la présentation standard ivoirienne (rubriques codées
+`10 / 12 / 20 / 412 / 416 / 452 / 480 / 490 / 500 / 511 / 520 / 530 / 551 / 708`,
+colonnes *Part salariale* / *Part patronale*, *Total Brut*, *Total Cotisations*,
+bloc *Cumuls* et *Net à payer*) — validé au FCFA près contre un bulletin de
+référence.
 
 Tous les montants sont en **FCFA entiers**, arrondis **avant** écriture
 (`src/lib/money.js`) pour éviter toute dérive flottante sur les cumuls.

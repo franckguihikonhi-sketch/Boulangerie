@@ -22,7 +22,7 @@ const emptyPeriode = (kind = 'cdd') => ({
 function emptyForm() {
   return {
     id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
-    cnps: '', emploi: '', dateEmbauche: '', salaireCategoriel: '',
+    cnps: '', emploi: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
     periodes: [emptyPeriode('cdd')]
   };
 }
@@ -30,8 +30,8 @@ function emptyForm() {
 function fromEmployee(e) {
   return {
     id: e.id, matricule: e.matricule, nom: e.nom, situation: e.situation,
-    enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, dateEmbauche: e.dateEmbauche,
-    salaireCategoriel: e.salaireCategoriel,
+    enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, expatrie: e.expatrie === true,
+    dateEmbauche: e.dateEmbauche, salaireCategoriel: e.salaireCategoriel,
     periodes: e.periodes.map((p) => ({ ...p, fin: p.fin || '', primes: p.primes.map((pr) => ({ ...pr })) }))
   };
 }
@@ -173,6 +173,10 @@ export default function Employees() {
               <Field label={t('employees.salaireCategoriel')} help={t('employees.salaireCategorielHelp')}>
                 <input className={inputClass} type="number" min="0" value={form.salaireCategoriel} onChange={(e) => setField('salaireCategoriel', e.target.value)} placeholder="auto" />
               </Field>
+              <label className="flex items-center gap-2 self-end pb-2 text-sm text-stone-700">
+                <input type="checkbox" checked={form.expatrie} onChange={(e) => setField('expatrie', e.target.checked)} />
+                {t('employees.expatrie')}
+              </label>
             </div>
 
             <div className="border-t border-stone-100 pt-3">

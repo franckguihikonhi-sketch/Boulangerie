@@ -10,8 +10,8 @@ export default function About() {
     ['Prime d’ancienneté', '2 % à la 2ᵉ année, +1 % par année, plafonnée à 25 % — appliquée au salaire catégoriel (minimum conventionnel).'],
     ['ITS (impôt sur salaire)', 'Barème progressif par tranches sur le brut imposable, diminué de la RICF (charges de famille) ; jamais négatif.'],
     ['RICF', 'Réduction selon le nombre de parts IGR (situation matrimoniale + enfants) : 11 000 FCFA par demi-part au-delà de la première.'],
-    ['Cotisations salariales', 'Retraite CNPS 6,3 % (dans la limite du plafond) + CMU 1 000 FCFA.'],
-    ['Charges patronales', 'Prestations familiales 5 %, accident du travail 2–5 %, retraite 7,7 %, taxe d’apprentissage 0,4 %, FPC 1,2 %, IS local 1,2 %.'],
+    ['Cotisations salariales', 'Retraite CNPS 6,3 % (assiette plafonnée) + CMU 500 FCFA (part salariale du forfait de 1 000 FCFA).'],
+    ['Charges patronales', 'Retraite 7,7 %, prestations familiales 5,75 % et accident du travail 2–5 % (assiette plafonnée à 75 000), IS local 1,2 % (ou 11,5 % pour un expatrié), taxe d’apprentissage 0,4 %, FPC 0,6 %, CMU 500 FCFA.'],
     ['Prime de transport', 'Exonérée jusqu’à 30 000 FCFA ; l’excédent est imposable et cotisable.'],
     ['Renouvellements CDD / passage CDI', 'Chaque période porte ses propres salaire de base, NET cible et primes ; le bon régime est appliqué mois par mois.']
   ];
