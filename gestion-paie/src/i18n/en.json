@@ -70,6 +70,10 @@
   "bulletins.from": "From month",
   "bulletins.to": "To month",
   "bulletins.generate": "Preview",
+  "bulletins.print": "Print / PDF ({n})",
+  "bulletins.download": "Download (PDF)",
+  "bulletins.downloaded": "Payslips downloaded (file “bulletins-paie.html”). Open it, then print or save as PDF (Ctrl/⌘ + P). Direct printing may be blocked in the demo preview; it works on the deployed app.",
+  "bulletins.printFailed": "Printing and download were blocked by the environment. Use the deployed app (your domain) to generate the PDFs.",
 
   "settings.title": "Settings",
   "settings.save": "Save",

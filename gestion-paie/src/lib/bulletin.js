@@ -266,59 +266,90 @@ const PRINT_CSS = `
   }
 `;
 
+// Petit script d'auto-impression injecté dans le document : lorsqu'il est
+// ouvert comme page de premier niveau (nouvel onglet, ou fichier téléchargé
+// puis ouvert), il déclenche la fenêtre d'impression, puis referme l'onglet.
+// (Séquence </script> échappée pour rester inline-safe.)
+const AUTO_PRINT = `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.onafterprint=function(){window.close();};window.print();}catch(e){}},250);});<\/script>`;
+
 // Construit le document HTML complet (autonome) regroupant les bulletins.
-// Sert à la fois à l'aperçu (iframe) et à l'impression, garantissant que
-// « ce qui est affiché est ce qui est imprimé ».
-export function slipDocumentHtml(slips, { t, locale }) {
+// Sert à la fois à l'aperçu (iframe, sans auto-impression) et à l'export
+// (nouvel onglet / téléchargement, avec auto-impression).
+export function slipDocumentHtml(slips, { t, locale, autoPrint = false } = {}) {
   const body = (slips || []).map((s) => slipHtml(s, t, locale)).join('\n');
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(t('slip.title'))}</title>
-    <style>${PRINT_CSS}</style></head><body>${body}</body></html>`;
+    <style>${PRINT_CSS}</style></head><body>${body}${autoPrint ? AUTO_PRINT : ''}</body></html>`;
 }
 
-// Repli : ouvre le document dans un nouvel onglet (si l'impression directe est
-// impossible), l'utilisateur y déclenche l'impression manuellement.
-function ouvrirDansOnglet(html) {
+// Télécharge les bulletins sous forme de fichier HTML autonome (imprimable /
+// « Enregistrer en PDF » une fois ouvert). Fonctionne même dans un cadre
+// restreint qui bloque l'impression directe, tant que le téléchargement est
+// autorisé. Renvoie true si le clic de téléchargement a pu être émis.
+export function telechargerBulletins(slips, { t, locale }) {
+  if (!slips || slips.length === 0) return false;
   try {
-    const blob = new Blob([html], { type: 'text/html' });
+    const html = slipDocumentHtml(slips, { t, locale, autoPrint: true });
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) URL.revokeObjectURL(url);
-    return Boolean(w);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bulletins-paie.html';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return true;
   } catch {
     return false;
   }
 }
 
-// Imprime (ou exporte en PDF) l'ensemble des bulletins. On passe par un iframe
-// caché SAME-ORIGIN plutôt que window.open : cela contourne les bloqueurs de
-// pop-ups et fonctionne à l'intérieur d'un cadre restreint. Repli automatique
-// vers un onglet si l'impression directe échoue.
+// Imprime (ou exporte en PDF) l'ensemble des bulletins, avec repli automatique
+// selon les capacités de l'environnement :
+//   1. Nouvel onglet auto-imprimable (application déployée, pop-ups autorisés) ;
+//   2. Sinon, téléchargement du fichier HTML imprimable (cadre restreint qui
+//      bloque les pop-ups et l'impression directe, ex. aperçu en bac à sable) ;
+//   3. En dernier recours, impression via iframe caché (cadres autorisant les
+//      « modals » mais pas les pop-ups).
+// Renvoie le mode réellement utilisé : 'tab' | 'download' | 'iframe' | false.
 export function imprimerBulletins(slips, { t, locale }) {
   if (!slips || slips.length === 0) return false;
-  const html = slipDocumentHtml(slips, { t, locale });
+  const html = slipDocumentHtml(slips, { t, locale, autoPrint: true });
 
-  const iframe = document.createElement('iframe');
-  iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-  const cleanup = () => setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 1000);
-
-  iframe.onload = () => {
-    try {
-      const cw = iframe.contentWindow;
-      cw.focus();
-      cw.onafterprint = cleanup;
-      cw.print();
-      // Filet de sécurité si onafterprint ne se déclenche pas.
-      setTimeout(cleanup, 60000);
-    } catch {
-      iframe.remove();
-      ouvrirDansOnglet(html);
+  // 1) Nouvel onglet (impression native, meilleure expérience en production).
+  try {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) {
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return 'tab';
     }
-  };
+    URL.revokeObjectURL(url);
+  } catch {
+    /* on tente les replis ci-dessous */
+  }
 
-  document.body.appendChild(iframe);
-  // srcdoc garde le contenu same-origin (compatible cadres restreints).
-  iframe.srcdoc = html;
-  return true;
+  // 2) Onglet bloqué : téléchargement du fichier imprimable.
+  if (telechargerBulletins(slips, { t, locale })) return 'download';
+
+  // 3) Dernier recours : impression via iframe caché same-origin.
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch { /* ignoré (bac à sable sans allow-modals) */ }
+      setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 60000);
+    };
+    document.body.appendChild(iframe);
+    iframe.srcdoc = slipDocumentHtml(slips, { t, locale });
+    return 'iframe';
+  } catch {
+    return false;
+  }
 }

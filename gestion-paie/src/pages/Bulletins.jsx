@@ -4,7 +4,7 @@ import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { periodePourMois, listerMois } from '../lib/payroll';
-import { bulletinData, imprimerBulletins, slipDocumentHtml } from '../lib/bulletin';
+import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
 function currentYm() {
@@ -52,6 +52,7 @@ export default function Bulletins() {
   const [to, setTo] = useState(ym);
   const [slips, setSlips] = useState(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const rangeOk = from <= to;
 
@@ -73,7 +74,14 @@ export default function Bulletins() {
   };
 
   const print = () => {
-    if (slips && slips.length) imprimerBulletins(slips, { t, locale });
+    if (!slips || !slips.length) return;
+    const mode = imprimerBulletins(slips, { t, locale });
+    setNotice(mode === 'download' ? t('bulletins.downloaded') : mode ? '' : t('bulletins.printFailed'));
+  };
+
+  const download = () => {
+    if (!slips || !slips.length) return;
+    setNotice(telechargerBulletins(slips, { t, locale }) ? t('bulletins.downloaded') : t('bulletins.printFailed'));
   };
 
   const total = useMemo(
@@ -111,9 +119,15 @@ export default function Bulletins() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button onClick={build}>{t('bulletins.generate')}</Button>
           {slips && slips.length > 0 && (
-            <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
+            <>
+              <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
+              <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+            </>
           )}
         </div>
+        {notice && (
+          <p className="mt-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">{notice}</p>
+        )}
         <ErrorNote>{error}</ErrorNote>
       </Card>
 
@@ -128,7 +142,10 @@ export default function Bulletins() {
                   {t('bulletins.count', { n: slips.length })} ·{' '}
                   <span className="font-semibold text-stone-800">{t('slip.netAPayer')} : {formatFCFA(total, locale)}</span>
                 </p>
-                <Button variant="secondary" onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
+                <div className="flex gap-2">
+                  <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
+                  <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+                </div>
               </div>
               <InfoNote>{t('bulletins.previewNote')}</InfoNote>
               <div className="mt-3 flex flex-col gap-5">
