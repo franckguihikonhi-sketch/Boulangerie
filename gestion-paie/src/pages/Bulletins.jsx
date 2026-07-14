@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
-import { periodePourMois, listerMois } from '../lib/payroll';
+import { listerMois } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
@@ -65,9 +65,8 @@ export default function Bulletins() {
     const out = [];
     for (const e of targets) {
       for (const m of months) {
-        const p = periodePourMois(e.periodes, m);
-        if (!p) continue;
-        out.push(bulletinData(e, p, m, settings));
+        const bd = bulletinData(e, m, settings);
+        if (bd) out.push(bd);
       }
     }
     setSlips(out);

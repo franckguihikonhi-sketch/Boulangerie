@@ -150,6 +150,10 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
   const salaireCategoriel = roundFCFA(input.salaireCategoriel ?? input.salaireBase);
   const transport = roundFCFA(input.transport ?? 0);
   const primes = Array.isArray(input.primes) ? input.primes : [];
+  // Indemnité de congé payé (versée au mois anniversaire) : imposable et
+  // cotisable, ajoutée au brut en sus du salaire.
+  const congePaye = roundFCFA(input.congePaye ?? 0);
+  const congeJours = Number(input.congeJours) || 0;
 
   // 3. Prime d'ancienneté sur le salaire catégoriel (minimum conventionnel).
   const taux = tauxAnciennete(Number(input.anciennete) || 0);
@@ -170,7 +174,7 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
 
   // Salaire brut imposable (assiette de l'ITS).
   const brutImposable = roundFCFA(
-    salaireBase + sursalaire + primeAnciennete + transportImposable + autresPrimesImposables
+    salaireBase + sursalaire + primeAnciennete + transportImposable + autresPrimesImposables + congePaye
   );
 
   // Salaire brut total (avant retenues) — inclut les éléments exonérés.
@@ -223,6 +227,8 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     autresPrimesImposables,
     autresPrimesExonerees,
     primes,
+    congePaye,
+    congeJours,
     brutImposable,
     brutTotal,
     baseCotisable,
@@ -277,9 +283,11 @@ export function resoudreSursalaire(netCible, input, params = DEFAULT_PARAMS) {
 }
 
 // Calcule un bulletin complet à partir d'un salaire NET cible : résout d'abord
-// le sursalaire, puis renvoie le détail (avec le sursalaire retenu).
+// le sursalaire SUR LE SALAIRE NORMAL (hors congé, pour que l'indemnité de
+// congé s'ajoute au net et ne soit pas absorbée par le solveur), puis renvoie
+// le détail complet — avec l'indemnité de congé éventuelle en sus.
 export function calculerDepuisNet(netCible, input, params = DEFAULT_PARAMS) {
-  const sursalaire = resoudreSursalaire(netCible, input, params);
+  const sursalaire = resoudreSursalaire(netCible, { ...input, congePaye: 0 }, params);
   const bulletin = calculerBulletin({ ...input, sursalaire }, params);
   return { ...bulletin, netCible: roundFCFA(netCible) };
 }
@@ -331,4 +339,64 @@ export function periodePourMois(periodes, ym) {
   // En cas de chevauchement, on privilégie la période commençant le plus tard
   // (un renouvellement récent prime sur une période antérieure).
   return eligibles.sort((a, b) => (a.debut < b.debut ? 1 : -1))[0];
+}
+
+// Nombre de mois (inclus) entre deux étiquettes « aaaa-mm ».
+export function moisEntre(a, b) {
+  const [ay, am] = a.split('-').map(Number);
+  const [by, bm] = b.split('-').map(Number);
+  return (by - ay) * 12 + (bm - am) + 1;
+}
+
+// Durée maximale d'un CDD (renouvellements inclus) avant requalification légale
+// en CDI, en Côte d'Ivoire : au-delà de 2 ans (24 mois).
+export const CDD_MAX_MOIS = 24;
+
+// Période applicable à un mois, AVEC requalification automatique : si le salarié
+// cumule plus de 24 mois de CDD, la période est traitée comme un CDI à partir
+// du 25ᵉ mois (mêmes salaire / net / primes). Renvoie la période enrichie d'un
+// indicateur `requalifieCdi`.
+export function periodeEffective(employee, ym) {
+  const p = periodePourMois(employee?.periodes, ym);
+  if (!p) return null;
+  if (p.kind === 'cdd') {
+    const debutsCdd = (employee.periodes || [])
+      .filter((x) => x.kind === 'cdd' && x.debut)
+      .map((x) => x.debut)
+      .sort();
+    const premier = debutsCdd[0];
+    if (premier && moisEntre(premier, ym) > CDD_MAX_MOIS) {
+      return { ...p, kind: 'cdi', requalifieCdi: true };
+    }
+  }
+  return { ...p, requalifieCdi: false };
+}
+
+// --------------------------- Congés payés ----------------------------------
+
+// Barème légal ivoirien : 2,2 jours ouvrables acquis par mois de service
+// effectif, majoré selon l'ancienneté (jours supplémentaires par tranches de
+// 5 ans au-delà de 5 ans de présence).
+export const CONGE_JOURS_PAR_MOIS = 2.2;
+
+export function joursCongeAnnuels(anciennete) {
+  const base = Math.round(CONGE_JOURS_PAR_MOIS * 12); // ≈ 26 jours ouvrables
+  let sup = 0;
+  const a = Number(anciennete) || 0;
+  if (a >= 5) sup = 1;
+  if (a >= 10) sup = 2;
+  if (a >= 15) sup = 3;
+  if (a >= 20) sup = 5;
+  if (a >= 25) sup = 7;
+  return base + sup;
+}
+
+// Vrai si `ym` est le mois anniversaire de la date d'embauche (même mois de
+// calendrier) et que le salarié a au moins un an de service — c'est à ce moment
+// que le droit à congé annuel est ouvert et versé.
+export function estMoisAnniversaire(dateEmbauche, ym) {
+  if (!dateEmbauche) return false;
+  const [ey, em] = dateEmbauche.split('-').map(Number);
+  const [y, m] = ym.split('-').map(Number);
+  return m === em && y > ey;
 }

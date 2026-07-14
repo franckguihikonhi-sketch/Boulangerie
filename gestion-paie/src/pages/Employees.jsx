@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
-import { periodePourMois } from '../lib/payroll';
+import { periodeEffective } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
@@ -116,7 +116,7 @@ export default function Employees() {
             </thead>
             <tbody className="divide-y divide-stone-100">
               {employees.map((e) => {
-                const p = periodePourMois(e.periodes, ym) || e.periodes[e.periodes.length - 1];
+                const p = periodeEffective(e, ym) || e.periodes[e.periodes.length - 1];
                 return (
                   <tr key={e.id}>
                     <td className={td}>

@@ -13,6 +13,8 @@ export default function About() {
     ['Cotisations salariales', 'Retraite CNPS 6,3 % (assiette plafonnée) + CMU 500 FCFA (part salariale du forfait de 1 000 FCFA).'],
     ['Charges patronales', 'Retraite 7,7 %, prestations familiales 5,75 % et accident du travail 2–5 % (assiette plafonnée à 75 000), IS local 1,2 % (ou 11,5 % pour un expatrié), taxe d’apprentissage 0,4 %, FPC 0,6 %, CMU 500 FCFA.'],
     ['Prime de transport', 'Exonérée jusqu’à 30 000 FCFA ; l’excédent est imposable et cotisable.'],
+    ['Congés payés', 'Au mois anniversaire de l’embauche, l’indemnité de congé (1/12 de la rémunération brute imposable des 12 mois de référence, ≈ 26 jours ouvrables + majoration d’ancienneté) est automatiquement ajoutée au brut et figure sur le bulletin.'],
+    ['Requalification CDD → CDI', 'Tout salarié cumulant plus de 24 mois de CDD (renouvellements inclus) passe automatiquement en CDI à partir du 25ᵉ mois.'],
     ['Renouvellements CDD / passage CDI', 'Chaque période porte ses propres salaire de base, NET cible et primes ; le bon régime est appliqué mois par mois.']
   ];
 

@@ -437,6 +437,29 @@ function seedDemo(s) {
     createdAt: new Date().toISOString()
   });
 
+  // CDD renouvelé au-delà de 2 ans : requalification automatique en CDI.
+  s.employees.push({
+    id: uid(),
+    matricule: 'SAL-003',
+    nom: 'DIALLO Mariam',
+    situation: 'celibataire',
+    enfants: 1,
+    cnps: '4455667 B',
+    emploi: 'Caissière',
+    expatrie: false,
+    dateEmbauche: '2022-02-01',
+    salaireCategoriel: 100000,
+    periodes: [
+      { id: uid(), kind: 'cdd', label: 'CDD initial', debut: '2022-02', fin: '2022-07',
+        salaireBase: 100000, netCible: 130000, transport: 30000, primes: [] },
+      { id: uid(), kind: 'cdd', label: 'Renouvellement 1', debut: '2022-08', fin: '2023-07',
+        salaireBase: 105000, netCible: 140000, transport: 30000, primes: [] },
+      { id: uid(), kind: 'cdd', label: 'Renouvellement 2', debut: '2023-08', fin: null,
+        salaireBase: 110000, netCible: 150000, transport: 30000, primes: [] }
+    ],
+    createdAt: new Date().toISOString()
+  });
+
   s.employees.push({
     id: uid(),
     matricule: 'SAL-002',

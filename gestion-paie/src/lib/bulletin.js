@@ -9,18 +9,17 @@
 // ===========================================================================
 
 import { formatFCFA, formatNum } from './money';
-import { calculerDepuisNet, libelleMois, anneesAnciennete, periodePourMois } from './payroll';
+import {
+  calculerDepuisNet, libelleMois, anneesAnciennete,
+  periodeEffective, estMoisAnniversaire, joursCongeAnnuels
+} from './payroll';
 import { paramsFromSettings } from './db';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// Calcule le bulletin d'un salarié pour un mois « aaaa-mm » donné, en
-// sélectionnant automatiquement la période contractuelle applicable. Renvoie
-// null si aucune période ne couvre ce mois (salarié pas encore embauché, etc.).
-function calcMois(employee, ym, params) {
-  const periode = periodePourMois(employee.periodes, ym);
-  if (!periode) return null;
+// Calcule le bulletin d'un mois donné pour une période et un congé donnés.
+function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
   const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
   const calc = calculerDepuisNet(
     periode.netCible,
@@ -32,16 +31,54 @@ function calcMois(employee, ym, params) {
       situation: employee.situation,
       enfants: employee.enfants,
       expatrie: employee.expatrie,
-      anciennete
+      anciennete,
+      congePaye: congePaye || 0,
+      congeJours: congeJours || 0
     },
     params
   );
-  return { periode, anciennete, calc };
+  return { anciennete, calc };
+}
+
+// Bulletin d'un mois SANS indemnité de congé (sert d'assiette à la période de
+// référence des congés). Applique déjà la requalification CDD → CDI.
+function calcMoisBase(employee, ym, params) {
+  const periode = periodeEffective(employee, ym);
+  if (!periode) return null;
+  return { periode, ...buildCalc(employee, periode, ym, params, 0, 0) };
+}
+
+// Indemnité de congé versée au mois anniversaire = 1/12 de la rémunération
+// brute imposable des 12 mois de référence (règle du 1/12ᵉ), hors indemnité de
+// congé elle-même. Renvoie le montant et le nombre de jours ouvrables acquis.
+function congeMois(employee, ym, params) {
+  if (!estMoisAnniversaire(employee.dateEmbauche, ym)) return { montant: 0, jours: 0 };
+  let [y, m] = ym.split('-').map(Number);
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < 12; i++) {
+    m -= 1;
+    if (m < 1) { m = 12; y -= 1; }
+    const r = calcMoisBase(employee, `${y}-${String(m).padStart(2, '0')}`, params);
+    if (r) { sum += r.calc.brutImposable; count += 1; }
+  }
+  if (count === 0) return { montant: 0, jours: 0 };
+  const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
+  return { montant: Math.round(sum / 12), jours: joursCongeAnnuels(anciennete) };
+}
+
+// Bulletin complet d'un mois : période effective (avec requalification) +
+// indemnité de congé si mois anniversaire.
+function calcMois(employee, ym, params) {
+  const periode = periodeEffective(employee, ym);
+  if (!periode) return null;
+  const conge = congeMois(employee, ym, params);
+  return { periode, conge, ...buildCalc(employee, periode, ym, params, conge.montant, conge.jours) };
 }
 
 // Cumule les montants clés de janvier au mois courant de la même année : ce
-// sont les vrais cumuls annuels (« Année »), reconstitués mois par mois à
-// partir des périodes contractuelles du salarié.
+// sont les vrais cumuls annuels (« Année »), reconstitués mois par mois
+// (congés et requalification inclus).
 function cumulsAnnuels(employee, ym, params, courant) {
   const [y, m] = ym.split('-').map(Number);
   const acc = { salaireBrut: 0, chargesSal: 0, chargesPat: 0, netImposable: 0, netAPayer: 0 };
@@ -64,27 +101,15 @@ function cumulsAnnuels(employee, ym, params, courant) {
   return { periode, annee: acc };
 }
 
-// Construit les données de calcul d'un bulletin pour un salarié et un mois
-// donnés, à partir de la période contractuelle applicable.
-export function bulletinData(employee, periode, ym, settings) {
+// Construit les données d'un bulletin pour un salarié et un mois « aaaa-mm ».
+// La période contractuelle applicable (avec requalification CDD → CDI) et les
+// congés sont déterminés automatiquement. Renvoie null si aucune période ne
+// couvre ce mois (salarié pas encore embauché / déjà sorti).
+export function bulletinData(employee, ym, settings) {
   const params = paramsFromSettings(settings);
-  // Ancienneté au 1er du mois considéré.
-  const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
-  const calc = calculerDepuisNet(
-    periode.netCible,
-    {
-      salaireBase: periode.salaireBase,
-      salaireCategoriel: employee.salaireCategoriel || periode.salaireBase,
-      transport: periode.transport,
-      primes: periode.primes,
-      situation: employee.situation,
-      enfants: employee.enfants,
-      expatrie: employee.expatrie,
-      anciennete
-    },
-    params
-  );
-  // Cumuls annuels réels (janvier → mois du bulletin).
+  const r = calcMois(employee, ym, params);
+  if (!r) return null;
+  const { periode, conge, anciennete, calc } = r;
   const cumuls = cumulsAnnuels(employee, ym, params, calc);
   // Bornes du mois (jj/mm/aa) pour l'en-tête « Période du … au … ».
   const [y, m] = ym.split('-').map(Number);
@@ -93,7 +118,7 @@ export function bulletinData(employee, periode, ym, settings) {
   const fdate = (d) =>
     `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCFullYear()).slice(2)}`;
   const periodeDates = { du: fdate(debutMois), au: fdate(finMois) };
-  return { employee, periode, ym, settings, params, anciennete, calc, periodeDates, cumuls };
+  return { employee, periode, ym, settings, params, anciennete, calc, conge, periodeDates, cumuls };
 }
 
 // --------------------------- Rendu HTML d'un bulletin ----------------------
@@ -160,7 +185,7 @@ function slipHtml(data, t, locale) {
         <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
         <p class="muted">Nombre de parts : <strong>${nb(calc.parts)}</strong></p>
         <p class="muted">Ancienneté : <strong>${anciennete}</strong> an(s)</p>
-        <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong> · Rémunération : Mensuelle</p>
+        <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong>${p.requalifieCdi ? ' <em>(requalifié CDI — CDD &gt; 2 ans)</em>' : ''} · Rémunération : Mensuelle</p>
       </div>
     </div>
 
@@ -185,6 +210,7 @@ function slipHtml(data, t, locale) {
         ${calc.sursalaire > 0 ? row({ code: 20, lib: 'SURSALAIRE', nombre: 30, base: calc.sursalaire, gain: calc.sursalaire }) : ''}
         ${calc.primeAnciennete > 0 ? row({ code: 40, lib: 'PRIME D’ANCIENNETÉ', base: calc.salaireCategoriel, txSal: calc.tauxAnciennete, gain: calc.primeAnciennete }) : ''}
         ${primesRows}
+        ${calc.congePaye > 0 ? row({ code: 25, lib: `INDEMNITÉ DE CONGÉ PAYÉ${calc.congeJours ? ` (${calc.congeJours} j)` : ''}`, nombre: calc.congeJours || undefined, gain: calc.congePaye }) : ''}
         ${row({ lib: 'TOTAL BRUT', base: calc.brutImposable, gain: calc.brutImposable, cls: 'tot' })}
         ${row({ code: 412, lib: 'IMPÔT BRUT AVANT RICF', base: calc.brutImposable, retSal: calc.impotBrutAvantRicf })}
         ${calc.reductionRicf > 0 ? row({ code: 413, lib: 'RÉDUCTION D’IMPÔT CHGE FAMILLE', retSal: -calc.reductionRicf }) : ''}

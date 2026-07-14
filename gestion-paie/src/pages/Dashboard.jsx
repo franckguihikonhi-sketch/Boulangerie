@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
-import { periodePourMois, libelleMois } from '../lib/payroll';
+import { periodeEffective, libelleMois } from '../lib/payroll';
 import { bulletinData } from '../lib/bulletin';
 import { Button, Card, PageTitle, StatCard, Badge } from '../components/ui';
 
@@ -23,13 +23,12 @@ export default function Dashboard() {
     let cout = 0;
     let actifs = 0;
     for (const e of employees) {
-      const p = periodePourMois(e.periodes, ym);
-      if (!p) continue;
+      const bd = bulletinData(e, ym, settings);
+      if (!bd) continue;
       actifs += 1;
-      const { calc } = bulletinData(e, p, ym, settings);
-      net += calc.netAPayer;
-      brut += calc.brutTotal;
-      cout += calc.coutTotalEmployeur;
+      net += bd.calc.netAPayer;
+      brut += bd.calc.brutTotal;
+      cout += bd.calc.coutTotalEmployeur;
     }
     return { net, brut, cout, actifs };
   }, [employees, settings, ym]);
@@ -69,7 +68,7 @@ export default function Dashboard() {
         ) : (
           <ul className="divide-y divide-stone-100">
             {employees.slice(0, 6).map((e) => {
-              const p = periodePourMois(e.periodes, ym) || e.periodes[e.periodes.length - 1];
+              const p = periodeEffective(e, ym) || e.periodes[e.periodes.length - 1];
               return (
                 <li key={e.id} className="flex items-center justify-between py-2.5">
                   <div>
