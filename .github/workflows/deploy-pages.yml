@@ -51,6 +51,17 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_WAVE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_WAVE_SUPABASE_ANON_KEY }}
       - run: mkdir -p dist/wave-sage && cp -r wave-sage/dist/. dist/wave-sage/
+      # Application autonome « PaieCI » (bulletins de paie) → sous-chemin
+      # /gestion-paie/. Base relative ; les clés Supabase sont facultatives
+      # (repli en mode démonstration / stockage local si non définies).
+      - run: npm ci
+        working-directory: gestion-paie
+      - run: npm run build
+        working-directory: gestion-paie
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_PAIE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_PAIE_SUPABASE_ANON_KEY }}
+      - run: mkdir -p dist/gestion-paie && cp -r gestion-paie/dist/. dist/gestion-paie/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
