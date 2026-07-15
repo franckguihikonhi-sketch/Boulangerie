@@ -79,6 +79,13 @@
   "employees.licenciementTitle": "Licenciement (fin de CDI)",
   "employees.licenciementHelp": "Choisissez le dernier mois travaillé pour {nom}. Au-delà de ce mois, le CDI sera considéré comme rompu (licenciement).",
   "employees.licenciementConfirm": "Confirmer le licenciement",
+  "employees.revise": "Réviser le salaire",
+  "employees.reviseTitle": "Réviser le salaire NET",
+  "employees.reviseHelp": "Pour {nom} : à partir de quel mois le nouveau salaire NET s'applique-t-il ? Les bulletins déjà générés avant ce mois gardent l'ancien salaire ; ceux à partir de ce mois utilisent le nouveau — utile pour tirer les bulletins en lot d'un salarié dont le net a varié d'une année à l'autre.",
+  "employees.reviseFrom": "Nouveau salaire à partir de (mois)",
+  "employees.reviseNet": "Nouveau salaire NET",
+  "employees.reviseConfirm": "Appliquer la révision",
+  "employees.reviseDateError": "Le mois choisi doit être postérieur au début de la période contractuelle en cours.",
 
   "situation.celibataire": "Célibataire",
   "situation.marie": "Marié(e)",

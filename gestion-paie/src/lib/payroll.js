@@ -348,6 +348,14 @@ export function moisEntre(a, b) {
   return (by - ay) * 12 + (bm - am) + 1;
 }
 
+// Mois précédant une étiquette « aaaa-mm » (ex. « 2022-01 » -> « 2021-12 »).
+export function moisPrecedent(ym) {
+  let [y, m] = ym.split('-').map(Number);
+  m -= 1;
+  if (m < 1) { m = 12; y -= 1; }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
 // Durée maximale d'un CDD (renouvellements inclus) avant requalification légale
 // en CDI, en Côte d'Ivoire : au-delà de 2 ans (24 mois).
 export const CDD_MAX_MOIS = 24;
