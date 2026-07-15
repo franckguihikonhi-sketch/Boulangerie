@@ -399,7 +399,7 @@ export async function saveEmployee(input) {
         return record.id;
       }
       const id = uid();
-      s.employees.push({ id, ...record, createdAt: new Date().toISOString() });
+      s.employees.push({ ...record, id, createdAt: new Date().toISOString() });
       return id;
     });
   }
