@@ -1,18 +1,16 @@
 // ===========================================================================
 // ÉTAT DES COTISATIONS SOCIALES MENSUEL (CNPS + CMU)
 // ---------------------------------------------------------------------------
-// Registre destiné à la déclaration/versement des cotisations sociales : une
-// ligne par salarié avec l'assiette et le montant de chaque cotisation
-// (retraite salariale et patronale, prestations familiales, accident du
-// travail, CMU salariale et patronale), plus une ligne de totaux — ce sont
-// les montants à reverser à la CNPS et à la CMU pour le mois. Contrairement
-// au livre de paie (qui couvre tous les éléments de paie), ce document se
-// limite aux cotisations sociales stricto sensu.
+// Récapitulatif des cotisations sociales dues sur un mois, TOUS SALARIÉS
+// CONFONDUS : une ligne par rubrique (assiette, retraite salariale et
+// patronale, prestations familiales, accident du travail, CMU salariale et
+// patronale), avec le total à verser à la CNPS et à la CMU — pas de détail
+// salarié par salarié (voir le livre de paie pour ça).
 // Réutilise bulletinData() pour garantir une stricte cohérence avec les
 // bulletins individuels et le livre de paie.
 // ===========================================================================
 
-import { formatNum, formatFCFA } from './money';
+import { formatNum } from './money';
 import { bulletinData } from './bulletin';
 import { libelleMois } from './payroll';
 
@@ -66,72 +64,38 @@ export function cotisationsTotaux(rows) {
   return t;
 }
 
-// --------------------------- Rendu HTML du registre -------------------------
+// --------------------------- Rendu HTML du récapitulatif -------------------
 
-function rowHtml(r, locale) {
-  const c = r.calc;
-  const e = r.employee;
-  const money = (n) => (n ? esc(formatNum(n, locale)) : '—');
-  return `<tr>
-    <td class="lib mono">${esc(e.matricule || '—')}</td>
-    <td class="lib">${esc(e.nom)}</td>
-    <td class="lib mono">${esc(e.cnps || '—')}</td>
-    <td class="num">${money(c.baseCotisable)}</td>
-    <td class="num">${money(c.cnpsRetraite)}</td>
-    <td class="num">${money(c.patronal.retraite)}</td>
-    <td class="num">${money(c.basePfAt)}</td>
-    <td class="num">${money(c.patronal.prestationsFamiliales)}</td>
-    <td class="num">${money(c.patronal.accidentTravail)}</td>
-    <td class="num strong">${money(totalCnps(c))}</td>
-    <td class="num">${money(c.cmu)}</td>
-    <td class="num">${money(c.patronal.cmu)}</td>
-    <td class="num strong">${money(totalCmu(c))}</td>
-    <td class="num net">${money(totalCnps(c) + totalCmu(c))}</td>
-  </tr>`;
-}
-
-function totalRowHtml(tt, locale) {
-  const money = (n) => esc(formatNum(n, locale));
-  return `<tr class="tot">
-    <td class="lib" colspan="3">TOTAL</td>
-    <td class="num">${money(tt.baseCotisable)}</td>
-    <td class="num">${money(tt.retraiteSal)}</td>
-    <td class="num">${money(tt.retraitePat)}</td>
-    <td class="num">${money(tt.basePfAt)}</td>
-    <td class="num">${money(tt.prestationsFam)}</td>
-    <td class="num">${money(tt.accidentTravail)}</td>
-    <td class="num">${money(tt.totalCnps)}</td>
-    <td class="num">${money(tt.cmuSal)}</td>
-    <td class="num">${money(tt.cmuPat)}</td>
-    <td class="num">${money(tt.totalCmu)}</td>
-    <td class="num net">${money(tt.totalGeneral)}</td>
+// Une ligne par rubrique (pas par salarié) : c'est le total de chacune sur
+// l'ensemble des salariés du mois.
+function rubriqueRow(label, montant, locale, cls) {
+  const money = (n) => (n ? formatNum(n, locale) : '—');
+  return `<tr${cls ? ` class="${cls}"` : ''}>
+    <td class="lib">${esc(label)}</td>
+    <td class="num">${esc(money(montant))}</td>
   </tr>`;
 }
 
 const PRINT_CSS = `
   * { box-sizing: border-box; }
   body { font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: #1c1917; margin: 0; padding: 0; background: #f5f5f4; }
-  .register { background: #fff; margin: 12px; padding: 14px 16px; border: 1px solid #e7e5e4; border-radius: 8px; }
-  .head { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; margin-bottom: 10px; }
+  .register { background: #fff; max-width: 560px; margin: 16px auto; padding: 20px 24px; border: 1px solid #e7e5e4; border-radius: 8px; }
+  .head { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 14px; }
   .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 4px 20px; font-size: 13px; font-weight: 700; letter-spacing: .08em; margin: 0; }
-  .period { font-size: 11px; margin: 5px 0 0; color: #44403c; text-transform: capitalize; }
-  table.reg { width: 100%; border-collapse: collapse; font-size: 9px; }
-  table.reg th, table.reg td { padding: 3px 5px; border: 1px solid #ececeb; text-align: right; white-space: nowrap; }
-  table.reg thead th { background: #eef2ff; color: #3730a3; font-size: 8px; text-transform: uppercase; letter-spacing: .01em; text-align: center; }
-  table.reg th.grphead { background: #e0e7ff; }
+  .period { font-size: 11px; margin: 6px 0 0; color: #44403c; text-transform: capitalize; }
+  table.reg { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.reg th, table.reg td { padding: 6px 8px; border: 1px solid #ececeb; }
+  table.reg thead th { background: #eef2ff; color: #3730a3; font-size: 10.5px; text-transform: uppercase; letter-spacing: .02em; text-align: left; }
   table.reg td.lib, table.reg th.lib { text-align: left; }
-  table.reg td.mono { font-variant-numeric: tabular-nums; }
-  table.reg td.strong { font-weight: 700; background: #faf9ff; }
-  table.reg td.net { font-weight: 700; color: #4338ca; }
-  table.reg tr.tot td { font-weight: 700; background: #f5f3ff; border-top: 2px solid #c7d2fe; }
-  .summary { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 12px; font-size: 11px; }
-  .summary .card { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 8px 14px; }
-  .summary .card b { display: block; font-size: 14px; color: #4f46e5; }
-  .foot { margin-top: 12px; font-size: 8.5px; color: #a8a29e; text-align: center; line-height: 1.5; }
+  table.reg td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.reg tr.group td { font-weight: 700; background: #f5f3ff; color: #3730a3; }
+  table.reg tr.tot td { font-weight: 800; background: #eef2ff; border-top: 2px solid #c7d2fe; font-size: 13.5px; color: #3730a3; }
+  .summary { margin-top: 14px; font-size: 11px; color: #57534e; }
+  .foot { margin-top: 14px; font-size: 8.5px; color: #a8a29e; text-align: center; line-height: 1.5; }
   @media print {
-    @page { margin: 10mm; size: A4 landscape; }
+    @page { margin: 15mm; }
     body { background: #fff; }
-    .register { border: none; margin: 0; padding: 0; }
+    .register { border: none; margin: 0; padding: 0; max-width: none; }
   }
 `;
 
@@ -139,7 +103,6 @@ const AUTO_PRINT = `<script>window.addEventListener('load',function(){setTimeout
 
 export function cotisationsDocumentHtml(rows, ym, { t, locale, autoPrint = false } = {}) {
   const tt = cotisationsTotaux(rows);
-  const body = rows.map((r) => rowHtml(r, locale)).join('\n');
   const title = t('cotisations.docTitle');
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(title)} — ${esc(libelleMois(ym, locale))}</title>
@@ -151,38 +114,25 @@ export function cotisationsDocumentHtml(rows, ym, { t, locale, autoPrint = false
       </header>
       <table class="reg">
         <thead>
-          <tr class="grp">
-            <th rowspan="2" class="lib">${esc(t('employees.matricule'))}</th>
-            <th rowspan="2" class="lib">${esc(t('employees.name'))}</th>
-            <th rowspan="2" class="lib">${esc(t('employees.cnps'))}</th>
-            <th colspan="6" class="grphead">${esc(t('cotisations.groupCnps'))}</th>
-            <th colspan="3" class="grphead">${esc(t('cotisations.groupCmu'))}</th>
-            <th rowspan="2">${esc(t('cotisations.totalGeneral'))}</th>
-          </tr>
-          <tr>
-            <th>${esc(t('cotisations.assietteRetraite'))}</th>
-            <th>${esc(t('cotisations.retraiteSal'))}</th>
-            <th>${esc(t('cotisations.retraitePat'))}</th>
-            <th>${esc(t('cotisations.assiettePfAt'))}</th>
-            <th>${esc(t('slip.prestationsFam'))}</th>
-            <th>${esc(t('slip.accidentTravail'))}</th>
-            <th>${esc(t('cotisations.totalCnps'))}</th>
-            <th>${esc(t('cotisations.cmuSal'))}</th>
-            <th>${esc(t('cotisations.cmuPat'))}</th>
-            <th>${esc(t('cotisations.totalCmu'))}</th>
-          </tr>
+          <tr><th class="lib">${esc(t('cotisations.rubrique'))}</th><th>${esc(t('cotisations.montant'))}</th></tr>
         </thead>
         <tbody>
-          ${body}
-          ${totalRowHtml(tt, locale)}
+          <tr class="group"><td colspan="2">${esc(t('cotisations.groupCnps'))}</td></tr>
+          ${rubriqueRow(t('cotisations.assietteRetraite'), tt.baseCotisable, locale)}
+          ${rubriqueRow(t('cotisations.retraiteSal'), tt.retraiteSal, locale)}
+          ${rubriqueRow(t('cotisations.retraitePat'), tt.retraitePat, locale)}
+          ${rubriqueRow(t('cotisations.assiettePfAt'), tt.basePfAt, locale)}
+          ${rubriqueRow(t('slip.prestationsFam'), tt.prestationsFam, locale)}
+          ${rubriqueRow(t('slip.accidentTravail'), tt.accidentTravail, locale)}
+          ${rubriqueRow(t('cotisations.totalCnps'), tt.totalCnps, locale, 'tot')}
+          <tr class="group"><td colspan="2">${esc(t('cotisations.groupCmu'))}</td></tr>
+          ${rubriqueRow(t('cotisations.cmuSal'), tt.cmuSal, locale)}
+          ${rubriqueRow(t('cotisations.cmuPat'), tt.cmuPat, locale)}
+          ${rubriqueRow(t('cotisations.totalCmu'), tt.totalCmu, locale, 'tot')}
+          ${rubriqueRow(t('cotisations.totalGeneral'), tt.totalGeneral, locale, 'tot')}
         </tbody>
       </table>
-      <div class="summary">
-        <div class="card">${esc(t('livrePaie.employeeCount'))}<b>${rows.length}</b></div>
-        <div class="card">${esc(t('cotisations.totalCnps'))}<b>${esc(formatFCFA(tt.totalCnps, locale))}</b></div>
-        <div class="card">${esc(t('cotisations.totalCmu'))}<b>${esc(formatFCFA(tt.totalCmu, locale))}</b></div>
-        <div class="card">${esc(t('cotisations.totalGeneral'))}<b>${esc(formatFCFA(tt.totalGeneral, locale))}</b></div>
-      </div>
+      <p class="summary">${esc(t('livrePaie.employeeCount'))} : <strong>${rows.length}</strong></p>
       <p class="foot">${esc(t('cotisations.footer'))}</p>
     </section>
     ${autoPrint ? AUTO_PRINT : ''}
