@@ -68,6 +68,10 @@
   "employees.deleteConfirm": "Supprimer définitivement ce salarié ?",
   "employees.view": "Bulletins",
   "employees.saved": "Salarié enregistré.",
+  "employees.endCdd": "Mettre fin au CDD",
+  "employees.endCddTitle": "Mettre fin au CDD",
+  "employees.endCddHelp": "Choisissez le dernier mois travaillé pour {nom}. Au-delà de ce mois, le contrat sera considéré comme terminé.",
+  "employees.endCddConfirm": "Mettre fin au contrat",
 
   "situation.celibataire": "Célibataire",
   "situation.marie": "Marié(e)",

@@ -42,10 +42,34 @@ export default function Employees() {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
+  const [endCdd, setEndCdd] = useState(null);
+  const [endCddDate, setEndCddDate] = useState('');
+  const [endCddError, setEndCddError] = useState('');
+  const [endCddSaving, setEndCddSaving] = useState(false);
   const ym = currentYm();
 
   const openNew = () => { setError(''); setForm(emptyForm()); };
   const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
+
+  const openEndCdd = (e) => { setEndCddError(''); setEndCddDate(ym); setEndCdd(e); };
+
+  const confirmEndCdd = async (evt) => {
+    evt.preventDefault();
+    if (!endCddDate) return;
+    setEndCddError('');
+    setEndCddSaving(true);
+    try {
+      const payload = fromEmployee(endCdd);
+      const last = payload.periodes.length - 1;
+      payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin: endCddDate } : p));
+      await saveEmployee(payload);
+      setEndCdd(null);
+    } catch (err) {
+      setEndCddError(t(err.message) || err.message);
+    } finally {
+      setEndCddSaving(false);
+    }
+  };
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -141,6 +165,11 @@ export default function Employees() {
                       <button className="ml-3 text-sm font-medium text-stone-600 hover:underline" onClick={() => openEdit(e)}>
                         {t('employees.edit')}
                       </button>
+                      {p?.kind === 'cdd' && !p.fin && (
+                        <button className="ml-3 text-sm font-medium text-amber-700 hover:underline" onClick={() => openEndCdd(e)}>
+                          {t('employees.endCdd')}
+                        </button>
+                      )}
                       <button className="ml-3 text-sm font-medium text-red-600 hover:underline" onClick={() => remove(e.id)}>
                         {t('employees.delete')}
                       </button>
@@ -152,6 +181,22 @@ export default function Employees() {
           </TableWrap>
         )}
       </Card>
+
+      {endCdd && (
+        <Modal title={t('employees.endCddTitle')} onClose={() => setEndCdd(null)}>
+          <form onSubmit={confirmEndCdd} className="space-y-4">
+            <p className="text-sm text-stone-600">{t('employees.endCddHelp', { nom: endCdd.nom })}</p>
+            <Field label={t('period.fin')}>
+              <input className={inputClass} type="month" value={endCddDate} onChange={(e) => setEndCddDate(e.target.value)} required />
+            </Field>
+            <ErrorNote>{endCddError}</ErrorNote>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setEndCdd(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={endCddSaving}>{t('employees.endCddConfirm')}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {form && (
         <Modal title={form.id ? t('employees.edit') : t('employees.add')} onClose={() => setForm(null)} wide>
