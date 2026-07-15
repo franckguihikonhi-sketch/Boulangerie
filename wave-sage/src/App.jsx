@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore, useDbStatus } from './lib/useStore';
 import Layout from './components/Layout';
 import Import from './pages/Import';
+import Analyse from './pages/Analyse';
 import Regles from './pages/Regles';
 import Parametres from './pages/Parametres';
 import Plan from './pages/Plan';
@@ -16,6 +17,7 @@ export default function App() {
   return (
     <Layout page={page} setPage={setPage} backend={backend}>
       {page === 'import' && <Import store={store} />}
+      {page === 'analyse' && <Analyse store={store} />}
       {page === 'historique' && <Historique store={store} />}
       {page === 'regles' && <Regles store={store} />}
       {page === 'plan' && <Plan store={store} />}

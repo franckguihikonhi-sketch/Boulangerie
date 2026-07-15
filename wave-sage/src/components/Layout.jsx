@@ -2,6 +2,7 @@ import { Badge } from './ui';
 
 const NAV = [
   { id: 'import', label: 'Import', icone: '📥' },
+  { id: 'analyse', label: 'Analyse', icone: '📊' },
   { id: 'historique', label: 'Historique', icone: '🗂️' },
   { id: 'regles', label: 'Règles', icone: '🧭' },
   { id: 'plan', label: 'Plan comptable', icone: '📚' },

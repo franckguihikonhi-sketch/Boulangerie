@@ -23,6 +23,7 @@ const K_MAPPINGS = PREFIXE + 'mappings';
 const K_IMPORTS = PREFIXE + 'imports';
 const K_EXPORTED = PREFIXE + 'exportedTx';
 const K_PLAN = PREFIXE + 'plan';
+const K_IMPORT_COURANT = PREFIXE + 'importCourant';
 const MAX_EXPORTED = 5000; // borne du garde-fou anti-doublon
 
 let planMap = null; // cache compte -> intitulé (invalidé à chaque changement)
@@ -33,7 +34,8 @@ let state = {
   plan: PLAN_COMPTABLE.map((c) => ({ ...c })), // référentiel des comptes (éditable)
   mappings: {}, // { contrepartieNormalisee: compte }
   imports: [], // historique { id, dateImport, nomFichier, periode, controle }
-  exportedTx: [] // identifiants Wave déjà exportés vers SAGE (anti-doublon)
+  exportedTx: [], // identifiants Wave déjà exportés vers SAGE (anti-doublon)
+  importCourant: { transactions: [], meta: null } // dernier relevé importé (pour l'analyse)
 };
 let status = 'idle'; // idle | loading | ready | error
 let statusSnapshot = { status, error: null, backend: supabaseConfigured ? 'supabase' : 'local' };
@@ -90,6 +92,9 @@ export function getExportedTxIds() {
 export function getPlan() {
   return state.plan;
 }
+export function getImportCourant() {
+  return state.importCourant;
+}
 function rebuildPlanMap() {
   planMap = Object.fromEntries(state.plan.map((c) => [c.compte, c.intitule]));
 }
@@ -108,11 +113,13 @@ function lireLocal() {
     const im = JSON.parse(localStorage.getItem(K_IMPORTS) || 'null');
     const ex = JSON.parse(localStorage.getItem(K_EXPORTED) || 'null');
     const pl = JSON.parse(localStorage.getItem(K_PLAN) || 'null');
+    const ic = JSON.parse(localStorage.getItem(K_IMPORT_COURANT) || 'null');
     if (p) state.parametres = { ...PARAMETRES_DEFAUT, ...p };
     if (Array.isArray(r) && r.length) state.regles = clonerRegles(r);
     if (m && typeof m === 'object') state.mappings = m;
     if (Array.isArray(im)) state.imports = im;
     if (Array.isArray(ex)) state.exportedTx = ex;
+    if (ic && Array.isArray(ic.transactions)) state.importCourant = ic;
     if (Array.isArray(pl) && pl.length) {
       state.plan = pl.filter((c) => c && c.compte);
       planMap = null;
@@ -385,13 +392,25 @@ export async function setMapping(contrepartieNormalisee, compte) {
   }
 }
 
+// Mémorise le dernier relevé importé (pour la page Analyse). Persisté localement.
+export function setImportCourant(transactions, meta) {
+  state = { ...state, importCourant: { transactions: transactions || [], meta: meta || null } };
+  try {
+    localStorage.setItem(K_IMPORT_COURANT, JSON.stringify(state.importCourant));
+  } catch {
+    /* quota/indispo : sans effet, l'analyse reste dispo en session */
+  }
+  notify();
+}
+
 // Vide l'historique des imports et le garde-fou anti-doublon (démarrage propre).
 // Ne touche pas au plan comptable, aux règles ni aux paramètres.
 export async function viderHistorique() {
-  state = { ...state, imports: [], exportedTx: [] };
+  state = { ...state, imports: [], exportedTx: [], importCourant: { transactions: [], meta: null } };
   try {
     localStorage.removeItem(K_IMPORTS);
     localStorage.removeItem(K_EXPORTED);
+    localStorage.removeItem(K_IMPORT_COURANT);
   } catch {
     /* stockage indisponible */
   }
