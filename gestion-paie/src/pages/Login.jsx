@@ -12,6 +12,7 @@ export default function Login() {
   const [email, setEmail] = useState('admin@paie.ci');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
+  const [photoOk, setPhotoOk] = useState(true);
 
   const submit = (e) => {
     e.preventDefault();
@@ -65,6 +66,27 @@ export default function Login() {
               {l}
             </button>
           ))}
+        </div>
+
+        {/* Concepteur */}
+        <div className="mt-6 flex flex-col items-center gap-3 rounded-2xl border border-stone-200 bg-white/70 p-4 text-center shadow-sm">
+          {photoOk ? (
+            <img
+              src="./concepteur.jpg"
+              alt="Franck G. KONHI"
+              onError={() => setPhotoOk(false)}
+              className="h-16 w-16 rounded-xl object-cover shadow-md ring-1 ring-stone-200"
+            />
+          ) : (
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-brand-100 text-lg font-bold text-brand-700 shadow-inner ring-1 ring-stone-200">
+              FK
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-bold text-stone-900">Mr Franck G. KONHI</p>
+            <p className="mt-0.5 text-xs text-stone-500">Consultant paie et système de rémunération</p>
+            <p className="text-xs text-stone-500">Développeur d'application de gestion</p>
+          </div>
         </div>
       </div>
     </div>
