@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Employees from './pages/Employees';
 import Bulletins from './pages/Bulletins';
+import LivrePaie from './pages/LivrePaie';
 import Parametres from './pages/Parametres';
 import About from './pages/About';
 
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/salaries" element={<Employees />} />
         <Route path="/bulletins" element={<Bulletins />} />
+        <Route path="/livre-de-paie" element={<LivrePaie />} />
         <Route path="/parametres" element={<Parametres />} />
         <Route path="/a-propos" element={<About />} />
         <Route path="*" element={<Navigate to="/" replace />} />
