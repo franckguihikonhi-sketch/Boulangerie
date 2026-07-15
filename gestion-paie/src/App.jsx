@@ -7,6 +7,7 @@ import Employees from './pages/Employees';
 import Bulletins from './pages/Bulletins';
 import LivrePaie from './pages/LivrePaie';
 import Cotisations from './pages/Cotisations';
+import Impots from './pages/Impots';
 import Parametres from './pages/Parametres';
 import About from './pages/About';
 
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/bulletins" element={<Bulletins />} />
         <Route path="/livre-de-paie" element={<LivrePaie />} />
         <Route path="/etat-cotisations" element={<Cotisations />} />
+        <Route path="/etat-impots" element={<Impots />} />
         <Route path="/parametres" element={<Parametres />} />
         <Route path="/a-propos" element={<About />} />
         <Route path="*" element={<Navigate to="/" replace />} />
