@@ -1,0 +1,119 @@
+import { useState } from 'react';
+import { useStore } from '../lib/useStore';
+import { useI18n } from '../i18n/I18nContext';
+import { formatFCFA } from '../lib/money';
+import { libelleMois } from '../lib/payroll';
+import { livrePaieData, livrePaieTotaux, livreDocumentHtml, imprimerLivrePaie, telechargerLivrePaie } from '../lib/livrePaie';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
+
+function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// Aperçu fidèle : on affiche EXACTEMENT le registre imprimé dans un iframe
+// isolé, à l'échelle réduite (les colonnes sont nombreuses). « Ce qui est
+// affiché est ce qui est imprimé. »
+function RegisterPreview({ rows, ym, t, locale }) {
+  const html = livreDocumentHtml(rows, ym, { t, locale });
+  const onLoad = (ev) => {
+    try {
+      const doc = ev.target.contentDocument;
+      ev.target.style.height = `${doc.documentElement.scrollHeight + 8}px`;
+    } catch {
+      /* iframe inaccessible : on garde la hauteur par défaut */
+    }
+  };
+  return (
+    <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-100 shadow-sm">
+      <iframe
+        title={`Livre de paie ${ym}`}
+        srcDoc={html}
+        onLoad={onLoad}
+        className="block w-full"
+        style={{ border: 0, minHeight: 300 }}
+      />
+    </div>
+  );
+}
+
+export default function LivrePaie() {
+  const { settings, employees } = useStore();
+  const { t, locale } = useI18n();
+
+  const [ym, setYm] = useState(currentYm());
+  const [rows, setRows] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+
+  const build = () => {
+    setError('');
+    setNotice('');
+    if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
+    setRows(livrePaieData(employees, ym, settings));
+  };
+
+  const print = () => {
+    if (!rows || !rows.length) return;
+    const mode = imprimerLivrePaie(rows, ym, { t, locale });
+    setNotice(mode === 'download' ? t('bulletins.downloaded') : mode ? '' : t('bulletins.printFailed'));
+  };
+
+  const download = () => {
+    if (!rows || !rows.length) return;
+    setNotice(telechargerLivrePaie(rows, ym, { t, locale }) ? t('bulletins.downloaded') : t('bulletins.printFailed'));
+  };
+
+  const totaux = rows && rows.length ? livrePaieTotaux(rows) : null;
+
+  return (
+    <div>
+      <PageTitle>{t('livrePaie.title')}</PageTitle>
+      <p className="mb-4 text-sm text-stone-500">{t('livrePaie.subtitle')}</p>
+
+      <Card className="p-4">
+        <div className="grid grid-cols-1 gap-3 sm:max-w-xs">
+          <Field label={t('livrePaie.month')}>
+            <input className={inputClass} type="month" value={ym} onChange={(e) => setYm(e.target.value)} />
+          </Field>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button onClick={build}>{t('bulletins.generate')}</Button>
+          {rows && rows.length > 0 && (
+            <>
+              <Button onClick={print}>{t('livrePaie.print')}</Button>
+              <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+            </>
+          )}
+        </div>
+        {notice && (
+          <p className="mt-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">{notice}</p>
+        )}
+        <ErrorNote>{error}</ErrorNote>
+      </Card>
+
+      {rows && (
+        <div className="mt-5">
+          {rows.length === 0 ? (
+            <InfoNote>{t('livrePaie.none')}</InfoNote>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm capitalize text-stone-600">{libelleMois(ym, locale)}</p>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span>{t('livrePaie.employeeCount')} : <strong>{rows.length}</strong></span>
+                  <span>{t('slip.netAPayer')} : <strong className="text-brand-700">{formatFCFA(totaux.netAPayer, locale)}</strong></span>
+                  <span>{t('slip.coutTotal')} : <strong>{formatFCFA(totaux.coutTotalEmployeur, locale)}</strong></span>
+                </div>
+              </div>
+              <InfoNote>{t('livrePaie.previewNote')}</InfoNote>
+              <div className="mt-3">
+                <RegisterPreview rows={rows} ym={ym} t={t} locale={locale} />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
