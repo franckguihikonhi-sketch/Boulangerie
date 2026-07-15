@@ -119,7 +119,10 @@ function normPeriode(p) {
     kind: p.kind === 'cdi' ? 'cdi' : 'cdd',
     label: (p.label || '').trim(),
     debut: p.debut || '',
-    fin: p.kind === 'cdi' ? null : p.fin || null,
+    // Une date de fin est possible pour un CDD (terme normal) COMME pour un
+    // CDI (licenciement / rupture) : dans les deux cas, vide = contrat
+    // toujours en cours.
+    fin: p.fin || null,
     salaireBase: roundFCFA(p.salaireBase),
     netCible: roundFCFA(p.netCible),
     transport: roundFCFA(p.transport ?? 0),

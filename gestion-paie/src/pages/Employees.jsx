@@ -42,32 +42,35 @@ export default function Employees() {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
-  const [endCdd, setEndCdd] = useState(null);
-  const [endCddDate, setEndCddDate] = useState('');
-  const [endCddError, setEndCddError] = useState('');
-  const [endCddSaving, setEndCddSaving] = useState(false);
+  // Action rapide « Mettre fin au contrat » (CDD arrivé à terme OU
+  // licenciement CDI) : même mécanisme (fixer la date de fin de la dernière
+  // période), déclenché salarié par salarié depuis la liste.
+  const [terminate, setTerminate] = useState(null); // { employee, mode: 'cdd' | 'cdi' }
+  const [terminateDate, setTerminateDate] = useState('');
+  const [terminateError, setTerminateError] = useState('');
+  const [terminateSaving, setTerminateSaving] = useState(false);
   const ym = currentYm();
 
   const openNew = () => { setError(''); setForm(emptyForm()); };
   const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
 
-  const openEndCdd = (e) => { setEndCddError(''); setEndCddDate(ym); setEndCdd(e); };
+  const openTerminate = (e, mode) => { setTerminateError(''); setTerminateDate(ym); setTerminate({ employee: e, mode }); };
 
-  const confirmEndCdd = async (evt) => {
+  const confirmTerminate = async (evt) => {
     evt.preventDefault();
-    if (!endCddDate) return;
-    setEndCddError('');
-    setEndCddSaving(true);
+    if (!terminateDate) return;
+    setTerminateError('');
+    setTerminateSaving(true);
     try {
-      const payload = fromEmployee(endCdd);
+      const payload = fromEmployee(terminate.employee);
       const last = payload.periodes.length - 1;
-      payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin: endCddDate } : p));
+      payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin: terminateDate } : p));
       await saveEmployee(payload);
-      setEndCdd(null);
+      setTerminate(null);
     } catch (err) {
-      setEndCddError(t(err.message) || err.message);
+      setTerminateError(t(err.message) || err.message);
     } finally {
-      setEndCddSaving(false);
+      setTerminateSaving(false);
     }
   };
 
@@ -166,8 +169,13 @@ export default function Employees() {
                         {t('employees.edit')}
                       </button>
                       {p?.kind === 'cdd' && !p.fin && (
-                        <button className="ml-3 text-sm font-medium text-amber-700 hover:underline" onClick={() => openEndCdd(e)}>
+                        <button className="ml-3 text-sm font-medium text-amber-700 hover:underline" onClick={() => openTerminate(e, 'cdd')}>
                           {t('employees.endCdd')}
+                        </button>
+                      )}
+                      {p?.kind === 'cdi' && !p.fin && (
+                        <button className="ml-3 text-sm font-medium text-red-700 hover:underline" onClick={() => openTerminate(e, 'cdi')}>
+                          {t('employees.licenciement')}
                         </button>
                       )}
                       <button className="ml-3 text-sm font-medium text-red-600 hover:underline" onClick={() => remove(e.id)}>
@@ -182,17 +190,24 @@ export default function Employees() {
         )}
       </Card>
 
-      {endCdd && (
-        <Modal title={t('employees.endCddTitle')} onClose={() => setEndCdd(null)}>
-          <form onSubmit={confirmEndCdd} className="space-y-4">
-            <p className="text-sm text-stone-600">{t('employees.endCddHelp', { nom: endCdd.nom })}</p>
+      {terminate && (
+        <Modal
+          title={t(terminate.mode === 'cdi' ? 'employees.licenciementTitle' : 'employees.endCddTitle')}
+          onClose={() => setTerminate(null)}
+        >
+          <form onSubmit={confirmTerminate} className="space-y-4">
+            <p className="text-sm text-stone-600">
+              {t(terminate.mode === 'cdi' ? 'employees.licenciementHelp' : 'employees.endCddHelp', { nom: terminate.employee.nom })}
+            </p>
             <Field label={t('period.fin')}>
-              <input className={inputClass} type="month" value={endCddDate} onChange={(e) => setEndCddDate(e.target.value)} required />
+              <input className={inputClass} type="month" value={terminateDate} onChange={(e) => setTerminateDate(e.target.value)} required />
             </Field>
-            <ErrorNote>{endCddError}</ErrorNote>
+            <ErrorNote>{terminateError}</ErrorNote>
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="secondary" onClick={() => setEndCdd(null)}>{t('common.cancel')}</Button>
-              <Button type="submit" disabled={endCddSaving}>{t('employees.endCddConfirm')}</Button>
+              <Button type="button" variant="secondary" onClick={() => setTerminate(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={terminateSaving}>
+                {t(terminate.mode === 'cdi' ? 'employees.licenciementConfirm' : 'employees.endCddConfirm')}
+              </Button>
             </div>
           </form>
         </Modal>
@@ -264,8 +279,8 @@ export default function Employees() {
                       <Field label={t('period.debut')}>
                         <input className={inputClass} type="month" value={p.debut} onChange={(e) => setPeriode(i, { debut: e.target.value })} required />
                       </Field>
-                      <Field label={t('period.fin')} help={p.kind === 'cdi' ? t('period.finHelp') : undefined}>
-                        <input className={inputClass} type="month" value={p.kind === 'cdi' ? '' : p.fin} disabled={p.kind === 'cdi'} onChange={(e) => setPeriode(i, { fin: e.target.value })} />
+                      <Field label={t('period.fin')} help={t('period.finHelp')}>
+                        <input className={inputClass} type="month" value={p.fin} onChange={(e) => setPeriode(i, { fin: e.target.value })} />
                       </Field>
                       <Field label={t('period.salaireBase')}>
                         <input className={inputClass} type="number" min="0" value={p.salaireBase} onChange={(e) => setPeriode(i, { salaireBase: e.target.value })} required />
