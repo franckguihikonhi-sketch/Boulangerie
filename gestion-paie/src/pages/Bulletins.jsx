@@ -59,10 +59,29 @@ export default function Bulletins() {
 
   const build = () => {
     setError('');
+    setNotice('');
     if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
     if (!rangeOk) { setError(t('bulletins.badRange')); return; }
     const months = listerMois(from, to);
-    const targets = scope === 'one' ? employees.filter((e) => e.id === employeeId) : employees;
+
+    let targets;
+    if (scope === 'one') {
+      const emp = employees.find((e) => e.id === employeeId);
+      // Bloquant : un salarié sous contrôle ne peut pas voir ses bulletins
+      // générés (même individuellement) tant que le contrôle n'est pas levé.
+      if (emp?.sousControle) {
+        setError(t('employees.blockedControleOne', { nom: emp.nom }));
+        return;
+      }
+      targets = emp ? [emp] : [];
+    } else {
+      const blocked = employees.filter((e) => e.sousControle);
+      targets = employees.filter((e) => !e.sousControle);
+      if (blocked.length > 0) {
+        setNotice(t('employees.blockedControle', { nom: blocked.map((e) => e.nom).join(', ') }));
+      }
+    }
+
     const out = [];
     for (const e of targets) {
       for (const m of months) {

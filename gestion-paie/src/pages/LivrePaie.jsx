@@ -51,7 +51,14 @@ export default function LivrePaie() {
     setError('');
     setNotice('');
     if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
-    setRows(livrePaieData(employees, ym, settings));
+    // Bloquant : un salarié sous contrôle est exclu de l'état agrégé tant
+    // que le contrôle n'est pas levé.
+    const blocked = employees.filter((e) => e.sousControle);
+    const targets = employees.filter((e) => !e.sousControle);
+    if (blocked.length > 0) {
+      setNotice(t('employees.blockedControle', { nom: blocked.map((e) => e.nom).join(', ') }));
+    }
+    setRows(livrePaieData(targets, ym, settings));
   };
 
   const runExport = async (fn) => {

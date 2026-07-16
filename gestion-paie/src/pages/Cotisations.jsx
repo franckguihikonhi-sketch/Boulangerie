@@ -53,7 +53,12 @@ export default function Cotisations() {
     setError('');
     setNotice('');
     if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
-    setRows(cotisationsData(employees, ym, settings));
+    const blocked = employees.filter((e) => e.sousControle);
+    const targets = employees.filter((e) => !e.sousControle);
+    if (blocked.length > 0) {
+      setNotice(t('employees.blockedControle', { nom: blocked.map((e) => e.nom).join(', ') }));
+    }
+    setRows(cotisationsData(targets, ym, settings));
   };
 
   const runExport = async (fn) => {

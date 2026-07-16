@@ -23,6 +23,7 @@ function emptyForm() {
   return {
     id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
     cnps: '', emploi: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
+    sousControle: false, controleMotif: '', controleDepuis: null,
     periodes: [emptyPeriode('cdd')]
   };
 }
@@ -32,8 +33,14 @@ function fromEmployee(e) {
     id: e.id, matricule: e.matricule, nom: e.nom, situation: e.situation,
     enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, expatrie: e.expatrie === true,
     dateEmbauche: e.dateEmbauche, salaireCategoriel: e.salaireCategoriel,
+    sousControle: e.sousControle === true, controleMotif: e.controleMotif || '', controleDepuis: e.controleDepuis || null,
     periodes: e.periodes.map((p) => ({ ...p, fin: p.fin || '', primes: p.primes.map((pr) => ({ ...pr })) }))
   };
+}
+
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function Employees() {
@@ -139,6 +146,50 @@ export default function Employees() {
     }
   };
 
+  // Action rapide « Marquer / lever le contrôle » : signale un salarié dont
+  // le dossier doit faire l'objet d'une vérification approfondie avant tout
+  // traitement de paie. Purement déclaratif côté saisie (motif, date), mais
+  // BLOQUANT à l'usage : tant qu'un salarié est marqué, ses bulletins (et les
+  // états agrégés qui en dépendent) ne peuvent pas être générés — voir
+  // Bulletins.jsx / LivrePaie.jsx / Cotisations.jsx / Impots.jsx.
+  const [controle, setControle] = useState(null); // employee
+  const [controleMotifInput, setControleMotifInput] = useState('');
+  const [controleError, setControleError] = useState('');
+  const [controleSaving, setControleSaving] = useState(false);
+
+  const openControle = (e) => { setControleError(''); setControleMotifInput(''); setControle(e); };
+
+  const confirmControle = async (evt) => {
+    evt.preventDefault();
+    setControleError('');
+    setControleSaving(true);
+    try {
+      const payload = fromEmployee(controle);
+      payload.sousControle = true;
+      payload.controleMotif = controleMotifInput.trim();
+      payload.controleDepuis = todayIso();
+      await saveEmployee(payload);
+      setControle(null);
+    } catch (err) {
+      setControleError(t(err.message) || err.message);
+    } finally {
+      setControleSaving(false);
+    }
+  };
+
+  const leverControle = async (e) => {
+    if (!window.confirm(t('employees.leverControleConfirm', { nom: e.nom }))) return;
+    try {
+      const payload = fromEmployee(e);
+      payload.sousControle = false;
+      payload.controleMotif = '';
+      payload.controleDepuis = null;
+      await saveEmployee(payload);
+    } catch (err) {
+      window.alert(t(err.message) || err.message);
+    }
+  };
+
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const setPeriode = (i, patch) =>
@@ -210,10 +261,21 @@ export default function Employees() {
               {employees.map((e) => {
                 const p = periodeEffective(e, ym) || e.periodes[e.periodes.length - 1];
                 return (
-                  <tr key={e.id}>
+                  <tr key={e.id} className={e.sousControle ? 'bg-red-50/70' : undefined}>
                     <td className={td}>
-                      <p className="font-medium text-stone-800">{e.nom}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-stone-800">{e.nom}</p>
+                        {e.sousControle && (
+                          <Badge tone="danger">{t('employees.sousControle')}</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-stone-500">{e.matricule || '—'} · {e.cnps || '—'}</p>
+                      {e.sousControle && (e.controleMotif || e.controleDepuis) && (
+                        <p className="mt-0.5 text-xs text-red-700">
+                          {e.controleMotif && <span>{e.controleMotif}</span>}
+                          {e.controleDepuis && <span className="text-red-500"> · {t('employees.controleDepuis')} {e.controleDepuis}</span>}
+                        </p>
+                      )}
                     </td>
                     <td className={td}>{e.emploi || '—'}</td>
                     <td className={td}>
@@ -246,6 +308,15 @@ export default function Employees() {
                           {t('employees.licenciement')}
                         </button>
                       )}
+                      {e.sousControle ? (
+                        <button className="ml-3 text-sm font-medium text-emerald-700 hover:underline" onClick={() => leverControle(e)}>
+                          {t('employees.leverControle')}
+                        </button>
+                      ) : (
+                        <button className="ml-3 text-sm font-medium text-orange-700 hover:underline" onClick={() => openControle(e)}>
+                          {t('employees.marquerControle')}
+                        </button>
+                      )}
                       <button className="ml-3 text-sm font-medium text-red-600 hover:underline" onClick={() => remove(e.id)}>
                         {t('employees.delete')}
                       </button>
@@ -257,6 +328,28 @@ export default function Employees() {
           </TableWrap>
         )}
       </Card>
+
+      {controle && (
+        <Modal title={t('employees.marquerControleTitle')} onClose={() => setControle(null)}>
+          <form onSubmit={confirmControle} className="space-y-4">
+            <p className="text-sm text-stone-600">{t('employees.marquerControleHelp', { nom: controle.nom })}</p>
+            <Field label={t('employees.controleMotif')} help={t('employees.controleMotifHelp')}>
+              <textarea
+                className={inputClass}
+                rows={3}
+                value={controleMotifInput}
+                onChange={(e) => setControleMotifInput(e.target.value)}
+                placeholder={t('employees.controleMotifPlaceholder')}
+              />
+            </Field>
+            <ErrorNote>{controleError}</ErrorNote>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setControle(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={controleSaving}>{t('employees.marquerControleConfirm')}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {revise && (
         <Modal title={t('employees.reviseTitle')} onClose={() => setRevise(null)} wide>
