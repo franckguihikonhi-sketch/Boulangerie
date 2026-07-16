@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
-import { periodeEffective } from '../lib/payroll';
+import { periodeEffective, moisPrecedent } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
@@ -49,6 +49,17 @@ export default function Employees() {
   const [terminateDate, setTerminateDate] = useState('');
   const [terminateError, setTerminateError] = useState('');
   const [terminateSaving, setTerminateSaving] = useState(false);
+  // Action rapide « Réviser le salaire » : clôture la période en cours à la
+  // veille du mois choisi et ouvre une nouvelle période (même type de
+  // contrat) à partir de ce mois avec le nouveau salaire NET. Permet de
+  // pointer, année après année, le salaire NET réellement versé — utile pour
+  // tirer les bulletins en lot d'un salarié présent depuis plusieurs années
+  // dont le net a varié d'une année à l'autre.
+  const [revise, setRevise] = useState(null); // employee
+  const [reviseDate, setReviseDate] = useState('');
+  const [reviseNet, setReviseNet] = useState('');
+  const [reviseError, setReviseError] = useState('');
+  const [reviseSaving, setReviseSaving] = useState(false);
   const ym = currentYm();
 
   const openNew = () => { setError(''); setForm(emptyForm()); };
@@ -71,6 +82,47 @@ export default function Employees() {
       setTerminateError(t(err.message) || err.message);
     } finally {
       setTerminateSaving(false);
+    }
+  };
+
+  const openRevise = (e) => {
+    setReviseError('');
+    setReviseDate('');
+    const last = e.periodes[e.periodes.length - 1];
+    setReviseNet(last ? String(last.netCible) : '');
+    setRevise(e);
+  };
+
+  const confirmRevise = async (evt) => {
+    evt.preventDefault();
+    if (!reviseDate || !reviseNet) return;
+    setReviseError('');
+    const payload = fromEmployee(revise);
+    const lastIdx = payload.periodes.length - 1;
+    const last = payload.periodes[lastIdx];
+    if (reviseDate <= last.debut) {
+      setReviseError(t('employees.reviseDateError'));
+      return;
+    }
+    setReviseSaving(true);
+    try {
+      const closed = { ...last, fin: moisPrecedent(reviseDate) };
+      const next = {
+        ...last,
+        id: uid(),
+        label: '',
+        debut: reviseDate,
+        fin: '',
+        netCible: reviseNet,
+        primes: last.primes.map((pr) => ({ ...pr }))
+      };
+      payload.periodes = [...payload.periodes.slice(0, lastIdx), closed, next];
+      await saveEmployee(payload);
+      setRevise(null);
+    } catch (err) {
+      setReviseError(t(err.message) || err.message);
+    } finally {
+      setReviseSaving(false);
     }
   };
 
@@ -168,6 +220,9 @@ export default function Employees() {
                       <button className="ml-3 text-sm font-medium text-stone-600 hover:underline" onClick={() => openEdit(e)}>
                         {t('employees.edit')}
                       </button>
+                      <button className="ml-3 text-sm font-medium text-brand-700 hover:underline" onClick={() => openRevise(e)}>
+                        {t('employees.revise')}
+                      </button>
                       {p?.kind === 'cdd' && !p.fin && (
                         <button className="ml-3 text-sm font-medium text-amber-700 hover:underline" onClick={() => openTerminate(e, 'cdd')}>
                           {t('employees.endCdd')}
@@ -189,6 +244,25 @@ export default function Employees() {
           </TableWrap>
         )}
       </Card>
+
+      {revise && (
+        <Modal title={t('employees.reviseTitle')} onClose={() => setRevise(null)}>
+          <form onSubmit={confirmRevise} className="space-y-4">
+            <p className="text-sm text-stone-600">{t('employees.reviseHelp', { nom: revise.nom })}</p>
+            <Field label={t('employees.reviseFrom')}>
+              <input className={inputClass} type="month" value={reviseDate} onChange={(e) => setReviseDate(e.target.value)} required />
+            </Field>
+            <Field label={t('employees.reviseNet')}>
+              <input className={inputClass} type="number" min="0" value={reviseNet} onChange={(e) => setReviseNet(e.target.value)} required />
+            </Field>
+            <ErrorNote>{reviseError}</ErrorNote>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="secondary" onClick={() => setRevise(null)}>{t('common.cancel')}</Button>
+              <Button type="submit" disabled={reviseSaving}>{t('employees.reviseConfirm')}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
       {terminate && (
         <Modal
