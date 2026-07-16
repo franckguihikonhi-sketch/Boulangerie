@@ -12,7 +12,7 @@ const NAV_ITEMS = [
   { to: '/bulletins', key: 'nav.bulletins', icon: 'M7 3h7l5 5v13H5V5a2 2 0 012-2zm7 0v5h5M8 13h8M8 17h5' },
   { to: '/livre-de-paie', key: 'nav.livrePaie', icon: 'M4 5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM15 3v5h5M8 11h8M8 15h8M8 19h5' },
   { to: '/etat-cotisations', key: 'nav.cotisations', icon: 'M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2' },
-  { to: '/etat-impots', key: 'nav.impots', icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
+  { to: '/etat-impots', key: 'nav.impots', icon: 'M12 3v18M7 21h10M4 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2M5 7l-3 8c1.7 1.3 4.3 1.3 6 0L5 7zM19 7l-3 8c1.7 1.3 4.3 1.3 6 0L19 7z' },
   { to: '/parametres', key: 'nav.settings', icon: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12a7 7 0 00-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 00-1.7-1L14.5 2h-5l-.3 2.9a7 7 0 00-1.7 1l-2.4-1-2 3.4L3.1 11a7 7 0 000 2l-2 1.6 2 3.4 2.4-1a7 7 0 001.7 1l.3 2.9h5l.3-2.9a7 7 0 001.7-1l2.4 1 2-3.4-2-1.6a7 7 0 00.1-1z' },
   { to: '/a-propos', key: 'nav.about', icon: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM12 16v-4M12 8h.01' }
 ];
