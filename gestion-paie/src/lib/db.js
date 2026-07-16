@@ -146,6 +146,12 @@ function buildEmployee(input) {
     expatrie: input.expatrie === true,
     dateEmbauche: input.dateEmbauche || `${periodes[0].debut}-01`,
     salaireCategoriel: roundFCFA(input.salaireCategoriel || periodes[0].salaireBase),
+    // Préserve le marquage « sous contrôle » tel quel : un enregistrement
+    // (édition, révision de salaire, fin de contrat…) ne doit jamais lever
+    // ou poser ce marquage à l'insu de l'utilisateur.
+    sousControle: input.sousControle === true,
+    controleMotif: input.controleMotif?.trim() || '',
+    controleDepuis: input.controleDepuis || null,
     periodes
   };
 }
@@ -257,6 +263,9 @@ const toEmployee = (r) => ({
   enfants: Number(r.enfants), cnps: r.cnps, emploi: r.emploi, expatrie: r.expatrie,
   dateEmbauche: r.date_embauche, salaireCategoriel: Number(r.salaire_categoriel),
   createdAt: r.created_at,
+  sousControle: r.sous_controle === true,
+  controleMotif: r.controle_motif || '',
+  controleDepuis: r.controle_depuis || null,
   periodes: (r.periodes || []).sort((a, b) => a.position - b.position).map(toPeriode)
 });
 const toSettings = (r) => ({

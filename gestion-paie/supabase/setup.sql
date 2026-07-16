@@ -47,6 +47,12 @@ create table employees (
   -- Salaire catégoriel (minimum conventionnel) : assiette de la prime
   -- d'ancienneté. FCFA entier.
   salaire_categoriel bigint not null default 0 check (salaire_categoriel >= 0),
+  -- Marquage « sous contrôle » : signale un salarié dont le dossier doit
+  -- faire l'objet d'une vérification approfondie avant traitement (purement
+  -- indicatif — motif et date facultatifs).
+  sous_controle boolean not null default false,
+  controle_motif text not null default '',
+  controle_depuis date,
   created_at timestamptz not null default now()
 );
 
@@ -105,18 +111,24 @@ begin
       emploi = coalesce(p->>'emploi',''),
       expatrie = coalesce((p->>'expatrie')::boolean, false),
       date_embauche = nullif(p->>'dateEmbauche','')::date,
-      salaire_categoriel = coalesce((p->>'salaireCategoriel')::bigint, 0)
+      salaire_categoriel = coalesce((p->>'salaireCategoriel')::bigint, 0),
+      sous_controle = coalesce((p->>'sousControle')::boolean, false),
+      controle_motif = coalesce(p->>'controleMotif',''),
+      controle_depuis = nullif(p->>'controleDepuis','')::date
     where id = v_id;
     if not found then raise exception 'Salarié introuvable'; end if;
     delete from periodes where employee_id = v_id;
   else
     insert into employees (matricule, nom, situation, enfants, cnps, emploi,
-      expatrie, date_embauche, salaire_categoriel)
+      expatrie, date_embauche, salaire_categoriel, sous_controle, controle_motif, controle_depuis)
     values (
       coalesce(p->>'matricule',''), p->>'nom', coalesce(p->>'situation','celibataire'),
       coalesce((p->>'enfants')::int, 0), coalesce(p->>'cnps',''), coalesce(p->>'emploi',''),
       coalesce((p->>'expatrie')::boolean, false), nullif(p->>'dateEmbauche','')::date,
-      coalesce((p->>'salaireCategoriel')::bigint, 0)
+      coalesce((p->>'salaireCategoriel')::bigint, 0),
+      coalesce((p->>'sousControle')::boolean, false),
+      coalesce(p->>'controleMotif',''),
+      nullif(p->>'controleDepuis','')::date
     ) returning id into v_id;
   end if;
 
