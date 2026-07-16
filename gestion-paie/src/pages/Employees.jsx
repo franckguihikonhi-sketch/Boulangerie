@@ -54,10 +54,12 @@ export default function Employees() {
   // contrat) à partir de ce mois avec le nouveau salaire NET. Permet de
   // pointer, année après année, le salaire NET réellement versé — utile pour
   // tirer les bulletins en lot d'un salarié présent depuis plusieurs années
-  // dont le net a varié d'une année à l'autre.
+  // dont le net a varié d'une année à l'autre. Plusieurs révisions peuvent
+  // être saisies d'un coup (une ligne par année) et sont appliquées
+  // ensemble, dans l'ordre chronologique, en une seule sauvegarde.
+  const emptyRevision = () => ({ id: uid(), date: '', net: '' });
   const [revise, setRevise] = useState(null); // employee
-  const [reviseDate, setReviseDate] = useState('');
-  const [reviseNet, setReviseNet] = useState('');
+  const [revisions, setRevisions] = useState([emptyRevision()]);
   const [reviseError, setReviseError] = useState('');
   const [reviseSaving, setReviseSaving] = useState(false);
   const ym = currentYm();
@@ -87,36 +89,47 @@ export default function Employees() {
 
   const openRevise = (e) => {
     setReviseError('');
-    setReviseDate('');
-    const last = e.periodes[e.periodes.length - 1];
-    setReviseNet(last ? String(last.netCible) : '');
+    setRevisions([emptyRevision()]);
     setRevise(e);
   };
 
+  const addRevisionRow = () => setRevisions((rs) => [...rs, emptyRevision()]);
+  const removeRevisionRow = (i) => setRevisions((rs) => rs.filter((_, idx) => idx !== i));
+  const setRevisionField = (i, patch) =>
+    setRevisions((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
   const confirmRevise = async (evt) => {
     evt.preventDefault();
-    if (!reviseDate || !reviseNet) return;
     setReviseError('');
+    const entries = revisions.filter((r) => r.date && r.net);
+    if (entries.length === 0) return;
+    // Applique les révisions dans l'ordre chronologique, quel que soit
+    // l'ordre de saisie des lignes : chacune clôture la période « en cours »
+    // à ce stade et en ouvre une nouvelle avec le nouveau net.
+    const sorted = [...entries].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const payload = fromEmployee(revise);
-    const lastIdx = payload.periodes.length - 1;
-    const last = payload.periodes[lastIdx];
-    if (reviseDate <= last.debut) {
-      setReviseError(t('employees.reviseDateError'));
-      return;
-    }
-    setReviseSaving(true);
-    try {
-      const closed = { ...last, fin: moisPrecedent(reviseDate) };
+    let lastIdx = payload.periodes.length - 1;
+    for (const entry of sorted) {
+      const last = payload.periodes[lastIdx];
+      if (entry.date <= last.debut) {
+        setReviseError(t('employees.reviseDateError'));
+        return;
+      }
+      const closed = { ...last, fin: moisPrecedent(entry.date) };
       const next = {
         ...last,
         id: uid(),
         label: '',
-        debut: reviseDate,
+        debut: entry.date,
         fin: '',
-        netCible: reviseNet,
+        netCible: entry.net,
         primes: last.primes.map((pr) => ({ ...pr }))
       };
       payload.periodes = [...payload.periodes.slice(0, lastIdx), closed, next];
+      lastIdx = payload.periodes.length - 1;
+    }
+    setReviseSaving(true);
+    try {
       await saveEmployee(payload);
       setRevise(null);
     } catch (err) {
@@ -246,15 +259,49 @@ export default function Employees() {
       </Card>
 
       {revise && (
-        <Modal title={t('employees.reviseTitle')} onClose={() => setRevise(null)}>
+        <Modal title={t('employees.reviseTitle')} onClose={() => setRevise(null)} wide>
           <form onSubmit={confirmRevise} className="space-y-4">
             <p className="text-sm text-stone-600">{t('employees.reviseHelp', { nom: revise.nom })}</p>
-            <Field label={t('employees.reviseFrom')}>
-              <input className={inputClass} type="month" value={reviseDate} onChange={(e) => setReviseDate(e.target.value)} required />
-            </Field>
-            <Field label={t('employees.reviseNet')}>
-              <input className={inputClass} type="number" min="0" value={reviseNet} onChange={(e) => setReviseNet(e.target.value)} required />
-            </Field>
+
+            <div className="space-y-2">
+              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 text-xs font-medium text-stone-600">
+                <span>{t('employees.reviseFrom')}</span>
+                <span>{t('employees.reviseNet')}</span>
+                <span />
+              </div>
+              {revisions.map((r, i) => (
+                <div key={r.id} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                  <input
+                    className={inputClass}
+                    type="month"
+                    value={r.date}
+                    onChange={(e) => setRevisionField(i, { date: e.target.value })}
+                    required
+                  />
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="0"
+                    value={r.net}
+                    onChange={(e) => setRevisionField(i, { net: e.target.value })}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30"
+                    onClick={() => removeRevisionRow(i)}
+                    disabled={revisions.length === 1}
+                    aria-label={t('period.remove')}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={addRevisionRow}>
+              + {t('employees.reviseAddRow')}
+            </button>
+
             <ErrorNote>{reviseError}</ErrorNote>
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="secondary" onClick={() => setRevise(null)}>{t('common.cancel')}</Button>
