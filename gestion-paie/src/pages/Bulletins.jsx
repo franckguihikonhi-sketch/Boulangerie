@@ -53,6 +53,7 @@ export default function Bulletins() {
   const [slips, setSlips] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const rangeOk = from <= to;
 
@@ -72,16 +73,20 @@ export default function Bulletins() {
     setSlips(out);
   };
 
-  const print = () => {
-    if (!slips || !slips.length) return;
-    const mode = imprimerBulletins(slips, { t, locale });
-    setNotice(mode === 'download' ? t('bulletins.downloaded') : mode ? '' : t('bulletins.printFailed'));
+  const runExport = async (fn) => {
+    if (!slips || !slips.length || exporting) return;
+    setNotice('');
+    setExporting(true);
+    try {
+      const ok = await fn(slips, { t, locale });
+      setNotice(ok ? t('bulletins.downloaded') : t('bulletins.printFailed'));
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const download = () => {
-    if (!slips || !slips.length) return;
-    setNotice(telechargerBulletins(slips, { t, locale }) ? t('bulletins.downloaded') : t('bulletins.printFailed'));
-  };
+  const print = () => runExport(imprimerBulletins);
+  const download = () => runExport(telechargerBulletins);
 
   const total = useMemo(
     () => (slips || []).reduce((a, s) => a + s.calc.netAPayer, 0),
@@ -119,8 +124,12 @@ export default function Bulletins() {
           <Button onClick={build}>{t('bulletins.generate')}</Button>
           {slips && slips.length > 0 && (
             <>
-              <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
-              <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+              <Button onClick={print} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('bulletins.print', { n: slips.length })}
+              </Button>
+              <Button variant="secondary" onClick={download} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('bulletins.download')}
+              </Button>
             </>
           )}
         </div>
@@ -142,8 +151,12 @@ export default function Bulletins() {
                   <span className="font-semibold text-stone-800">{t('slip.netAPayer')} : {formatFCFA(total, locale)}</span>
                 </p>
                 <div className="flex gap-2">
-                  <Button onClick={print}>{t('bulletins.print', { n: slips.length })}</Button>
-                  <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+                  <Button onClick={print} disabled={exporting}>
+                    {exporting ? t('bulletins.generating') : t('bulletins.print', { n: slips.length })}
+                  </Button>
+                  <Button variant="secondary" onClick={download} disabled={exporting}>
+                    {exporting ? t('bulletins.generating') : t('bulletins.download')}
+                  </Button>
                 </div>
               </div>
               <InfoNote>{t('bulletins.previewNote')}</InfoNote>

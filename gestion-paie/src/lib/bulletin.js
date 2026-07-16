@@ -14,6 +14,7 @@ import {
   periodeEffective, estMoisAnniversaire, joursCongeAnnuels
 } from './payroll';
 import { paramsFromSettings } from './db';
+import { exportHtmlToPdf } from './pdfExport';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -284,101 +285,42 @@ const PRINT_CSS = `
   .net span:last-child { font-size: 19px; font-weight: 800; }
   .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 10.5px; margin: 8px 0 0; }
   .foot { margin-top: 12px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
-  @media print {
-    /* Marge de page nulle : supprime l'en-tête/pied automatique du navigateur
-       (date, URL, titre, n° de page). Les marges réelles sont portées par le
-       padding de .slip. */
-    @page { margin: 0; }
-    body { background: #fff; }
-    /* Marge haute réservée au papier à en-tête pré-imprimé (≈ 3,5 cm). */
-    .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 35mm 9mm 10mm; }
-  }
+  /* Variante « export PDF » : mêmes règles que l'ancien @media print, mais
+     actives inconditionnellement puisque le PDF est désormais généré par
+     capture (voir pdfExport.js), sans passer par la boîte d'impression du
+     navigateur. Marge haute réservée au papier à en-tête pré-imprimé. */
+  body.pdf-export { background: #fff; }
+  body.pdf-export .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 35mm 9mm 10mm; }
 `;
 
-// Petit script d'auto-impression injecté dans le document : lorsqu'il est
-// ouvert comme page de premier niveau (nouvel onglet, ou fichier téléchargé
-// puis ouvert), il déclenche la fenêtre d'impression, puis referme l'onglet.
-// (Séquence </script> échappée pour rester inline-safe.)
-const AUTO_PRINT = `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.onafterprint=function(){window.close();};window.print();}catch(e){}},250);});<\/script>`;
-
 // Construit le document HTML complet (autonome) regroupant les bulletins.
-// Sert à la fois à l'aperçu (iframe, sans auto-impression) et à l'export
-// (nouvel onglet / téléchargement, avec auto-impression).
-export function slipDocumentHtml(slips, { t, locale, autoPrint = false } = {}) {
+// Sert à l'aperçu (iframe) comme à l'export PDF (pdfExport: true, mise en
+// page pleine page prête pour le papier à en-tête).
+export function slipDocumentHtml(slips, { t, locale, pdfExport = false } = {}) {
   const body = (slips || []).map((s) => slipHtml(s, t, locale)).join('\n');
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(t('slip.title'))}</title>
-    <style>${PRINT_CSS}</style></head><body>${body}${autoPrint ? AUTO_PRINT : ''}</body></html>`;
+    <style>${PRINT_CSS}</style></head><body class="${pdfExport ? 'pdf-export' : ''}">${body}</body></html>`;
 }
 
-// Télécharge les bulletins sous forme de fichier HTML autonome (imprimable /
-// « Enregistrer en PDF » une fois ouvert). Fonctionne même dans un cadre
-// restreint qui bloque l'impression directe, tant que le téléchargement est
-// autorisé. Renvoie true si le clic de téléchargement a pu être émis.
-export function telechargerBulletins(slips, { t, locale }) {
+// Génère un véritable fichier PDF (un bulletin par page) et déclenche son
+// téléchargement. Renvoie true en cas de succès.
+export async function telechargerBulletins(slips, { t, locale }) {
   if (!slips || slips.length === 0) return false;
   try {
-    const html = slipDocumentHtml(slips, { t, locale, autoPrint: true });
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bulletins-paie.html';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const html = slipDocumentHtml(slips, { t, locale, pdfExport: true });
+    await exportHtmlToPdf(html, {
+      filename: 'bulletins-paie.pdf',
+      selector: '.slip',
+      orientation: 'portrait',
+      pxWidth: 794
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-// Imprime (ou exporte en PDF) l'ensemble des bulletins, avec repli automatique
-// selon les capacités de l'environnement :
-//   1. Nouvel onglet auto-imprimable (application déployée, pop-ups autorisés) ;
-//   2. Sinon, téléchargement du fichier HTML imprimable (cadre restreint qui
-//      bloque les pop-ups et l'impression directe, ex. aperçu en bac à sable) ;
-//   3. En dernier recours, impression via iframe caché (cadres autorisant les
-//      « modals » mais pas les pop-ups).
-// Renvoie le mode réellement utilisé : 'tab' | 'download' | 'iframe' | false.
-export function imprimerBulletins(slips, { t, locale }) {
-  if (!slips || slips.length === 0) return false;
-  const html = slipDocumentHtml(slips, { t, locale, autoPrint: true });
-
-  // 1) Nouvel onglet (impression native, meilleure expérience en production).
-  try {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (w) {
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return 'tab';
-    }
-    URL.revokeObjectURL(url);
-  } catch {
-    /* on tente les replis ci-dessous */
-  }
-
-  // 2) Onglet bloqué : téléchargement du fichier imprimable.
-  if (telechargerBulletins(slips, { t, locale })) return 'download';
-
-  // 3) Dernier recours : impression via iframe caché same-origin.
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch { /* ignoré (bac à sable sans allow-modals) */ }
-      setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 60000);
-    };
-    document.body.appendChild(iframe);
-    iframe.srcdoc = slipDocumentHtml(slips, { t, locale });
-    return 'iframe';
-  } catch {
-    return false;
-  }
-}
+// Alias : le bouton « Imprimer / PDF » produit désormais le même fichier PDF
+// réel que « Télécharger » (aucune dépendance à window.print/window.open).
+export const imprimerBulletins = telechargerBulletins;

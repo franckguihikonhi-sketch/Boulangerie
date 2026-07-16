@@ -43,6 +43,7 @@ export default function Impots() {
   const [rows, setRows] = useState(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const build = () => {
     setError('');
@@ -51,16 +52,20 @@ export default function Impots() {
     setRows(impotsData(employees, ym, settings));
   };
 
-  const print = () => {
-    if (!rows || !rows.length) return;
-    const mode = imprimerImpots(rows, ym, { t, locale });
-    setNotice(mode === 'download' ? t('bulletins.downloaded') : mode ? '' : t('bulletins.printFailed'));
+  const runExport = async (fn) => {
+    if (!rows || !rows.length || exporting) return;
+    setNotice('');
+    setExporting(true);
+    try {
+      const ok = await fn(rows, ym, { t, locale });
+      setNotice(ok ? t('bulletins.downloaded') : t('bulletins.printFailed'));
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const download = () => {
-    if (!rows || !rows.length) return;
-    setNotice(telechargerImpots(rows, ym, { t, locale }) ? t('bulletins.downloaded') : t('bulletins.printFailed'));
-  };
+  const print = () => runExport(imprimerImpots);
+  const download = () => runExport(telechargerImpots);
 
   const totaux = rows && rows.length ? impotsTotaux(rows) : null;
 
@@ -79,8 +84,12 @@ export default function Impots() {
           <Button onClick={build}>{t('bulletins.generate')}</Button>
           {rows && rows.length > 0 && (
             <>
-              <Button onClick={print}>{t('livrePaie.print')}</Button>
-              <Button variant="secondary" onClick={download}>{t('bulletins.download')}</Button>
+              <Button onClick={print} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('livrePaie.print')}
+              </Button>
+              <Button variant="secondary" onClick={download} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('bulletins.download')}
+              </Button>
             </>
           )}
         </div>
