@@ -12,6 +12,7 @@
 import { formatNum, formatFCFA } from './money';
 import { bulletinData } from './bulletin';
 import { libelleMois } from './payroll';
+import { exportHtmlToPdf } from './pdfExport';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -154,23 +155,20 @@ const PRINT_CSS = `
   .summary .card { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 8px 14px; }
   .summary .card b { display: block; font-size: 14px; color: #4f46e5; }
   .foot { margin-top: 12px; font-size: 8.5px; color: #a8a29e; text-align: center; line-height: 1.5; }
-  @media print {
-    @page { margin: 8mm; size: A4 landscape; }
-    body { background: #fff; }
-    .register { border: none; margin: 0; padding: 0; }
-  }
+  /* Variante « export PDF » (voir pdfExport.js) : mise en page pleine page
+     sans bordure ni marge d'écran, active inconditionnellement. */
+  body.pdf-export { background: #fff; }
+  body.pdf-export .register { border: none; margin: 0; padding: 8mm; }
 `;
 
-const AUTO_PRINT = `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.onafterprint=function(){window.close();};window.print();}catch(e){}},250);});<\/script>`;
-
 // Construit le document HTML complet (autonome) du registre pour un mois.
-export function livreDocumentHtml(rows, ym, { t, locale, autoPrint = false } = {}) {
+export function livreDocumentHtml(rows, ym, { t, locale, pdfExport = false } = {}) {
   const tt = livrePaieTotaux(rows);
   const body = rows.map((r) => rowHtml(r, t, locale)).join('\n');
   const title = t('livrePaie.docTitle');
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(title)} — ${esc(libelleMois(ym, locale))}</title>
-    <style>${PRINT_CSS}</style></head><body>
+    <style>${PRINT_CSS}</style></head><body class="${pdfExport ? 'pdf-export' : ''}">
     <section class="register">
       <header class="head">
         <p class="badge">${esc(title)}</p>
@@ -223,70 +221,27 @@ export function livreDocumentHtml(rows, ym, { t, locale, autoPrint = false } = {
       </div>
       <p class="foot">${esc(t('livrePaie.footer'))}</p>
     </section>
-    ${autoPrint ? AUTO_PRINT : ''}
     </body></html>`;
 }
 
-// Télécharge le registre sous forme de fichier HTML autonome (imprimable /
-// « Enregistrer en PDF » une fois ouvert). Fonctionne même dans un cadre
-// restreint qui bloque l'impression directe.
-export function telechargerLivrePaie(rows, ym, { t, locale }) {
+// Génère un véritable fichier PDF (A4 paysage) et déclenche son
+// téléchargement. Renvoie true en cas de succès.
+export async function telechargerLivrePaie(rows, ym, { t, locale }) {
   if (!rows || rows.length === 0) return false;
   try {
-    const html = livreDocumentHtml(rows, ym, { t, locale, autoPrint: true });
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `livre-de-paie-${ym}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const html = livreDocumentHtml(rows, ym, { t, locale, pdfExport: true });
+    await exportHtmlToPdf(html, {
+      filename: `livre-de-paie-${ym}.pdf`,
+      selector: '.register',
+      orientation: 'landscape',
+      pxWidth: 1123
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-// Imprime (ou exporte en PDF) le registre, avec le même repli en trois temps
-// que pour les bulletins individuels (voir bulletin.js) : nouvel onglet, puis
-// téléchargement, puis impression via iframe caché. Renvoie le mode utilisé :
-// 'tab' | 'download' | 'iframe' | false.
-export function imprimerLivrePaie(rows, ym, { t, locale }) {
-  if (!rows || rows.length === 0) return false;
-  const html = livreDocumentHtml(rows, ym, { t, locale, autoPrint: true });
-
-  try {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (w) {
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return 'tab';
-    }
-    URL.revokeObjectURL(url);
-  } catch {
-    /* on tente les replis ci-dessous */
-  }
-
-  if (telechargerLivrePaie(rows, ym, { t, locale })) return 'download';
-
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch { /* ignoré (bac à sable sans allow-modals) */ }
-      setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 60000);
-    };
-    document.body.appendChild(iframe);
-    iframe.srcdoc = livreDocumentHtml(rows, ym, { t, locale });
-    return 'iframe';
-  } catch {
-    return false;
-  }
-}
+// Alias : le bouton « Imprimer / PDF » produit désormais le même fichier PDF
+// réel que « Télécharger » (aucune dépendance à window.print/window.open).
+export const imprimerLivrePaie = telechargerLivrePaie;

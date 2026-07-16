@@ -15,6 +15,7 @@
 import { formatNum } from './money';
 import { bulletinData } from './bulletin';
 import { libelleMois } from './payroll';
+import { exportHtmlToPdf } from './pdfExport';
 
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -75,22 +76,18 @@ const PRINT_CSS = `
   table.reg tr.tot td { font-weight: 800; background: #eef2ff; border-top: 2px solid #c7d2fe; font-size: 13.5px; color: #3730a3; }
   .summary { margin-top: 14px; font-size: 11px; color: #57534e; }
   .foot { margin-top: 14px; font-size: 8.5px; color: #a8a29e; text-align: center; line-height: 1.5; }
-  @media print {
-    @page { margin: 15mm; }
-    body { background: #fff; }
-    .register { border: none; margin: 0; padding: 0; max-width: none; }
-  }
+  /* Variante « export PDF » (voir pdfExport.js), active inconditionnellement. */
+  body.pdf-export { background: #fff; }
+  body.pdf-export .register { border: none; margin: 0; padding: 15mm; max-width: none; }
 `;
 
-const AUTO_PRINT = `<script>window.addEventListener('load',function(){setTimeout(function(){try{window.onafterprint=function(){window.close();};window.print();}catch(e){}},250);});<\/script>`;
-
-export function impotsDocumentHtml(rows, ym, { t, locale, autoPrint = false } = {}) {
+export function impotsDocumentHtml(rows, ym, { t, locale, pdfExport = false } = {}) {
   const tt = impotsTotaux(rows);
   const title = t('impots.docTitle');
   const hasExpatries = rows.some((r) => r.calc.expatrie);
   return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8" />
     <title>${esc(title)} — ${esc(libelleMois(ym, locale))}</title>
-    <style>${PRINT_CSS}</style></head><body>
+    <style>${PRINT_CSS}</style></head><body class="${pdfExport ? 'pdf-export' : ''}">
     <section class="register">
       <header class="head">
         <p class="badge">${esc(title)}</p>
@@ -116,63 +113,27 @@ export function impotsDocumentHtml(rows, ym, { t, locale, autoPrint = false } = 
       <p class="summary">${esc(t('livrePaie.employeeCount'))} : <strong>${rows.length}</strong></p>
       <p class="foot">${esc(t('impots.footer'))}</p>
     </section>
-    ${autoPrint ? AUTO_PRINT : ''}
     </body></html>`;
 }
 
-export function telechargerImpots(rows, ym, { t, locale }) {
+// Génère un véritable fichier PDF (A4 portrait) et déclenche son
+// téléchargement. Renvoie true en cas de succès.
+export async function telechargerImpots(rows, ym, { t, locale }) {
   if (!rows || rows.length === 0) return false;
   try {
-    const html = impotsDocumentHtml(rows, ym, { t, locale, autoPrint: true });
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `etat-impots-${ym}.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    const html = impotsDocumentHtml(rows, ym, { t, locale, pdfExport: true });
+    await exportHtmlToPdf(html, {
+      filename: `etat-impots-${ym}.pdf`,
+      selector: '.register',
+      orientation: 'portrait',
+      pxWidth: 794
+    });
     return true;
   } catch {
     return false;
   }
 }
 
-export function imprimerImpots(rows, ym, { t, locale }) {
-  if (!rows || rows.length === 0) return false;
-  const html = impotsDocumentHtml(rows, ym, { t, locale, autoPrint: true });
-
-  try {
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (w) {
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return 'tab';
-    }
-    URL.revokeObjectURL(url);
-  } catch {
-    /* on tente les replis ci-dessous */
-  }
-
-  if (telechargerImpots(rows, ym, { t, locale })) return 'download';
-
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch { /* ignoré (bac à sable sans allow-modals) */ }
-      setTimeout(() => { try { iframe.remove(); } catch { /* ignore */ } }, 60000);
-    };
-    document.body.appendChild(iframe);
-    iframe.srcdoc = impotsDocumentHtml(rows, ym, { t, locale });
-    return 'iframe';
-  } catch {
-    return false;
-  }
-}
+// Alias : le bouton « Imprimer / PDF » produit désormais le même fichier PDF
+// réel que « Télécharger » (aucune dépendance à window.print/window.open).
+export const imprimerImpots = telechargerImpots;
