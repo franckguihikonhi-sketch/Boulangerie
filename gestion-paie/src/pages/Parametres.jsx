@@ -11,6 +11,9 @@ export default function Parametres() {
   const [form, setForm] = useState({
     raisonSociale: settings.raisonSociale,
     employeurCnps: settings.employeurCnps,
+    rccm: settings.rccm || '',
+    compteContribuable: settings.compteContribuable || '',
+    activite: settings.activite || '',
     adresse: settings.adresse,
     modePaiement: settings.modePaiement || 'Virement',
     tauxAT: (settings.tauxAccidentTravail * 100).toString(),
@@ -30,6 +33,9 @@ export default function Parametres() {
       await saveSettings({
         raisonSociale: form.raisonSociale.trim(),
         employeurCnps: form.employeurCnps.trim(),
+        rccm: form.rccm.trim(),
+        compteContribuable: form.compteContribuable.trim(),
+        activite: form.activite.trim(),
         adresse: form.adresse.trim(),
         modePaiement: form.modePaiement,
         tauxAccidentTravail: Math.max(0, Number(form.tauxAT) || 0) / 100,
@@ -79,15 +85,24 @@ export default function Parametres() {
               <Field label={t('settings.raisonSociale')}>
                 <input className={inputClass} value={form.raisonSociale} onChange={(e) => set('raisonSociale', e.target.value)} />
               </Field>
-              <Field label={t('settings.employeurCnps')}>
+              <Field label={t('settings.employeurCnps')} help={t('settings.employeurCnpsHelp')}>
                 <input className={inputClass} value={form.employeurCnps} onChange={(e) => set('employeurCnps', e.target.value)} />
+              </Field>
+              <Field label={t('settings.rccm')}>
+                <input className={inputClass} value={form.rccm} onChange={(e) => set('rccm', e.target.value)} />
+              </Field>
+              <Field label={t('settings.compteContribuable')}>
+                <input className={inputClass} value={form.compteContribuable} onChange={(e) => set('compteContribuable', e.target.value)} />
+              </Field>
+              <Field label={t('settings.activite')}>
+                <input className={inputClass} value={form.activite} onChange={(e) => set('activite', e.target.value)} />
               </Field>
               <Field label={t('settings.adresse')}>
                 <input className={inputClass} value={form.adresse} onChange={(e) => set('adresse', e.target.value)} />
               </Field>
               <Field label={t('settings.modePaiement')}>
                 <select className={inputClass} value={form.modePaiement} onChange={(e) => set('modePaiement', e.target.value)}>
-                  {['Virement', 'Espèces', 'Chèque'].map((m) => <option key={m} value={m}>{m}</option>)}
+                  {['Virement', 'Espèces', 'Chèque', 'Mobile Money'].map((m) => <option key={m} value={m}>{m}</option>)}
                 </select>
               </Field>
             </div>

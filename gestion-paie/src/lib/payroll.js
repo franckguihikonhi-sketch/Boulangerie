@@ -408,3 +408,20 @@ export function estMoisAnniversaire(dateEmbauche, ym) {
   const [y, m] = ym.split('-').map(Number);
   return m === em && y > ey;
 }
+
+// Compteur de congés (mention légale du bulletin) : nombre de jours acquis
+// dans le cycle annuel EN COURS, c'est-à-dire depuis le dernier versement de
+// l'indemnité de congé (mois anniversaire) ou depuis l'embauche si aucun
+// versement n'a encore eu lieu. Repart à 0 le mois même du versement (les
+// jours de ce cycle viennent d'être soldés — voir `calc.congeJours` pour le
+// nombre de jours effectivement soldés ce mois-là). Pur calcul d'affichage,
+// sans incidence sur la paie.
+export function congesEnCours(dateEmbauche, ym) {
+  if (!dateEmbauche) return 0;
+  const [ey, em] = dateEmbauche.split('-').map(Number);
+  const [y, m] = ym.split('-').map(Number);
+  const moisTotal = (y - ey) * 12 + (m - em);
+  if (moisTotal < 0) return 0;
+  const moisCycle = moisTotal % 12;
+  return Math.round(moisCycle * CONGE_JOURS_PAR_MOIS * 10) / 10;
+}

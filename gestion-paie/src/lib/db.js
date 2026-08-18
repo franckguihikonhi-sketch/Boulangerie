@@ -60,6 +60,11 @@ function defaultSettings() {
   return {
     raisonSociale: 'Mon Entreprise',
     employeurCnps: '',
+    // Mentions légales complémentaires d'identification employeur (RCCM,
+    // compte contribuable, branche d'activité), obligatoires sur le bulletin.
+    rccm: '',
+    compteContribuable: '',
+    activite: '',
     adresse: 'Abidjan, Côte d’Ivoire',
     modePaiement: 'Virement',
     tauxAccidentTravail: DEFAULT_PARAMS.cnpsAccidentTravail,
@@ -113,6 +118,19 @@ function normPrimes(primes) {
     }));
 }
 
+// Retenues particulières (avances sur salaire, prêts, oppositions
+// judiciaires…) : déduites du net à payer, mentionnées à part sur le
+// bulletin — distinctes des cotisations/impôts légaux.
+function normRetenues(retenues) {
+  if (!Array.isArray(retenues)) return [];
+  return retenues
+    .filter((r) => r && (r.label?.trim() || Number(r.montant) > 0))
+    .map((r) => ({
+      label: (r.label || '').trim() || 'Retenue',
+      montant: roundFCFA(r.montant)
+    }));
+}
+
 function normPeriode(p) {
   return {
     id: p.id || uid(),
@@ -126,7 +144,8 @@ function normPeriode(p) {
     salaireBase: roundFCFA(p.salaireBase),
     netCible: roundFCFA(p.netCible),
     transport: roundFCFA(p.transport ?? 0),
-    primes: normPrimes(p.primes)
+    primes: normPrimes(p.primes),
+    retenues: normRetenues(p.retenues)
   };
 }
 
@@ -143,6 +162,9 @@ function buildEmployee(input) {
     enfants: Math.max(0, Math.floor(Number(input.enfants) || 0)),
     cnps: input.cnps?.trim() || '',
     emploi: input.emploi?.trim() || '',
+    // Catégorie / classification professionnelle (convention collective) —
+    // distincte de l'intitulé de poste (« emploi »), mention légale requise.
+    categorie: input.categorie?.trim() || '',
     expatrie: input.expatrie === true,
     dateEmbauche: input.dateEmbauche || `${periodes[0].debut}-01`,
     salaireCategoriel: roundFCFA(input.salaireCategoriel || periodes[0].salaireBase),
@@ -250,17 +272,22 @@ function guestSessionActive() {
 const toPrime = (r) => ({
   label: r.label, montant: Number(r.montant), imposable: r.imposable
 });
+const toRetenue = (r) => ({
+  label: r.label, montant: Number(r.montant)
+});
 const toPeriode = (r) => ({
   id: r.id, kind: r.kind, label: r.label,
   debut: (r.debut || '').slice(0, 7),
   fin: r.fin ? r.fin.slice(0, 7) : null,
   salaireBase: Number(r.salaire_base), netCible: Number(r.net_cible),
   transport: Number(r.transport),
-  primes: (r.primes || []).sort((a, b) => a.position - b.position).map(toPrime)
+  primes: (r.primes || []).sort((a, b) => a.position - b.position).map(toPrime),
+  retenues: (r.retenues || []).sort((a, b) => a.position - b.position).map(toRetenue)
 });
 const toEmployee = (r) => ({
   id: r.id, matricule: r.matricule, nom: r.nom, situation: r.situation,
-  enfants: Number(r.enfants), cnps: r.cnps, emploi: r.emploi, expatrie: r.expatrie,
+  enfants: Number(r.enfants), cnps: r.cnps, emploi: r.emploi, categorie: r.categorie || '',
+  expatrie: r.expatrie,
   dateEmbauche: r.date_embauche, salaireCategoriel: Number(r.salaire_categoriel),
   createdAt: r.created_at,
   sousControle: r.sous_controle === true,
@@ -269,7 +296,9 @@ const toEmployee = (r) => ({
   periodes: (r.periodes || []).sort((a, b) => a.position - b.position).map(toPeriode)
 });
 const toSettings = (r) => ({
-  raisonSociale: r.raison_sociale, employeurCnps: r.employeur_cnps, adresse: r.adresse,
+  raisonSociale: r.raison_sociale, employeurCnps: r.employeur_cnps,
+  rccm: r.rccm || '', compteContribuable: r.compte_contribuable || '', activite: r.activite || '',
+  adresse: r.adresse,
   modePaiement: r.mode_paiement,
   tauxAccidentTravail: Number(r.taux_accident_travail),
   transportExonere: Number(r.transport_exonere)
@@ -287,7 +316,7 @@ function describeError(err) {
 async function fetchAll() {
   const [set, emp] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
-    supabase.from('employees').select('*, periodes(*, primes(*))').order('created_at')
+    supabase.from('employees').select('*, periodes(*, primes(*), retenues(*))').order('created_at')
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
   return {
@@ -390,6 +419,9 @@ export async function saveSettings(patch) {
   const row = {};
   if (patch.raisonSociale !== undefined) row.raison_sociale = patch.raisonSociale;
   if (patch.employeurCnps !== undefined) row.employeur_cnps = patch.employeurCnps;
+  if (patch.rccm !== undefined) row.rccm = patch.rccm;
+  if (patch.compteContribuable !== undefined) row.compte_contribuable = patch.compteContribuable;
+  if (patch.activite !== undefined) row.activite = patch.activite;
   if (patch.adresse !== undefined) row.adresse = patch.adresse;
   if (patch.modePaiement !== undefined) row.mode_paiement = patch.modePaiement;
   if (patch.tauxAccidentTravail !== undefined) row.taux_accident_travail = patch.tauxAccidentTravail;
@@ -451,6 +483,9 @@ export function resetDemoData() {
 function seedDemo(s) {
   s.settings.raisonSociale = 'Boulangerie La Croustille';
   s.settings.employeurCnps = '1234567 A';
+  s.settings.rccm = 'CI-ABJ-2019-B-12345';
+  s.settings.compteContribuable = '1234567 X';
+  s.settings.activite = 'Boulangerie-pâtisserie';
   s.settings.adresse = 'Cocody, Abidjan';
 
   s.employees.push({
@@ -461,18 +496,20 @@ function seedDemo(s) {
     enfants: 2,
     cnps: '9988776 C',
     emploi: 'Vendeuse',
+    categorie: 'Catégorie 3B',
     expatrie: false,
     dateEmbauche: '2023-01-01',
     salaireCategoriel: 120000,
     periodes: [
       { id: uid(), kind: 'cdd', label: 'CDD initial', debut: '2023-01', fin: '2023-06',
-        salaireBase: 120000, netCible: 150000, transport: 30000, primes: [] },
+        salaireBase: 120000, netCible: 150000, transport: 30000, primes: [], retenues: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 1', debut: '2023-07', fin: '2023-12',
         salaireBase: 130000, netCible: 165000, transport: 30000,
-        primes: [{ label: 'Prime de rendement', montant: 15000, imposable: true }] },
+        primes: [{ label: 'Prime de rendement', montant: 15000, imposable: true }], retenues: [] },
       { id: uid(), kind: 'cdi', label: 'CDI', debut: '2024-01', fin: null,
         salaireBase: 150000, netCible: 190000, transport: 30000,
-        primes: [{ label: 'Prime de rendement', montant: 20000, imposable: true }] }
+        primes: [{ label: 'Prime de rendement', montant: 20000, imposable: true }],
+        retenues: [{ label: 'Avance sur salaire', montant: 10000 }] }
     ],
     createdAt: new Date().toISOString()
   });
@@ -486,16 +523,17 @@ function seedDemo(s) {
     enfants: 1,
     cnps: '4455667 B',
     emploi: 'Caissière',
+    categorie: 'Catégorie 2A',
     expatrie: false,
     dateEmbauche: '2022-02-01',
     salaireCategoriel: 100000,
     periodes: [
       { id: uid(), kind: 'cdd', label: 'CDD initial', debut: '2022-02', fin: '2022-07',
-        salaireBase: 100000, netCible: 130000, transport: 30000, primes: [] },
+        salaireBase: 100000, netCible: 130000, transport: 30000, primes: [], retenues: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 1', debut: '2022-08', fin: '2023-07',
-        salaireBase: 105000, netCible: 140000, transport: 30000, primes: [] },
+        salaireBase: 105000, netCible: 140000, transport: 30000, primes: [], retenues: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 2', debut: '2023-08', fin: null,
-        salaireBase: 110000, netCible: 150000, transport: 30000, primes: [] }
+        salaireBase: 110000, netCible: 150000, transport: 30000, primes: [], retenues: [] }
     ],
     createdAt: new Date().toISOString()
   });
@@ -508,13 +546,14 @@ function seedDemo(s) {
     enfants: 3,
     cnps: '5566778 D',
     emploi: 'Chef de production',
+    categorie: 'Agent de maîtrise',
     expatrie: false,
     dateEmbauche: '2020-03-01',
     salaireCategoriel: 250000,
     periodes: [
       { id: uid(), kind: 'cdi', label: 'CDI', debut: '2020-03', fin: null,
         salaireBase: 300000, netCible: 420000, transport: 40000,
-        primes: [{ label: 'Prime de responsabilité', montant: 50000, imposable: true }] }
+        primes: [{ label: 'Prime de responsabilité', montant: 50000, imposable: true }], retenues: [] }
     ],
     createdAt: new Date().toISOString()
   });

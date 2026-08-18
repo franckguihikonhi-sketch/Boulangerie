@@ -11,7 +11,7 @@
 import { formatFCFA, formatNum } from './money';
 import {
   calculerDepuisNet, libelleMois, anneesAnciennete,
-  periodeEffective, estMoisAnniversaire, joursCongeAnnuels
+  periodeEffective, estMoisAnniversaire, joursCongeAnnuels, congesEnCours
 } from './payroll';
 import { paramsFromSettings } from './db';
 import { exportHtmlToPdf } from './pdfExport';
@@ -82,7 +82,14 @@ function calcMois(employee, ym, params) {
 // (congés et requalification inclus).
 function cumulsAnnuels(employee, ym, params, courant) {
   const [y, m] = ym.split('-').map(Number);
-  const acc = { salaireBrut: 0, chargesSal: 0, chargesPat: 0, netImposable: 0, netAPayer: 0 };
+  const acc = {
+    salaireBrut: 0, chargesSal: 0, chargesPat: 0, netImposable: 0, netAPayer: 0,
+    // Cumuls distincts « imposable » (assiette ITS, non plafonnée) et
+    // « cotisable » (assiette CNPS retraite, plafonnée) — mention légale.
+    baseCotisable: 0,
+    // Cumul des jours de congé soldés (indemnité versée) depuis janvier.
+    congesJours: 0
+  };
   for (let mo = 1; mo <= m; mo++) {
     const r = calcMois(employee, `${y}-${String(mo).padStart(2, '0')}`, params);
     if (!r) continue;
@@ -91,13 +98,17 @@ function cumulsAnnuels(employee, ym, params, courant) {
     acc.chargesPat += r.calc.totalPatronal;
     acc.netImposable += r.calc.netImposable;
     acc.netAPayer += r.calc.netAPayer;
+    acc.baseCotisable += r.calc.baseCotisable;
+    acc.congesJours += r.calc.congeJours || 0;
   }
   const periode = {
     salaireBrut: courant.brutImposable,
     chargesSal: courant.totalRetenues,
     chargesPat: courant.totalPatronal,
     netImposable: courant.netImposable,
-    netAPayer: courant.netAPayer
+    netAPayer: courant.netAPayer,
+    baseCotisable: courant.baseCotisable,
+    congesJours: courant.congeJours || 0
   };
   return { periode, annee: acc };
 }
@@ -119,7 +130,10 @@ export function bulletinData(employee, ym, settings) {
   const fdate = (d) =>
     `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCFullYear()).slice(2)}`;
   const periodeDates = { du: fdate(debutMois), au: fdate(finMois) };
-  return { employee, periode, ym, settings, params, anciennete, calc, conge, periodeDates, cumuls };
+  // Compteur légal de congés : jours acquis dans le cycle annuel en cours
+  // (voir congesEnCours — pur affichage, sans incidence sur la paie).
+  const congesCycle = congesEnCours(employee.dateEmbauche, ym);
+  return { employee, periode, ym, settings, params, anciennete, calc, conge, periodeDates, cumuls, congesCycle };
 }
 
 // --------------------------- Rendu HTML d'un bulletin ----------------------
@@ -167,6 +181,23 @@ function slipHtml(data, t, locale) {
   const cu = data.cumuls;
   const cumul = (lib, per, ann) =>
     `<tr><td class="lib">${esc(lib)}</td><td class="num">${money(per)}</td><td class="num">${money(ann)}</td></tr>`;
+  const cumulJours = (lib, per, ann) =>
+    `<tr><td class="lib">${esc(lib)}</td><td class="num">${nb(per)} j</td><td class="num">${nb(ann)} j</td></tr>`;
+
+  // Retenues particulières (avances, prêts, oppositions…), le cas échéant :
+  // déduites du net légal, mentionnées à part du bloc des cotisations.
+  const retenuesDiverses = p.retenues || [];
+  const totalRetenuesDiverses = retenuesDiverses.reduce((s, r) => s + (Number(r.montant) || 0), 0);
+  const netFinal = calc.netAPayer - totalRetenuesDiverses;
+  const retenuesHtml = retenuesDiverses.length
+    ? `<table class="retenues">
+        <thead><tr><th class="lib">Retenues diverses (avances, prêts, oppositions…)</th><th class="num">Montant</th></tr></thead>
+        <tbody>
+          ${retenuesDiverses.map((r) => `<tr><td class="lib">${esc(r.label)}</td><td class="num">-${money(r.montant)}</td></tr>`).join('')}
+          <tr class="tot"><td class="lib">Total retenues diverses</td><td class="num">-${money(totalRetenuesDiverses)}</td></tr>
+        </tbody>
+      </table>`
+    : '';
 
   return `
   <section class="slip">
@@ -179,13 +210,15 @@ function slipHtml(data, t, locale) {
       <div class="who">
         <p class="nom">${esc(e.nom)}</p>
         <p class="muted">Emploi : ${esc(e.emploi || '—')}${e.expatrie ? ' — Expatrié' : ''}</p>
-        <p class="muted">Matricule : ${esc(e.matricule || '—')}</p>
+        <p class="muted">Catégorie professionnelle : ${esc(e.categorie || '—')}</p>
+        <p class="muted">Matricule : ${esc(e.matricule || '—')} · N° CNPS salarié : ${esc(e.cnps || '—')}</p>
       </div>
       <div class="stat">
         <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
         <p class="muted">Nombre de parts : <strong>${nb(calc.parts)}</strong></p>
         <p class="muted">Ancienneté : <strong>${anciennete}</strong> an(s)</p>
         <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong>${p.requalifieCdi ? ' <em>(requalifié CDI — CDD &gt; 2 ans)</em>' : ''} · Rémunération : Mensuelle</p>
+        <p class="muted">Congés — acquis (cycle en cours) : <strong>${nb(data.congesCycle)} j</strong>${calc.congeJours ? ` · soldés ce mois : <strong>${nb(calc.congeJours)} j</strong>` : ''}</p>
       </div>
     </div>
 
@@ -228,23 +261,31 @@ function slipHtml(data, t, locale) {
       </tbody>
     </table>
 
+    ${retenuesHtml}
+
     <div class="bottom">
       <table class="cumuls">
         <thead><tr><th class="lib">Cumuls</th><th class="num">Période</th><th class="num">Année</th></tr></thead>
         <tbody>
-          ${cumul('Salaire brut', cu.periode.salaireBrut, cu.annee.salaireBrut)}
+          ${cumul('Salaire brut (cumul imposable)', cu.periode.salaireBrut, cu.annee.salaireBrut)}
+          ${cumul('Assiette cotisable (CNPS)', cu.periode.baseCotisable, cu.annee.baseCotisable)}
           ${cumul('Charges salariales', cu.periode.chargesSal, cu.annee.chargesSal)}
           ${cumul('Charges patronales', cu.periode.chargesPat, cu.annee.chargesPat)}
           ${cumul('Net imposable', cu.periode.netImposable, cu.annee.netImposable)}
           ${cumul('Net à payer', cu.periode.netAPayer, cu.annee.netAPayer)}
+          ${cumulJours('Congés soldés', cu.periode.congesJours, cu.annee.congesJours)}
         </tbody>
       </table>
       <div class="net">
+        ${totalRetenuesDiverses > 0 ? `<span class="net-sub">Net légal : ${esc(formatFCFA(calc.netAPayer, locale))} · Retenues : -${esc(formatFCFA(totalRetenuesDiverses, locale))}</span>` : ''}
         <span>NET À PAYER</span>
-        <span>${esc(formatFCFA(calc.netAPayer, locale))}</span>
+        <span>${esc(formatFCFA(netFinal, locale))}</span>
       </div>
     </div>
     ${netWarn}
+    <p class="foot">
+      Employeur : ${esc(settings.raisonSociale || '—')}${settings.rccm ? ' · RCCM ' + esc(settings.rccm) : ''}${settings.compteContribuable ? ' · Cpte contribuable ' + esc(settings.compteContribuable) : ''}${settings.employeurCnps ? ' · N° CNPS/CNAM employeur ' + esc(settings.employeurCnps) : ''}${settings.activite ? ' · Branche d’activité : ' + esc(settings.activite) : ''}
+    </p>
     <p class="foot">${esc(t('slip.footer'))}</p>
   </section>`;
 }
@@ -274,6 +315,12 @@ const PRINT_CSS = `
   table.lines tr.info td { color: #78716c; font-style: italic; }
   table.lines tr.tot td { font-weight: 700; background: #f5f3ff; }
   table.lines tr.sub td { font-weight: 600; background: #faf9ff; }
+  table.retenues { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 8px; }
+  table.retenues th, table.retenues td { padding: 3px 8px; border: 1px solid #fecaca; }
+  table.retenues thead th { background: #fef2f2; color: #991b1b; text-transform: uppercase; font-size: 9.5px; text-align: left; }
+  table.retenues .num { text-align: right; font-variant-numeric: tabular-nums; color: #b91c1c; }
+  table.retenues .lib { text-align: left; }
+  table.retenues tr.tot td { font-weight: 700; background: #fef2f2; }
   .bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
   table.cumuls { border-collapse: collapse; font-size: 10.5px; min-width: 320px; }
   table.cumuls th, table.cumuls td { border: 1px solid #ececeb; padding: 3px 8px; }
@@ -283,8 +330,10 @@ const PRINT_CSS = `
   .net { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; padding: 10px 18px; background: #4f46e5; color: #fff; border-radius: 6px; min-width: 240px; margin-left: auto; }
   .net span:first-child { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: .9; }
   .net span:last-child { font-size: 19px; font-weight: 800; }
+  .net span.net-sub { font-size: 9.5px; font-weight: 500; opacity: .85; letter-spacing: 0; margin-bottom: 2px; }
   .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 10.5px; margin: 8px 0 0; }
-  .foot { margin-top: 12px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
+  .foot { margin-top: 6px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
+  .foot:first-of-type { margin-top: 12px; }
   /* Variante « export PDF » : mêmes règles que l'ancien @media print, mais
      actives inconditionnellement puisque le PDF est désormais généré par
      capture (voir pdfExport.js), sans passer par la boîte d'impression du
