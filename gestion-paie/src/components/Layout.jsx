@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
+import { useActivePeriod } from '../lib/useStore';
+import { setActivePeriod } from '../lib/period';
+import { libelleMois } from '../lib/payroll';
+import { Modal } from './ui';
 import DbGate from './DbGate';
 import Logo from './Logo';
 import DemoCountdown from './DemoCountdown';
@@ -58,6 +62,86 @@ function Brand() {
   );
 }
 
+const MOIS_ABREGES = {
+  fr: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+};
+
+// Sélecteur « Base » : navigue par année puis par mois. Une fois un mois
+// choisi, il devient la période active de toute l'app (voir lib/period.js) —
+// Tableau de bord, Bulletins, Livre de paie, Cotisations et Impôts s'ouvrent
+// désormais sur ce mois-là par défaut, au lieu du mois calendaire courant.
+function BaseButton() {
+  const { t, locale } = useI18n();
+  const activeYm = useActivePeriod();
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(() => Number(activeYm.slice(0, 4)));
+
+  const openPicker = () => {
+    setYear(Number(activeYm.slice(0, 4)));
+    setOpen(true);
+  };
+
+  const pick = (month) => {
+    setActivePeriod(`${year}-${String(month).padStart(2, '0')}`);
+    setOpen(false);
+  };
+
+  const [activeYear, activeMonth] = activeYm.split('-').map(Number);
+  const months = MOIS_ABREGES[locale] || MOIS_ABREGES.fr;
+
+  return (
+    <>
+      <button
+        onClick={openPicker}
+        className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+        title={t('base.help')}
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM15 3v5h5M8 12h8M8 16h5" />
+        </svg>
+        <span className="hidden sm:inline">{t('base.button')} · </span>
+        <span className="capitalize">{libelleMois(activeYm, locale)}</span>
+      </button>
+
+      {open && (
+        <Modal title={t('base.title')} onClose={() => setOpen(false)}>
+          <p className="mb-3 text-sm text-stone-600">{t('base.help')}</p>
+          <div className="mb-3 flex items-center justify-center gap-4">
+            <button type="button" className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100" onClick={() => setYear((y) => y - 1)} aria-label="—">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 5l-7 7 7 7" /></svg>
+            </button>
+            <span className="text-lg font-semibold text-stone-800">{year}</span>
+            <button type="button" className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100" onClick={() => setYear((y) => y + 1)} aria-label="+">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {months.map((label, idx) => {
+              const m = idx + 1;
+              const isActive = year === activeYear && m === activeMonth;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => pick(m)}
+                  className={`rounded-lg border px-2 py-2.5 text-sm font-medium transition ${
+                    isActive
+                      ? 'border-brand-600 bg-brand-600 text-white'
+                      : 'border-stone-200 text-stone-700 hover:border-brand-300 hover:bg-brand-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
 export default function Layout() {
   const { t, locale, setLocale } = useI18n();
   const { user, logout } = useAuth();
@@ -96,6 +180,7 @@ export default function Layout() {
           <span className="text-sm font-semibold text-stone-800 lg:hidden">{t('app.name')}</span>
         </div>
         <div className="flex items-center gap-2">
+          <BaseButton />
           <DemoCountdown />
           <div className="flex overflow-hidden rounded-lg border border-stone-300 text-xs font-semibold">
             {['fr', 'en'].map((l) => (

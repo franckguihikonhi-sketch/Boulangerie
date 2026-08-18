@@ -1,21 +1,18 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useStore } from '../lib/useStore';
+import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { periodeEffective, libelleMois } from '../lib/payroll';
 import { bulletinData } from '../lib/bulletin';
-import { Button, Card, PageTitle, StatCard, Badge } from '../components/ui';
-
-function currentYm() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
+import { Button, Card, PageTitle, StatCard, Badge, InfoNote } from '../components/ui';
 
 export default function Dashboard() {
   const { settings, employees } = useStore();
   const { t, locale } = useI18n();
-  const ym = currentYm();
+  // Mois choisi via le bouton « Base » (en-tête) — se met à jour en direct
+  // si l'utilisateur change de période sans quitter le tableau de bord.
+  const ym = useActivePeriod();
 
   const totals = useMemo(() => {
     let net = 0;
@@ -62,6 +59,17 @@ export default function Dashboard() {
         <StatCard label={t('dashboard.masseBrut')} value={formatFCFA(totals.brut, locale)} tip={t('dashboard.masseBrutTip')} />
         <StatCard label={t('dashboard.coutEmployeur')} value={formatFCFA(totals.cout, locale)} tip={t('dashboard.coutEmployeurTip')} tone="bad" />
       </div>
+
+      {employees.length > 0 && totals.actifs === 0 && (
+        <div className="mt-4">
+          <InfoNote>
+            {t('dashboard.noPaiePeriod', { mois: libelleMois(ym, locale) })}{' '}
+            <Link to="/bulletins" className="font-medium text-brand-700 hover:underline">
+              {t('dashboard.goBulletins')} →
+            </Link>
+          </InfoNote>
+        </div>
+      )}
 
       {sousControle.length > 0 && (
         <Card className="mt-6 border-red-200 bg-red-50/50 p-4">

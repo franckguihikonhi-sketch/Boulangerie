@@ -1,16 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useStore } from '../lib/useStore';
+import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { listerMois } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
-
-function currentYm() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
 
 // Aperçu fidèle : on affiche EXACTEMENT le bulletin imprimé (part salariale ET
 // part patronale, cumuls, net) dans un iframe isolé. « Ce qui est affiché est
@@ -45,7 +40,9 @@ export default function Bulletins() {
   const [params] = useSearchParams();
   const preEmp = params.get('e');
 
-  const ym = currentYm();
+  // Mois par défaut choisi via le bouton « Base » (en-tête) — l'utilisateur
+  // reste ensuite libre d'ajuster la plage from/to depuis cette page.
+  const ym = useActivePeriod();
   const [scope, setScope] = useState(preEmp ? 'one' : 'all');
   const [employeeId, setEmployeeId] = useState(preEmp || employees[0]?.id || '');
   const [from, setFrom] = useState(ym);

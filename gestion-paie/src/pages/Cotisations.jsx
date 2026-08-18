@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore } from '../lib/useStore';
+import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { libelleMois } from '../lib/payroll';
@@ -8,11 +8,6 @@ import {
   imprimerCotisations, telechargerCotisations
 } from '../lib/cotisations';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
-
-function currentYm() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
 
 // Aperçu fidèle : on affiche EXACTEMENT l'état imprimé dans un iframe isolé
 // (défilement horizontal, colonnes nombreuses).
@@ -43,7 +38,9 @@ export default function Cotisations() {
   const { settings, employees } = useStore();
   const { t, locale } = useI18n();
 
-  const [ym, setYm] = useState(currentYm());
+  // Mois par défaut choisi via le bouton « Base » (en-tête).
+  const activePeriod = useActivePeriod();
+  const [ym, setYm] = useState(activePeriod);
   const [rows, setRows] = useState(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
