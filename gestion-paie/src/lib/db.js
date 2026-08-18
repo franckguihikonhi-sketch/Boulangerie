@@ -120,14 +120,33 @@ function normPrimes(primes) {
 
 // Retenues particulières (avances sur salaire, prêts, oppositions
 // judiciaires…) : déduites du net à payer, mentionnées à part sur le
-// bulletin — distinctes des cotisations/impôts légaux.
+// bulletin — distinctes des cotisations/impôts légaux. `mois` (aaaa-mm)
+// optionnel : laissé vide, la retenue s'applique à tous les mois de la
+// période (ex. opposition judiciaire récurrente) ; renseigné, elle ne
+// s'applique qu'à ce mois précis (ex. avance ponctuelle).
 function normRetenues(retenues) {
   if (!Array.isArray(retenues)) return [];
   return retenues
     .filter((r) => r && (r.label?.trim() || Number(r.montant) > 0))
     .map((r) => ({
       label: (r.label || '').trim() || 'Retenue',
-      montant: roundFCFA(r.montant)
+      montant: roundFCFA(r.montant),
+      mois: r.mois || null
+    }));
+}
+
+// Heures supplémentaires : majoration légale (décimal, ex. 0.15 = +15 %) et
+// nombre d'heures, converties en montant via le taux horaire du salaire de
+// base (voir payroll.js). `mois` optionnel, même logique que les retenues :
+// vide = s'applique à tous les mois de la période, renseigné = ce mois précis.
+function normHeuresSup(heures) {
+  if (!Array.isArray(heures)) return [];
+  return heures
+    .filter((h) => h && Number(h.heures) > 0)
+    .map((h) => ({
+      heures: Math.max(0, Number(h.heures) || 0),
+      majoration: Math.max(0, Number(h.majoration) || 0),
+      mois: h.mois || null
     }));
 }
 
@@ -145,7 +164,8 @@ function normPeriode(p) {
     netCible: roundFCFA(p.netCible),
     transport: roundFCFA(p.transport ?? 0),
     primes: normPrimes(p.primes),
-    retenues: normRetenues(p.retenues)
+    retenues: normRetenues(p.retenues),
+    heuresSupplementaires: normHeuresSup(p.heuresSupplementaires)
   };
 }
 
@@ -273,7 +293,10 @@ const toPrime = (r) => ({
   label: r.label, montant: Number(r.montant), imposable: r.imposable
 });
 const toRetenue = (r) => ({
-  label: r.label, montant: Number(r.montant)
+  label: r.label, montant: Number(r.montant), mois: r.mois ? r.mois.slice(0, 7) : null
+});
+const toHeureSup = (r) => ({
+  heures: Number(r.heures), majoration: Number(r.majoration), mois: r.mois ? r.mois.slice(0, 7) : null
 });
 const toPeriode = (r) => ({
   id: r.id, kind: r.kind, label: r.label,
@@ -282,7 +305,8 @@ const toPeriode = (r) => ({
   salaireBase: Number(r.salaire_base), netCible: Number(r.net_cible),
   transport: Number(r.transport),
   primes: (r.primes || []).sort((a, b) => a.position - b.position).map(toPrime),
-  retenues: (r.retenues || []).sort((a, b) => a.position - b.position).map(toRetenue)
+  retenues: (r.retenues || []).sort((a, b) => a.position - b.position).map(toRetenue),
+  heuresSupplementaires: (r.heures_supplementaires || []).sort((a, b) => a.position - b.position).map(toHeureSup)
 });
 const toEmployee = (r) => ({
   id: r.id, matricule: r.matricule, nom: r.nom, situation: r.situation,
@@ -316,7 +340,7 @@ function describeError(err) {
 async function fetchAll() {
   const [set, emp] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
-    supabase.from('employees').select('*, periodes(*, primes(*), retenues(*))').order('created_at')
+    supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at')
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
   return {
@@ -502,14 +526,17 @@ function seedDemo(s) {
     salaireCategoriel: 120000,
     periodes: [
       { id: uid(), kind: 'cdd', label: 'CDD initial', debut: '2023-01', fin: '2023-06',
-        salaireBase: 120000, netCible: 150000, transport: 30000, primes: [], retenues: [] },
+        salaireBase: 120000, netCible: 150000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 1', debut: '2023-07', fin: '2023-12',
         salaireBase: 130000, netCible: 165000, transport: 30000,
-        primes: [{ label: 'Prime de rendement', montant: 15000, imposable: true }], retenues: [] },
+        primes: [{ label: 'Prime de rendement', montant: 15000, imposable: true }], retenues: [], heuresSupplementaires: [] },
       { id: uid(), kind: 'cdi', label: 'CDI', debut: '2024-01', fin: null,
         salaireBase: 150000, netCible: 190000, transport: 30000,
         primes: [{ label: 'Prime de rendement', montant: 20000, imposable: true }],
-        retenues: [{ label: 'Avance sur salaire', montant: 10000 }] }
+        // Avance ponctuelle : le mois précisé évite qu'elle ne se répète sur
+        // tous les mois (à durée indéterminée) de ce CDI toujours en cours.
+        retenues: [{ label: 'Avance sur salaire', montant: 10000, mois: '2024-01' }],
+        heuresSupplementaires: [] }
     ],
     createdAt: new Date().toISOString()
   });
@@ -529,11 +556,11 @@ function seedDemo(s) {
     salaireCategoriel: 100000,
     periodes: [
       { id: uid(), kind: 'cdd', label: 'CDD initial', debut: '2022-02', fin: '2022-07',
-        salaireBase: 100000, netCible: 130000, transport: 30000, primes: [], retenues: [] },
+        salaireBase: 100000, netCible: 130000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 1', debut: '2022-08', fin: '2023-07',
-        salaireBase: 105000, netCible: 140000, transport: 30000, primes: [], retenues: [] },
+        salaireBase: 105000, netCible: 140000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: [] },
       { id: uid(), kind: 'cdd', label: 'Renouvellement 2', debut: '2023-08', fin: null,
-        salaireBase: 110000, netCible: 150000, transport: 30000, primes: [], retenues: [] }
+        salaireBase: 110000, netCible: 150000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: [] }
     ],
     createdAt: new Date().toISOString()
   });
@@ -553,7 +580,9 @@ function seedDemo(s) {
     periodes: [
       { id: uid(), kind: 'cdi', label: 'CDI', debut: '2020-03', fin: null,
         salaireBase: 300000, netCible: 420000, transport: 40000,
-        primes: [{ label: 'Prime de responsabilité', montant: 50000, imposable: true }], retenues: [] }
+        primes: [{ label: 'Prime de responsabilité', montant: 50000, imposable: true }], retenues: [],
+        // Heures sup ponctuelles (mois précisé, ne se répètent pas).
+        heuresSupplementaires: [{ heures: 6, majoration: 0.15, mois: '2025-01' }] }
     ],
     createdAt: new Date().toISOString()
   });

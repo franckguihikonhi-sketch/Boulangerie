@@ -8,6 +8,7 @@
 -- ===========================================================================
 
 -- Nettoyage (permet de relancer le script proprement) -----------------------
+drop table if exists heures_supplementaires cascade;
 drop table if exists retenues cascade;
 drop table if exists primes cascade;
 drop table if exists periodes cascade;
@@ -94,15 +95,33 @@ create index on primes (periode_id);
 
 -- Retenues particulières rattachées à une période (avances sur salaire,
 -- prêts, oppositions judiciaires…) : déduites du net à payer, mentionnées à
--- part sur le bulletin, distinctes des cotisations/impôts légaux.
+-- part sur le bulletin, distinctes des cotisations/impôts légaux. `mois`
+-- (aaaa-mm-01) optionnel : vide = s'applique à tous les mois de la période
+-- (ex. opposition récurrente) ; renseigné = ce mois précis uniquement
+-- (ex. avance ponctuelle).
 create table retenues (
   id uuid primary key default gen_random_uuid(),
   periode_id uuid not null references periodes(id) on delete cascade,
   label text not null default 'Retenue',
   montant bigint not null default 0 check (montant >= 0),
+  mois date,
   position int not null default 0
 );
 create index on retenues (periode_id);
+
+-- Heures supplémentaires rattachées à une période : nombre d'heures et
+-- majoration légale (décimal, ex. 0.15 = +15 %), converties en montant via
+-- le taux horaire du salaire de base. Même logique de `mois` optionnel que
+-- les retenues.
+create table heures_supplementaires (
+  id uuid primary key default gen_random_uuid(),
+  periode_id uuid not null references periodes(id) on delete cascade,
+  heures numeric not null default 0 check (heures >= 0),
+  majoration numeric not null default 0 check (majoration >= 0),
+  mois date,
+  position int not null default 0
+);
+create index on heures_supplementaires (periode_id);
 
 -- Enregistrement atomique d'un salarié et de toutes ses périodes/primes -------
 -- en une transaction. `p` est l'objet salarié complet (JSON) tel qu'envoyé par
@@ -114,10 +133,12 @@ declare
   v_per jsonb;
   v_prime jsonb;
   v_retenue jsonb;
+  v_hsup jsonb;
   v_pid uuid;
   v_ppos int := 0;
   v_prpos int;
   v_rpos int;
+  v_hpos int;
 begin
   if coalesce(p->>'nom','') = '' then
     raise exception 'Le nom du salarié est obligatoire';
@@ -190,14 +211,29 @@ begin
     v_rpos := 0;
     for v_retenue in select * from jsonb_array_elements(coalesce(v_per->'retenues','[]'::jsonb))
     loop
-      insert into retenues (periode_id, label, montant, position)
+      insert into retenues (periode_id, label, montant, mois, position)
       values (
         v_pid,
         coalesce(nullif(v_retenue->>'label',''), 'Retenue'),
         coalesce((v_retenue->>'montant')::bigint, 0),
+        case when coalesce(v_retenue->>'mois','') = '' then null else ((v_retenue->>'mois') || '-01')::date end,
         v_rpos
       );
       v_rpos := v_rpos + 1;
+    end loop;
+
+    v_hpos := 0;
+    for v_hsup in select * from jsonb_array_elements(coalesce(v_per->'heuresSupplementaires','[]'::jsonb))
+    loop
+      insert into heures_supplementaires (periode_id, heures, majoration, mois, position)
+      values (
+        v_pid,
+        coalesce((v_hsup->>'heures')::numeric, 0),
+        coalesce((v_hsup->>'majoration')::numeric, 0),
+        case when coalesce(v_hsup->>'mois','') = '' then null else ((v_hsup->>'mois') || '-01')::date end,
+        v_hpos
+      );
+      v_hpos := v_hpos + 1;
     end loop;
   end loop;
 
@@ -207,23 +243,26 @@ end; $$;
 -- Sécurité (RLS) ------------------------------------------------------------
 -- MVP : RLS activé, clé publique (anon) autorisée à lire/écrire. Suffisant pour
 -- une démo / un cabinet de confiance. Étape suivante : Supabase Auth + owner.
-alter table settings  enable row level security;
-alter table employees enable row level security;
-alter table periodes  enable row level security;
-alter table primes    enable row level security;
-alter table retenues  enable row level security;
+alter table settings               enable row level security;
+alter table employees              enable row level security;
+alter table periodes               enable row level security;
+alter table primes                 enable row level security;
+alter table retenues               enable row level security;
+alter table heures_supplementaires enable row level security;
 
 drop policy if exists anon_all on settings;
 drop policy if exists anon_all on employees;
 drop policy if exists anon_all on periodes;
 drop policy if exists anon_all on primes;
 drop policy if exists anon_all on retenues;
+drop policy if exists anon_all on heures_supplementaires;
 
-create policy anon_all on settings  for all to anon, authenticated using (true) with check (true);
-create policy anon_all on employees for all to anon, authenticated using (true) with check (true);
-create policy anon_all on periodes  for all to anon, authenticated using (true) with check (true);
-create policy anon_all on primes    for all to anon, authenticated using (true) with check (true);
-create policy anon_all on retenues  for all to anon, authenticated using (true) with check (true);
+create policy anon_all on settings               for all to anon, authenticated using (true) with check (true);
+create policy anon_all on employees              for all to anon, authenticated using (true) with check (true);
+create policy anon_all on periodes               for all to anon, authenticated using (true) with check (true);
+create policy anon_all on primes                 for all to anon, authenticated using (true) with check (true);
+create policy anon_all on retenues               for all to anon, authenticated using (true) with check (true);
+create policy anon_all on heures_supplementaires for all to anon, authenticated using (true) with check (true);
 
 -- La fonction save_employee est exécutable par la clé publique.
 grant execute on function save_employee(jsonb) to anon, authenticated;

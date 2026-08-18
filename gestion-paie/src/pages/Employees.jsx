@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
-import { periodeEffective, moisPrecedent } from '../lib/payroll';
+import { periodeEffective, moisPrecedent, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
@@ -16,7 +16,8 @@ function currentYm() {
 }
 
 const emptyPeriode = (kind = 'cdd') => ({
-  id: uid(), kind, label: '', debut: '', fin: '', salaireBase: '', netCible: '', transport: 30000, primes: [], retenues: []
+  id: uid(), kind, label: '', debut: '', fin: '', salaireBase: '', netCible: '', transport: 30000,
+  primes: [], retenues: [], heuresSupplementaires: []
 });
 
 function emptyForm() {
@@ -37,7 +38,8 @@ function fromEmployee(e) {
     periodes: e.periodes.map((p) => ({
       ...p, fin: p.fin || '',
       primes: p.primes.map((pr) => ({ ...pr })),
-      retenues: (p.retenues || []).map((r) => ({ ...r }))
+      retenues: (p.retenues || []).map((r) => ({ ...r, mois: r.mois || '' })),
+      heuresSupplementaires: (p.heuresSupplementaires || []).map((h) => ({ ...h, mois: h.mois || '' }))
     }))
   };
 }
@@ -135,7 +137,8 @@ export default function Employees() {
         fin: '',
         netCible: entry.net,
         primes: last.primes.map((pr) => ({ ...pr })),
-        retenues: (last.retenues || []).map((r) => ({ ...r }))
+        retenues: (last.retenues || []).map((r) => ({ ...r })),
+        heuresSupplementaires: (last.heuresSupplementaires || []).map((h) => ({ ...h }))
       };
       payload.periodes = [...payload.periodes.slice(0, lastIdx), closed, next];
       lastIdx = payload.periodes.length - 1;
@@ -218,7 +221,7 @@ export default function Employees() {
     setPeriode(i, { primes: form.periodes[i].primes.filter((_, idx) => idx !== j) });
 
   const addRetenue = (i) =>
-    setPeriode(i, { retenues: [...(form.periodes[i].retenues || []), { label: '', montant: '' }] });
+    setPeriode(i, { retenues: [...(form.periodes[i].retenues || []), { label: '', montant: '', mois: '' }] });
 
   const setRetenue = (i, j, patch) =>
     setPeriode(i, {
@@ -227,6 +230,25 @@ export default function Employees() {
 
   const removeRetenue = (i, j) =>
     setPeriode(i, { retenues: (form.periodes[i].retenues || []).filter((_, idx) => idx !== j) });
+
+  const addHeureSup = (i) =>
+    setPeriode(i, {
+      heuresSupplementaires: [
+        ...(form.periodes[i].heuresSupplementaires || []),
+        { heures: '', majoration: MAJORATIONS_HEURES_SUP[0].valeur, mois: '' }
+      ]
+    });
+
+  const setHeureSup = (i, j, patch) =>
+    setPeriode(i, {
+      heuresSupplementaires: (form.periodes[i].heuresSupplementaires || [])
+        .map((h, idx) => (idx === j ? { ...h, ...patch } : h))
+    });
+
+  const removeHeureSup = (i, j) =>
+    setPeriode(i, {
+      heuresSupplementaires: (form.periodes[i].heuresSupplementaires || []).filter((_, idx) => idx !== j)
+    });
 
   const [saving, setSaving] = useState(false);
 
@@ -562,7 +584,28 @@ export default function Employees() {
                         <div key={j} className="mt-1 flex items-center gap-2">
                           <input className={inputClass + ' flex-1'} value={r.label} onChange={(e) => setRetenue(i, j, { label: e.target.value })} placeholder={t('period.retenueLabel')} />
                           <input className={inputClass + ' w-28'} type="number" min="0" value={r.montant} onChange={(e) => setRetenue(i, j, { montant: e.target.value })} placeholder={t('period.retenueMontant')} />
+                          <input className={inputClass + ' w-36'} type="month" value={r.mois || ''} onChange={(e) => setRetenue(i, j, { mois: e.target.value })} title={t('period.retenueMoisHelp')} />
                           <button type="button" className="text-red-500 hover:text-red-700" onClick={() => removeRetenue(i, j)} aria-label={t('period.remove')}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-2 border-t border-stone-200 pt-2">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs font-medium text-stone-600">{t('period.heuresSup')}</span>
+                        <button type="button" className="text-xs font-medium text-brand-700 hover:underline" onClick={() => addHeureSup(i)}>
+                          + {t('period.addHeureSup')}
+                        </button>
+                      </div>
+                      <InfoNote>{t('period.heuresSupHelp')}</InfoNote>
+                      {(p.heuresSupplementaires || []).map((h, j) => (
+                        <div key={j} className="mt-1 flex items-center gap-2">
+                          <input className={inputClass + ' w-24'} type="number" min="0" step="0.5" value={h.heures} onChange={(e) => setHeureSup(i, j, { heures: e.target.value })} placeholder={t('period.heuresSupNombre')} />
+                          <select className={inputClass + ' flex-1'} value={h.majoration} onChange={(e) => setHeureSup(i, j, { majoration: Number(e.target.value) })}>
+                            {MAJORATIONS_HEURES_SUP.map((m) => <option key={m.valeur} value={m.valeur}>{m.label}</option>)}
+                          </select>
+                          <input className={inputClass + ' w-36'} type="month" value={h.mois || ''} onChange={(e) => setHeureSup(i, j, { mois: e.target.value })} title={t('period.retenueMoisHelp')} />
+                          <button type="button" className="text-red-500 hover:text-red-700" onClick={() => removeHeureSup(i, j)} aria-label={t('period.remove')}>✕</button>
                         </div>
                       ))}
                     </div>
