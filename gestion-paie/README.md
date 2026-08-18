@@ -40,6 +40,7 @@ pour atteindre exactement ce net.
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # build de production dans dist/
+npm test           # suite de tests (moteur de paie, prorata, congés, import CSV…)
 ```
 
 ### Comptes de démonstration
