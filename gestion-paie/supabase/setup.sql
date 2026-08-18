@@ -14,6 +14,8 @@ drop table if exists primes cascade;
 drop table if exists periodes cascade;
 drop table if exists employees cascade;
 drop table if exists settings cascade;
+drop table if exists versements cascade;
+drop table if exists audit_log cascade;
 
 -- Profil employeur + paramètres de paie modifiables --------------------------
 -- Table à ligne unique (id = 1).
@@ -70,6 +72,9 @@ create table employees (
   -- Money) : facultatif, sert uniquement à générer l'ordre de virement du
   -- livre de paie (voir virementDoc.js) — jamais utilisé dans les calculs.
   compte_bancaire text not null default '',
+  -- Adresse email du salarié : facultative, sert uniquement à préparer
+  -- l'envoi de son bulletin (voir Bulletins → « Préparer l'email »).
+  email text not null default '',
   created_at timestamptz not null default now()
 );
 
@@ -83,6 +88,24 @@ create table versements (
   numero_cnam text not null default '',
   date_versement date
 );
+
+-- Historique des modifications (qui a changé quoi, quand) : une ligne par
+-- création/modification/suppression de salarié, avec un instantané complet
+-- avant/après (jsonb) pour permettre un diff lisible côté application. PAS
+-- de clé étrangère vers employees (volontaire) : l'historique doit rester
+-- consultable même après suppression définitive du salarié concerné.
+create table audit_log (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  employee_id uuid,
+  employee_nom text not null default '',
+  utilisateur text not null default '',
+  action text not null default 'update' check (action in ('create','update','delete')),
+  avant jsonb,
+  apres jsonb
+);
+create index on audit_log (employee_id);
+create index on audit_log (created_at desc);
 
 -- Périodes contractuelles (CDD initial, renouvellements, passage CDI) ---------
 create table periodes (
@@ -188,14 +211,15 @@ begin
       sous_controle = coalesce((p->>'sousControle')::boolean, false),
       controle_motif = coalesce(p->>'controleMotif',''),
       controle_depuis = nullif(p->>'controleDepuis','')::date,
-      compte_bancaire = coalesce(p->>'compteBancaire','')
+      compte_bancaire = coalesce(p->>'compteBancaire',''),
+      email = coalesce(p->>'email','')
     where id = v_id;
     if not found then raise exception 'Salarié introuvable'; end if;
     delete from periodes where employee_id = v_id;
   else
     insert into employees (matricule, nom, situation, enfants, cnps, emploi, categorie,
       expatrie, date_embauche, salaire_categoriel, sous_controle, controle_motif, controle_depuis,
-      compte_bancaire)
+      compte_bancaire, email)
     values (
       coalesce(p->>'matricule',''), p->>'nom', coalesce(p->>'situation','celibataire'),
       coalesce((p->>'enfants')::int, 0), coalesce(p->>'cnps',''), coalesce(p->>'emploi',''),
@@ -205,7 +229,8 @@ begin
       coalesce((p->>'sousControle')::boolean, false),
       coalesce(p->>'controleMotif',''),
       nullif(p->>'controleDepuis','')::date,
-      coalesce(p->>'compteBancaire','')
+      coalesce(p->>'compteBancaire',''),
+      coalesce(p->>'email','')
     ) returning id into v_id;
   end if;
 
@@ -301,6 +326,7 @@ alter table primes                 enable row level security;
 alter table retenues               enable row level security;
 alter table heures_supplementaires enable row level security;
 alter table versements             enable row level security;
+alter table audit_log              enable row level security;
 
 drop policy if exists anon_all on settings;
 drop policy if exists anon_all on employees;
@@ -309,6 +335,7 @@ drop policy if exists anon_all on primes;
 drop policy if exists anon_all on retenues;
 drop policy if exists anon_all on heures_supplementaires;
 drop policy if exists anon_all on versements;
+drop policy if exists anon_all on audit_log;
 
 create policy anon_all on settings               for all to anon, authenticated using (true) with check (true);
 create policy anon_all on employees              for all to anon, authenticated using (true) with check (true);
@@ -317,6 +344,7 @@ create policy anon_all on primes                 for all to anon, authenticated 
 create policy anon_all on retenues               for all to anon, authenticated using (true) with check (true);
 create policy anon_all on heures_supplementaires for all to anon, authenticated using (true) with check (true);
 create policy anon_all on versements             for all to anon, authenticated using (true) with check (true);
+create policy anon_all on audit_log               for all to anon, authenticated using (true) with check (true);
 
 -- Les fonctions save_employee / save_versement sont exécutables par la clé publique.
 grant execute on function save_employee(jsonb) to anon, authenticated;

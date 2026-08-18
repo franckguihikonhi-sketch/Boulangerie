@@ -1,12 +1,139 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
-import { saveSettings, resetDemoData, isDemoMode, isLocalMode } from '../lib/db';
+import { saveSettings, saveEmployee, saveVersement, resetDemoData, isDemoMode, isLocalMode } from '../lib/db';
 import { DEFAULT_PARAMS } from '../lib/payroll';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
+const BACKUP_VERSION = 1;
+
+function downloadJson(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Carte « Sauvegarde des données » : export/import JSON complet (paramètres
+// + salariés + versements CNPS/CMU), pour migrer vers un nouvel environnement
+// ou se prémunir d'une perte de données. L'import RECRÉE toujours les
+// salariés (jamais de fusion par id, qui échouerait sur une base différente
+// de celle d'origine) : à utiliser sur une base vierge, pas pour fusionner
+// avec des données déjà en place.
+function BackupCard({ settings, employees, versements, t }) {
+  const fileInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null); // { ok, errors }
+  const [confirming, setConfirming] = useState(null); // parsed backup en attente de confirmation
+
+  const exportBackup = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadJson(`paieci-sauvegarde-${stamp}.json`, {
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      settings,
+      employees,
+      versements
+    });
+  };
+
+  const pickFile = () => fileInputRef.current?.click();
+
+  const onFileSelected = async (evt) => {
+    const file = evt.target.files?.[0];
+    evt.target.value = '';
+    if (!file) return;
+    setResult(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!Array.isArray(data.employees)) throw new Error('format');
+      setConfirming(data);
+    } catch {
+      setResult({ ok: 0, errors: [t('settings.backupInvalidFile')] });
+    }
+  };
+
+  const runImport = async () => {
+    const data = confirming;
+    setConfirming(null);
+    setImporting(true);
+    const errors = [];
+    let ok = 0;
+    try {
+      if (data.settings) {
+        try {
+          await saveSettings(data.settings);
+        } catch (err) {
+          errors.push(`${t('settings.title')} : ${t(err.message) || err.message}`);
+        }
+      }
+      for (const emp of data.employees || []) {
+        try {
+          await saveEmployee({ ...emp, id: undefined }); // toujours une création (voir commentaire)
+          ok += 1;
+        } catch (err) {
+          errors.push(`${emp.nom || '—'} : ${t(err.message) || err.message}`);
+        }
+      }
+      for (const [ym, v] of Object.entries(data.versements || {})) {
+        try {
+          await saveVersement(ym, v);
+        } catch {
+          /* accessoire : n'empêche pas le reste de la restauration */
+        }
+      }
+    } finally {
+      setImporting(false);
+      setResult({ ok, errors });
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-1 text-sm font-semibold text-stone-800">{t('settings.backupTitle')}</h2>
+      <p className="mb-3 text-xs text-stone-500">{t('settings.backupHelp')}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="secondary" onClick={exportBackup}>{t('settings.backupExport')}</Button>
+        <Button variant="secondary" onClick={pickFile} disabled={importing}>
+          {importing ? t('settings.backupImporting') : t('settings.backupImport')}
+        </Button>
+        <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={onFileSelected} />
+      </div>
+      {result && (
+        <p className="mt-2 text-xs text-stone-600">
+          {t('settings.backupResult', { ok: result.ok, errors: result.errors.length })}
+          {result.errors.length > 0 && (
+            <span className="mt-1 block text-red-700">{result.errors.slice(0, 5).join(' · ')}</span>
+          )}
+        </p>
+      )}
+
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+            <h3 className="mb-2 text-sm font-semibold text-stone-800">{t('settings.backupConfirmTitle')}</h3>
+            <p className="mb-4 text-sm text-stone-600">
+              {t('settings.backupConfirmBody', { n: (confirming.employees || []).length })}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirming(null)}>{t('common.cancel')}</Button>
+              <Button variant="danger" onClick={runImport}>{t('settings.backupConfirmAction')}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function Parametres() {
-  const { settings } = useStore();
+  const { settings, employees, versements } = useStore();
   const { t } = useI18n();
   const [form, setForm] = useState({
     raisonSociale: settings.raisonSociale,
@@ -183,6 +310,10 @@ export default function Parametres() {
             </div>
           )}
         </Card>
+
+        <div className="lg:col-span-3">
+          <BackupCard settings={settings} employees={employees} versements={versements} t={t} />
+        </div>
       </div>
 
       <div className="mt-4">

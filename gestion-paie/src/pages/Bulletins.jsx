@@ -3,16 +3,22 @@ import { useSearchParams } from 'react-router-dom';
 import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
-import { listerMois } from '../lib/payroll';
+import { listerMois, libelleMois } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
 // Aperçu fidèle : on affiche EXACTEMENT le bulletin imprimé (part salariale ET
 // part patronale, cumuls, net) dans un iframe isolé. « Ce qui est affiché est
 // ce qui est imprimé. » L'iframe s'ajuste à la hauteur de son contenu.
+// Actions individuelles : téléchargement du seul PDF de ce salarié, et
+// préparation d'un email pré-rempli (le navigateur ne peut pas joindre un
+// fichier automatiquement à un mailto: — l'utilisateur doit attacher
+// lui-même le PDF juste téléchargé, ce qui est clairement expliqué).
 function SlipPreview({ data }) {
   const { t, locale } = useI18n();
   const html = slipDocumentHtml([data], { t, locale });
+  const [exporting, setExporting] = useState(false);
+  const [notice, setNotice] = useState('');
   const onLoad = (ev) => {
     try {
       const doc = ev.target.contentDocument;
@@ -21,8 +27,40 @@ function SlipPreview({ data }) {
       /* iframe inaccessible : on garde la hauteur par défaut */
     }
   };
+
+  const downloadOne = async () => {
+    setNotice('');
+    setExporting(true);
+    try {
+      const ok = await telechargerBulletins([data], { t, locale });
+      setNotice(ok ? t('bulletins.downloaded') : t('bulletins.printFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const email = data.employee.email;
+  const mois = libelleMois(data.ym, locale);
+  const mailtoHref = email
+    ? `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(t('bulletins.emailSubject', { mois }))}&body=${encodeURIComponent(t('bulletins.emailBody', { nom: data.employee.nom, mois }))}`
+    : null;
+
   return (
     <div className="overflow-hidden rounded-xl border border-stone-200 bg-stone-100 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2 border-b border-stone-200 bg-white px-3 py-2">
+        <p className="mr-auto text-sm font-medium text-stone-700">{data.employee.nom}</p>
+        <Button variant="secondary" onClick={downloadOne} disabled={exporting}>
+          {exporting ? t('bulletins.generating') : t('bulletins.downloadOne')}
+        </Button>
+        {mailtoHref ? (
+          <a href={mailtoHref} className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50">
+            {t('bulletins.prepareEmail')}
+          </a>
+        ) : (
+          <span className="text-xs text-stone-400" title={t('bulletins.noEmailHelp')}>{t('bulletins.noEmail')}</span>
+        )}
+        {notice && <span className="text-xs text-brand-700">{notice}</span>}
+      </div>
       <iframe
         title={`Bulletin ${data.employee.nom} ${data.ym}`}
         srcDoc={html}

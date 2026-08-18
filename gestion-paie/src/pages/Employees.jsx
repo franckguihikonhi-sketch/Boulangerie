@@ -1,14 +1,29 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
+import { useAuth } from '../lib/auth';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
 import { periodeEffective, moisPrecedent, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
+import { employeesFromCsv, employeesCsvTemplate } from '../lib/csvImport';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
   Badge, TableWrap, th, td
 } from '../components/ui';
+
+// Déclenche le téléchargement d'un fichier texte (CSV) côté navigateur.
+function downloadTextFile(filename, content, mime = 'text/csv;charset=utf-8;') {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 function currentYm() {
   const d = new Date();
@@ -24,7 +39,7 @@ function emptyForm() {
   return {
     id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
     cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
-    sousControle: false, controleMotif: '', controleDepuis: null, compteBancaire: '',
+    sousControle: false, controleMotif: '', controleDepuis: null, compteBancaire: '', email: '',
     periodes: [emptyPeriode('cdd')]
   };
 }
@@ -35,7 +50,7 @@ function fromEmployee(e) {
     enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, categorie: e.categorie || '', expatrie: e.expatrie === true,
     dateEmbauche: e.dateEmbauche, salaireCategoriel: e.salaireCategoriel,
     sousControle: e.sousControle === true, controleMotif: e.controleMotif || '', controleDepuis: e.controleDepuis || null,
-    compteBancaire: e.compteBancaire || '',
+    compteBancaire: e.compteBancaire || '', email: e.email || '',
     periodes: e.periodes.map((p) => ({
       ...p, fin: p.fin || '', finJour: p.finJour || null,
       primes: p.primes.map((pr) => ({ ...pr, mois: pr.mois || '' })),
@@ -53,7 +68,11 @@ function todayIso() {
 export default function Employees() {
   const { employees } = useStore();
   const { t } = useI18n();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  // Traçabilité (voir Historique) : nom/email de la personne connectée,
+  // joint à chaque création/modification/suppression de salarié.
+  const auditMeta = { utilisateur: user?.name || user?.email || '' };
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
   // Action rapide « Mettre fin au contrat » (CDD arrivé à terme OU
@@ -78,6 +97,42 @@ export default function Employees() {
   const [reviseSaving, setReviseSaving] = useState(false);
   const ym = currentYm();
 
+  // Import en masse (CSV) : un salarié par ligne, avec sa 1ʳᵉ période. Les
+  // lignes en erreur (nom manquant, montants invalides…) sont rapportées
+  // sans bloquer l'import des lignes valides.
+  const fileInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null); // { ok, errors }
+
+  const downloadCsvTemplate = () => downloadTextFile('modele-salaries.csv', employeesCsvTemplate());
+
+  const handleImportFile = async (evt) => {
+    const file = evt.target.files?.[0];
+    evt.target.value = ''; // permet de réimporter le même fichier deux fois de suite
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const text = await file.text();
+      const { employees: toImport, errors: parseErrors } = employeesFromCsv(text);
+      const errors = [...parseErrors];
+      let ok = 0;
+      for (const emp of toImport) {
+        try {
+          await saveEmployee(emp, auditMeta);
+          ok += 1;
+        } catch (err) {
+          errors.push({ ligne: '—', message: `${emp.nom} : ${t(err.message) || err.message}` });
+        }
+      }
+      setImportResult({ ok, errors });
+    } catch {
+      setImportResult({ ok: 0, errors: [{ ligne: '—', message: t('employees.importReadError') }] });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const openNew = () => { setError(''); setForm(emptyForm()); };
   const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
 
@@ -99,7 +154,7 @@ export default function Employees() {
       const dernierJourMois = new Date(Number(terminateDate.slice(0, 4)), Number(terminateDate.slice(5, 7)), 0).getDate();
       const finJour = jourSortie < dernierJourMois ? jourSortie : null;
       payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin, finJour } : p));
-      await saveEmployee(payload);
+      await saveEmployee(payload, auditMeta);
       setTerminate(null);
     } catch (err) {
       setTerminateError(t(err.message) || err.message);
@@ -153,7 +208,7 @@ export default function Employees() {
     }
     setReviseSaving(true);
     try {
-      await saveEmployee(payload);
+      await saveEmployee(payload, auditMeta);
       setRevise(null);
     } catch (err) {
       setReviseError(t(err.message) || err.message);
@@ -184,7 +239,7 @@ export default function Employees() {
       payload.sousControle = true;
       payload.controleMotif = controleMotifInput.trim();
       payload.controleDepuis = todayIso();
-      await saveEmployee(payload);
+      await saveEmployee(payload, auditMeta);
       setControle(null);
     } catch (err) {
       setControleError(t(err.message) || err.message);
@@ -200,7 +255,7 @@ export default function Employees() {
       payload.sousControle = false;
       payload.controleMotif = '';
       payload.controleDepuis = null;
-      await saveEmployee(payload);
+      await saveEmployee(payload, auditMeta);
     } catch (err) {
       window.alert(t(err.message) || err.message);
     }
@@ -265,7 +320,7 @@ export default function Employees() {
     setError('');
     setSaving(true);
     try {
-      await saveEmployee(form);
+      await saveEmployee(form, auditMeta);
       setForm(null);
     } catch (err) {
       setError(t(err.message) || err.message);
@@ -277,7 +332,7 @@ export default function Employees() {
   const remove = async (id) => {
     if (!window.confirm(t('employees.deleteConfirm'))) return;
     try {
-      await deleteEmployee(id);
+      await deleteEmployee(id, auditMeta);
     } catch (err) {
       window.alert(t(err.message) || err.message);
     }
@@ -285,9 +340,44 @@ export default function Employees() {
 
   return (
     <div>
-      <PageTitle actions={<Button onClick={openNew}>{t('employees.add')}</Button>}>
+      <PageTitle
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" onClick={downloadCsvTemplate}>{t('employees.csvTemplate')}</Button>
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+              {importing ? t('employees.importing') : t('employees.csvImport')}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+            <Button onClick={openNew}>{t('employees.add')}</Button>
+          </div>
+        }
+      >
         {t('employees.title')}
       </PageTitle>
+
+      {importResult && (
+        <Modal title={t('employees.importResultTitle')} onClose={() => setImportResult(null)}>
+          <p className="mb-2 text-sm text-stone-700">
+            {t('employees.importSummary', { ok: importResult.ok, errors: importResult.errors.length })}
+          </p>
+          {importResult.errors.length > 0 && (
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+              {importResult.errors.map((e, i) => (
+                <li key={i}>{t('employees.importErrorLine', { ligne: e.ligne })} — {e.message}</li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => setImportResult(null)}>{t('common.close')}</Button>
+          </div>
+        </Modal>
+      )}
 
       <Card>
         {employees.length === 0 ? (
@@ -511,6 +601,9 @@ export default function Employees() {
               </Field>
               <Field label={t('employees.compteBancaire')} help={t('employees.compteBancaireHelp')}>
                 <input className={inputClass} value={form.compteBancaire} onChange={(e) => setField('compteBancaire', e.target.value)} placeholder="ex. CI93 CI12 3456 7890 1234 5678 90" />
+              </Field>
+              <Field label={t('employees.email')} help={t('employees.emailHelp')}>
+                <input className={inputClass} type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} placeholder="ex. salarie@exemple.ci" />
               </Field>
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-stone-700">
                 <input type="checkbox" checked={form.expatrie} onChange={(e) => setField('expatrie', e.target.checked)} />
