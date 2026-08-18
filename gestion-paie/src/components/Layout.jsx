@@ -94,14 +94,18 @@ function BaseButton() {
     <>
       <button
         onClick={openPicker}
-        className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50"
+        className="flex flex-none items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50 sm:px-2.5"
         title={t('base.help')}
       >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
           <path d="M4 5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM15 3v5h5M8 12h8M8 16h5" />
         </svg>
-        <span className="hidden sm:inline">{t('base.button')} · </span>
-        <span className="capitalize">{libelleMois(activeYm, locale)}</span>
+        {/* Le libellé « Base » reste toujours visible (jamais masqué en CSS) :
+            sans lui, ce bouton ressemble à un simple badge de date, pas à un
+            contrôle cliquable — c'est ce qui le rendait introuvable sur
+            mobile. Seule la date affichée à côté se raccourcit. */}
+        <span>{t('base.button')}</span>
+        <span className="hidden capitalize sm:inline">· {libelleMois(activeYm, locale)}</span>
       </button>
 
       {open && (
