@@ -18,7 +18,10 @@ const SUPABASE_ANON_KEY = ENV.VITE_SUPABASE_ANON_KEY || FALLBACK_ANON_KEY;
 export const supabase = createClient(
   SUPABASE_URL || 'https://placeholder.supabase.co',
   SUPABASE_ANON_KEY || 'placeholder-anon-key',
-  { auth: { persistSession: false } }
+  // persistSession: la session Supabase Auth (voir auth.jsx) doit survivre à
+  // un rechargement de page — c'est justement ce qui permet une vraie
+  // connexion, au lieu de la ré-authentification anonyme implicite d'avant.
+  { auth: { persistSession: true, autoRefreshToken: true } }
 );
 
 export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

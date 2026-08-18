@@ -9,16 +9,28 @@ export default function Login() {
   const { login, startGuest } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@paie.ci');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [photoOk, setPhotoOk] = useState(true);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError('');
-    if (login(email, password)) navigate('/');
-    else setError(t('login.error'));
+    setSubmitting(true);
+    try {
+      const result = await login(email, password);
+      if (result.ok) navigate('/');
+      else if (result.error === 'network') setError(t('login.networkError'));
+      else setError(t('login.error'));
+    } catch {
+      // Filet de sécurité : ne devrait jamais arriver (login() ne lève plus
+      // d'exception), mais on préfère un message clair à un échec silencieux.
+      setError(t('login.networkError'));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const guest = () => {
@@ -48,7 +60,9 @@ export default function Login() {
               <input className={inputClass} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
             </Field>
             <ErrorNote>{error}</ErrorNote>
-            <Button type="submit" className="w-full">{t('login.submit')}</Button>
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? t('login.submitting') : t('login.submit')}
+            </Button>
           </form>
           <div className="mt-4 border-t border-stone-100 pt-4">
             <Button variant="secondary" className="w-full" onClick={guest}>{t('login.guest')}</Button>

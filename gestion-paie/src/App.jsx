@@ -15,7 +15,11 @@ import Parametres from './pages/Parametres';
 import About from './pages/About';
 
 function RequireAuth({ children }) {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
+  // Tant que la restauration d'une éventuelle session Supabase réelle n'est
+  // pas confirmée (asynchrone, voir auth.jsx), on n'affiche rien plutôt que
+  // de rediriger à tort vers /login quelqu'un déjà connecté.
+  if (!authReady) return null;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
