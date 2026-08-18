@@ -34,9 +34,11 @@
   "login.email": "Adresse e-mail",
   "login.password": "Mot de passe",
   "login.submit": "Se connecter",
+  "login.submitting": "Connexion…",
   "login.guest": "Essayer en mode démonstration",
   "login.error": "E-mail ou mot de passe incorrect.",
-  "login.demoHint": "Comptes de démonstration : admin@paie.ci / admin123",
+  "login.networkError": "Connexion au service impossible. Vérifiez votre connexion internet et réessayez.",
+  "login.demoHint": "Aucune donnée réelle n'est requise : le mode démonstration ouvre un bac à sable local avec des salariés fictifs, pendant 30 minutes.",
 
   "dashboard.title": "Tableau de bord",
   "dashboard.employees": "Salariés",
