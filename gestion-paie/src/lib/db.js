@@ -76,7 +76,18 @@ function defaultSettings() {
 }
 
 function emptyState() {
-  return { settings: defaultSettings(), employees: [], versements: {} };
+  return { settings: defaultSettings(), employees: [], versements: {}, auditLog: [] };
+}
+
+// Historique des modifications (qui a changé quoi, quand) : plafonné pour
+// rester léger en mode démo/local (le mode Supabase, lui, conserve tout côté
+// base — seule la fenêtre affichée est limitée par la requête de fetchAll).
+const AUDIT_LOG_MAX = 500;
+
+function pushAuditEntry(s, entry) {
+  s.auditLog = s.auditLog || [];
+  s.auditLog.unshift({ id: uid(), createdAt: new Date().toISOString(), ...entry });
+  if (s.auditLog.length > AUDIT_LOG_MAX) s.auditLog.length = AUDIT_LOG_MAX;
 }
 
 function notify() {
@@ -212,6 +223,9 @@ function buildEmployee(input) {
     // Compte bancaire / Mobile Money : facultatif, sert uniquement à générer
     // l'ordre de virement (jamais utilisé dans les calculs de paie).
     compteBancaire: input.compteBancaire?.trim() || '',
+    // Email : facultatif, sert uniquement à préparer l'envoi du bulletin
+    // (voir Bulletins → « Préparer l'email »).
+    email: input.email?.trim() || '',
     periodes
   };
 }
@@ -297,7 +311,7 @@ function guestSessionActive() {
     /* ignore */
   }
   state = restored && Array.isArray(restored.employees)
-    ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {} }
+    ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {}, auditLog: restored.auditLog || [] }
     : seededState();
   persistLocal();
   setStatus('ready');
@@ -338,11 +352,16 @@ const toEmployee = (r) => ({
   controleMotif: r.controle_motif || '',
   controleDepuis: r.controle_depuis || null,
   compteBancaire: r.compte_bancaire || '',
+  email: r.email || '',
   periodes: (r.periodes || []).sort((a, b) => a.position - b.position).map(toPeriode)
 });
 const toVersement = (r) => ({
   numeroCnps: r.numero_cnps || '', numeroCnam: r.numero_cnam || '',
   dateVersement: r.date_versement || null
+});
+const toAuditEntry = (r) => ({
+  id: r.id, createdAt: r.created_at, employeeId: r.employee_id, employeeNom: r.employee_nom || '',
+  utilisateur: r.utilisateur || '', action: r.action, avant: r.avant || null, apres: r.apres || null
 });
 const toSettings = (r) => ({
   raisonSociale: r.raison_sociale, employeurCnps: r.employeur_cnps,
@@ -364,24 +383,27 @@ function describeError(err) {
 }
 
 async function fetchAll() {
-  const [set, emp, ver] = await Promise.all([
+  const [set, emp, ver, audit] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at'),
-    // Table apparue avec migration_conformite.sql : absente sur une base pas
-    // encore migrée, on l'ignore alors silencieusement (pas d'erreur bloquante,
-    // juste aucun numéro de versement affiché) plutôt que de casser tout le
-    // chargement de l'application pour une fonctionnalité annexe.
-    supabase.from('versements').select('*')
+    // Tables apparues avec migration_conformite.sql : absentes sur une base
+    // pas encore migrée, on les ignore alors silencieusement (pas d'erreur
+    // bloquante, juste la fonctionnalité annexe indisponible) plutôt que de
+    // casser tout le chargement de l'application.
+    supabase.from('versements').select('*'),
+    supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(300)
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
   const versements = {};
   if (!ver.error) {
     for (const r of ver.data || []) versements[(r.ym || '').slice(0, 7)] = toVersement(r);
   }
+  const auditLog = audit.error ? [] : (audit.data || []).map(toAuditEntry);
   return {
     settings: set.data ? toSettings(set.data) : defaultSettings(),
     employees: (emp.data || []).map(toEmployee),
-    versements
+    versements,
+    auditLog
   };
 }
 
@@ -399,7 +421,7 @@ export async function hydrate() {
       /* ignore */
     }
     state = restored && Array.isArray(restored.employees)
-      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {} }
+      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {}, auditLog: restored.auditLog || [] }
       : emptyState();
     setStatus('ready');
     notify();
@@ -444,7 +466,7 @@ function setupSync() {
   syncSetup = true;
   try {
     const channel = supabase.channel('gpaie-sync');
-    for (const table of ['settings', 'employees', 'periodes', 'primes']) {
+    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'audit_log']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
     channel.subscribe();
@@ -520,36 +542,82 @@ export async function saveVersement(ym, patch) {
   await refresh();
 }
 
-export async function saveEmployee(input) {
+// `meta.utilisateur` (facultatif) : nom/email de la personne connectée, pour
+// l'historique des modifications (voir Historique). Purement déclaratif —
+// aucune vérification d'identité, cohérent avec le modèle d'authentification
+// actuel de l'application (voir auth.jsx).
+export async function saveEmployee(input, meta = {}) {
   const record = buildEmployee(input);
+  const utilisateur = meta.utilisateur || '';
   if (demoMode || !supabaseConfigured) {
     return memMutate((s) => {
       if (record.id) {
         const e = s.employees.find((x) => x.id === record.id);
         if (!e) throw new Error('errors.notFound');
+        const avant = JSON.parse(JSON.stringify(e));
         Object.assign(e, record);
+        pushAuditEntry(s, {
+          employeeId: record.id, employeeNom: record.nom, utilisateur,
+          action: 'update', avant, apres: JSON.parse(JSON.stringify(e))
+        });
         return record.id;
       }
       const id = uid();
-      s.employees.push({ ...record, id, createdAt: new Date().toISOString() });
+      const created = { ...record, id, createdAt: new Date().toISOString() };
+      s.employees.push(created);
+      pushAuditEntry(s, {
+        employeeId: id, employeeNom: record.nom, utilisateur,
+        action: 'create', avant: null, apres: JSON.parse(JSON.stringify(created))
+      });
       return id;
     });
   }
+  const avant = record.id ? state.employees.find((e) => e.id === record.id) || null : null;
   const { data, error } = await supabase.rpc('save_employee', { p: record });
   if (error) throw rpcError(error);
   await refresh();
+  const apres = state.employees.find((e) => e.id === data) || null;
+  // L'historique est un « bonus » de traçabilité : une erreur ici (ex. table
+  // pas encore migrée) ne doit jamais faire échouer l'enregistrement réel,
+  // déjà effectué avec succès à ce stade.
+  try {
+    await supabase.from('audit_log').insert({
+      employee_id: data, employee_nom: record.nom, utilisateur,
+      action: avant ? 'update' : 'create', avant, apres
+    });
+    await refresh();
+  } catch {
+    /* best-effort */
+  }
   return data;
 }
 
-export async function deleteEmployee(id) {
+export async function deleteEmployee(id, meta = {}) {
+  const utilisateur = meta.utilisateur || '';
   if (demoMode || !supabaseConfigured) {
     return memMutate((s) => {
-      s.employees = s.employees.filter((e) => e.id !== id);
+      const e = s.employees.find((x) => x.id === id);
+      s.employees = s.employees.filter((x) => x.id !== id);
+      if (e) {
+        pushAuditEntry(s, {
+          employeeId: id, employeeNom: e.nom, utilisateur,
+          action: 'delete', avant: JSON.parse(JSON.stringify(e)), apres: null
+        });
+      }
     });
   }
+  const avant = state.employees.find((e) => e.id === id) || null;
   const { error } = await supabase.from('employees').delete().eq('id', id);
   if (error) throw rpcError(error);
   await refresh();
+  try {
+    await supabase.from('audit_log').insert({
+      employee_id: id, employee_nom: avant?.nom || '', utilisateur, action: 'delete', avant, apres: null
+    });
+    await refresh();
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function getEmployee(id) {
