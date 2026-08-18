@@ -4,7 +4,8 @@ import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, paramsFromSettings } from '../lib/db';
 import { calculerDepuisNet, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
-import { Card, PageTitle, Field, inputClass, InfoNote, StatCard } from '../components/ui';
+import { telechargerSimulation } from '../lib/simulateurDoc';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, StatCard } from '../components/ui';
 
 // Simulateur de coût d'embauche : à partir d'un profil (salaire de base,
 // net visé, situation…), calcule EXACTEMENT le même détail qu'un bulletin
@@ -31,10 +32,13 @@ export default function Simulateur() {
     situation: 'celibataire',
     enfants: 0,
     anciennete: 0,
-    expatrie: false
+    expatrie: false,
+    categorie: ''
   });
   const [primes, setPrimes] = useState([]);
   const [heuresSup, setHeuresSup] = useState([]);
+  const [exporting, setExporting] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -70,6 +74,18 @@ export default function Simulateur() {
     );
   }, [form, primes, heuresSup, params]);
 
+  const print = async () => {
+    if (!calc || exporting) return;
+    setNotice('');
+    setExporting(true);
+    try {
+      const ok = await telechargerSimulation({ form, calc, settings }, { t, locale });
+      setNotice(ok ? t('simulateur.printed') : t('simulateur.printFailed'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const patronalRows = calc
     ? [
         [t('simulateur.retraitePat'), calc.patronal.retraite],
@@ -101,6 +117,11 @@ export default function Simulateur() {
             <Field label={t('period.transport')}>
               <input className={inputClass} type="number" min="0" value={form.transport} onChange={(e) => set('transport', e.target.value)} />
             </Field>
+            <div className="sm:col-span-2">
+              <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
+                <input className={inputClass} value={form.categorie} onChange={(e) => set('categorie', e.target.value)} placeholder="ex. Catégorie 3B" />
+              </Field>
+            </div>
             <Field label={t('employees.situation')}>
               <select className={inputClass} value={form.situation} onChange={(e) => set('situation', e.target.value)}>
                 {SITUATIONS.map((s) => <option key={s} value={s}>{t('situation.' + s)}</option>)}
@@ -162,6 +183,14 @@ export default function Simulateur() {
             <InfoNote>{t('simulateur.empty')}</InfoNote>
           ) : (
             <>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Button onClick={print} disabled={exporting}>
+                  {exporting ? t('simulateur.printing') : t('simulateur.print')}
+                </Button>
+                {notice && (
+                  <p className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm text-brand-800">{notice}</p>
+                )}
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <StatCard label={t('simulateur.brutImposable')} value={formatFCFA(calc.brutImposable, locale)} tip={t('simulateur.brutImposableTip')} />
                 <StatCard label={t('slip.netAPayer')} value={formatFCFA(calc.netAPayer, locale)} tone="good" tip={t('simulateur.netTip')} />

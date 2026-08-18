@@ -240,6 +240,12 @@
   "simulateur.fpc": "Taxe FPC",
   "simulateur.cmuPat": "CMU (part employeur)",
   "simulateur.disclaimer": "Simulation indicative basée sur les taux légaux en vigueur (voir Paramètres). Aucune donnée n'est enregistrée : ceci n'affecte ni la liste des salariés ni les bulletins.",
+  "simulateur.docTitle": "FICHE DE SIMULATION — COÛT D'EMBAUCHE",
+  "simulateur.remuneration": "Rémunération",
+  "simulateur.print": "Imprimer / PDF",
+  "simulateur.printing": "Génération du PDF…",
+  "simulateur.printed": "Fichier PDF téléchargé (simulation-embauche.pdf).",
+  "simulateur.printFailed": "La génération du PDF a échoué. Réessayez ; si le problème persiste, utilisez l'application déployée (votre domaine).",
 
   "slip.title": "BULLETIN DE PAIE",
   "slip.period": "Période",
