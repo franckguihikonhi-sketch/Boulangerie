@@ -360,7 +360,7 @@ const PRINT_CSS = `
   .employer-nom { font-size: 12px; font-weight: 700; color: #1c1917; margin-bottom: 1px; }
   .muted { color: #57534e; font-size: 11px; margin: 1.5px 0; }
   .period { font-size: 11px; margin: 8px 0 0; color: #44403c; text-align: center; }
-  .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 4px 20px; font-size: 14px; font-weight: 700; letter-spacing: .08em; margin: 0; }
+  .badge { display: inline-block; background: none; color: #000; padding: 0; font-size: 22px; font-weight: 700; letter-spacing: .08em; margin: 0; }
   table.ident-row { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 8px; }
   table.ident-row th, table.ident-row td { padding: 4px 7px; border: 1px solid #e7e5e4; text-align: left; }
   table.ident-row thead th { background: #eef2ff; color: #3730a3; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; }
