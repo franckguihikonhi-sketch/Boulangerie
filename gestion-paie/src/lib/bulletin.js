@@ -223,23 +223,54 @@ function slipHtml(data, t, locale) {
       </table>`
     : '';
 
+  const logo = settings.logoDataUrl
+    ? `<img class="logo" src="${esc(settings.logoDataUrl)}" alt="Logo" />`
+    : '<span class="logo-empty"></span>';
+
+  const employerLines = [
+    settings.adresse,
+    settings.employeurCnps ? `CNPS employeur : ${settings.employeurCnps}` : '',
+    settings.rccm ? `RCCM ${settings.rccm}` : '',
+    settings.compteContribuable ? `Cpte contribuable ${settings.compteContribuable}` : '',
+    settings.activite
+  ].filter(Boolean);
+
   return `
   <section class="slip">
     <header class="slip-head">
-      <p class="badge">BULLETIN DE PAIE</p>
+      <div class="head-top">
+        ${logo}
+        <p class="badge">BULLETIN DE PAIE</p>
+        <div class="employer-block">
+          <p class="employer-nom">${esc(settings.raisonSociale || '—')}</p>
+          ${employerLines.map((l) => `<p>${esc(l)}</p>`).join('')}
+        </div>
+      </div>
       <p class="period">Période du <strong>${esc(periodeDates.du)}</strong> au <strong>${esc(periodeDates.au)}</strong> · Paiement le <strong>${esc(periodeDates.au)}</strong> par <strong>${esc(modePaiement)}</strong></p>
     </header>
 
+    <table class="ident-row">
+      <thead>
+        <tr>
+          <th>Matricule</th><th>Nom et prénoms</th><th>N° CNPS salarié</th>
+          <th class="num sm">Parts</th><th>Catégorie</th><th>Emploi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${esc(e.matricule || '—')}</td>
+          <td class="nom">${esc(e.nom)}</td>
+          <td>${esc(e.cnps || '—')}</td>
+          <td class="num sm">${nb(calc.parts)}</td>
+          <td>${esc(e.categorie || '—')}</td>
+          <td>${esc(e.emploi || '—')}${e.expatrie ? ' (expatrié)' : ''}</td>
+        </tr>
+      </tbody>
+    </table>
+
     <div class="ident">
-      <div class="who">
-        <p class="nom">${esc(e.nom)}</p>
-        <p class="muted">Emploi : ${esc(e.emploi || '—')}${e.expatrie ? ' — Expatrié' : ''}</p>
-        <p class="muted">Catégorie professionnelle : ${esc(e.categorie || '—')}</p>
-        <p class="muted">Matricule : ${esc(e.matricule || '—')} · N° CNPS salarié : ${esc(e.cnps || '—')}</p>
-      </div>
       <div class="stat">
         <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
-        <p class="muted">Nombre de parts : <strong>${nb(calc.parts)}</strong></p>
         <p class="muted">Ancienneté : <strong>${anciennete}</strong> an(s)</p>
         <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong>${p.requalifieCdi ? ' <em>(requalifié CDI — CDD &gt; 2 ans)</em>' : ''} · Rémunération : Mensuelle</p>
         <p class="muted">Congés — acquis (cycle en cours) : <strong>${nb(data.congesCycle)} j</strong>${calc.congeJours ? ` · soldés ce mois : <strong>${nb(calc.congeJours)} j</strong>` : ''}</p>
@@ -308,9 +339,6 @@ function slipHtml(data, t, locale) {
       </div>
     </div>
     ${netWarn}
-    <p class="foot">
-      Employeur : ${esc(settings.raisonSociale || '—')}${settings.rccm ? ' · RCCM ' + esc(settings.rccm) : ''}${settings.compteContribuable ? ' · Cpte contribuable ' + esc(settings.compteContribuable) : ''}${settings.employeurCnps ? ' · N° CNPS/CNAM employeur ' + esc(settings.employeurCnps) : ''}${settings.activite ? ' · Branche d’activité : ' + esc(settings.activite) : ''}
-    </p>
     <p class="foot">${esc(t('slip.footer'))}</p>
   </section>`;
 }
@@ -320,13 +348,25 @@ const PRINT_CSS = `
   body { font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; color: #1c1917; margin: 0; padding: 0; background: #f5f5f4; }
   .slip { background: #fff; max-width: 820px; margin: 16px auto; padding: 22px 26px; border: 1px solid #e7e5e4; border-radius: 8px; page-break-after: always; }
   .slip:last-child { page-break-after: auto; }
-  /* En-tête volontairement sans informations employeur : le bulletin est
-     imprimé sur papier à en-tête de l'entreprise. Titre centré. */
-  .slip-head { text-align: center; border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
+  /* En-tête complet (logo + identité employeur) : le bulletin est désormais
+     un document autonome, imprimable sur papier blanc standard. */
+  .slip-head { border-bottom: 2px solid #4f46e5; padding-bottom: 10px; margin-bottom: 12px; }
+  .head-top { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; }
+  .logo { max-height: 52px; max-width: 150px; object-fit: contain; }
+  .logo-empty { width: 1px; }
+  .head-top .badge { justify-self: center; }
+  .employer-block { text-align: right; font-size: 9.5px; color: #57534e; line-height: 1.5; }
+  .employer-block p { margin: 0; }
+  .employer-nom { font-size: 12px; font-weight: 700; color: #1c1917; margin-bottom: 1px; }
   .muted { color: #57534e; font-size: 11px; margin: 1.5px 0; }
-  .period { font-size: 11px; margin: 4px 0 0; color: #44403c; }
+  .period { font-size: 11px; margin: 8px 0 0; color: #44403c; text-align: center; }
   .badge { display: inline-block; background: #4f46e5; color: #fff; border-radius: 4px; padding: 4px 20px; font-size: 14px; font-weight: 700; letter-spacing: .08em; margin: 0; }
-  .ident { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 9px 12px; margin-bottom: 12px; }
+  table.ident-row { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-bottom: 8px; }
+  table.ident-row th, table.ident-row td { padding: 4px 7px; border: 1px solid #e7e5e4; text-align: left; }
+  table.ident-row thead th { background: #eef2ff; color: #3730a3; font-size: 9.5px; text-transform: uppercase; letter-spacing: .02em; }
+  table.ident-row td.nom, table.ident-row .nom { font-weight: 700; }
+  table.ident-row .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ident { display: grid; grid-template-columns: 1fr; gap: 10px; background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 6px; padding: 9px 12px; margin-bottom: 12px; }
   .ident p { margin: 1.5px 0; }
   .nom { font-size: 13px; font-weight: 700; margin: 0 0 3px; }
   table.lines { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -362,9 +402,11 @@ const PRINT_CSS = `
   /* Variante « export PDF » : mêmes règles que l'ancien @media print, mais
      actives inconditionnellement puisque le PDF est désormais généré par
      capture (voir pdfExport.js), sans passer par la boîte d'impression du
-     navigateur. Marge haute réservée au papier à en-tête pré-imprimé. */
+     navigateur. Le bulletin porte désormais son propre en-tête (logo +
+     identité employeur) : plus besoin de marge réservée à un papier à
+     en-tête pré-imprimé, une marge standard suffit. */
   body.pdf-export { background: #fff; }
-  body.pdf-export .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 35mm 9mm 10mm; }
+  body.pdf-export .slip { border: none; border-radius: 0; margin: 0; max-width: none; padding: 10mm 9mm; }
 `;
 
 // Construit le document HTML complet (autonome) regroupant les bulletins.

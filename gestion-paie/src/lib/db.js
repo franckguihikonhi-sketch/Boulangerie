@@ -65,6 +65,9 @@ function defaultSettings() {
     rccm: '',
     compteContribuable: '',
     activite: '',
+    // Logo de l'entreprise, imprimé directement dans l'en-tête du bulletin
+    // PDF (data URI base64 — ex. "data:image/png;base64,...").
+    logoDataUrl: '',
     adresse: 'Abidjan, Côte d’Ivoire',
     modePaiement: 'Virement',
     tauxAccidentTravail: DEFAULT_PARAMS.cnpsAccidentTravail,
@@ -322,6 +325,7 @@ const toEmployee = (r) => ({
 const toSettings = (r) => ({
   raisonSociale: r.raison_sociale, employeurCnps: r.employeur_cnps,
   rccm: r.rccm || '', compteContribuable: r.compte_contribuable || '', activite: r.activite || '',
+  logoDataUrl: r.logo_data_url || '',
   adresse: r.adresse,
   modePaiement: r.mode_paiement,
   tauxAccidentTravail: Number(r.taux_accident_travail),
@@ -446,6 +450,7 @@ export async function saveSettings(patch) {
   if (patch.rccm !== undefined) row.rccm = patch.rccm;
   if (patch.compteContribuable !== undefined) row.compte_contribuable = patch.compteContribuable;
   if (patch.activite !== undefined) row.activite = patch.activite;
+  if (patch.logoDataUrl !== undefined) row.logo_data_url = patch.logoDataUrl;
   if (patch.adresse !== undefined) row.adresse = patch.adresse;
   if (patch.modePaiement !== undefined) row.mode_paiement = patch.modePaiement;
   if (patch.tauxAccidentTravail !== undefined) row.taux_accident_travail = patch.tauxAccidentTravail;

@@ -26,6 +26,9 @@ create table settings (
   rccm text not null default '',
   compte_contribuable text not null default '',
   activite text not null default '',
+  -- Logo entreprise imprimé directement dans l'en-tête du bulletin PDF
+  -- (data URI base64).
+  logo_data_url text not null default '',
   adresse text not null default '',
   mode_paiement text not null default 'Virement',
   -- Taux d'accident du travail notifié par la CNPS (2 % à 5 %).
