@@ -9,6 +9,9 @@
   "nav.cotisations": "Cotisations sociales",
   "nav.impots": "Impôts & taxes",
   "nav.simulateur": "Simulateur",
+  "base.button": "Base",
+  "base.title": "Choisir la période",
+  "base.help": "Choisissez une année puis un mois : le tableau de bord, les bulletins, le livre de paie, les cotisations et les impôts s'ouvriront désormais sur cette période par défaut.",
   "nav.settings": "Paramètres",
   "nav.about": "À propos",
   "nav.logout": "Se déconnecter",
@@ -49,6 +52,7 @@
   "dashboard.goBulletins": "Générer des bulletins",
   "dashboard.sousControle": "Salarié(s) sous contrôle — traitement suspendu",
   "dashboard.sousControleManage": "Gérer →",
+  "dashboard.noPaiePeriod": "Aucun salarié actif en {mois} : la paie n'a pas encore été traitée pour cette période (aucun contrat ne la couvre).",
 
   "employees.title": "Salariés",
   "employees.add": "Nouveau salarié",
