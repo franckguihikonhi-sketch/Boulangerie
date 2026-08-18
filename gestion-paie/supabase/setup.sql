@@ -66,7 +66,22 @@ create table employees (
   sous_controle boolean not null default false,
   controle_motif text not null default '',
   controle_depuis date,
+  -- Compte bancaire / Mobile Money du salarié (RIB, IBAN ou n° Mobile
+  -- Money) : facultatif, sert uniquement à générer l'ordre de virement du
+  -- livre de paie (voir virementDoc.js) — jamais utilisé dans les calculs.
+  compte_bancaire text not null default '',
   created_at timestamptz not null default now()
+);
+
+-- Numéro de versement CNPS/CMU réel d'un mois donné (bordereau/quittance de
+-- paiement effectif), distinct du numéro d'immatriculation employeur fixe
+-- (settings.employeur_cnps) : mention légale du bulletin qui n'existe qu'une
+-- fois le versement du mois effectué. Une ligne par mois (aaaa-mm-01).
+create table versements (
+  ym date primary key,
+  numero_cnps text not null default '',
+  numero_cnam text not null default '',
+  date_versement date
 );
 
 -- Périodes contractuelles (CDD initial, renouvellements, passage CDI) ---------
@@ -78,6 +93,10 @@ create table periodes (
   -- Bornes de la période (aaaa-mm-01). fin nulle = CDI ouvert.
   debut date not null,
   fin date,
+  -- Jour exact de sortie (1-31, méthode des 30èmes) dans le mois de `fin` :
+  -- null = sortie en fin de mois plein (comportement historique) ; renseigné
+  -- = le salaire du mois de sortie est proratisé sur les jours travaillés.
+  fin_jour smallint check (fin_jour is null or (fin_jour between 1 and 31)),
   salaire_base bigint not null default 0 check (salaire_base >= 0),
   net_cible bigint not null default 0 check (net_cible >= 0),
   transport bigint not null default 0 check (transport >= 0),
@@ -168,13 +187,15 @@ begin
       salaire_categoriel = coalesce((p->>'salaireCategoriel')::bigint, 0),
       sous_controle = coalesce((p->>'sousControle')::boolean, false),
       controle_motif = coalesce(p->>'controleMotif',''),
-      controle_depuis = nullif(p->>'controleDepuis','')::date
+      controle_depuis = nullif(p->>'controleDepuis','')::date,
+      compte_bancaire = coalesce(p->>'compteBancaire','')
     where id = v_id;
     if not found then raise exception 'Salarié introuvable'; end if;
     delete from periodes where employee_id = v_id;
   else
     insert into employees (matricule, nom, situation, enfants, cnps, emploi, categorie,
-      expatrie, date_embauche, salaire_categoriel, sous_controle, controle_motif, controle_depuis)
+      expatrie, date_embauche, salaire_categoriel, sous_controle, controle_motif, controle_depuis,
+      compte_bancaire)
     values (
       coalesce(p->>'matricule',''), p->>'nom', coalesce(p->>'situation','celibataire'),
       coalesce((p->>'enfants')::int, 0), coalesce(p->>'cnps',''), coalesce(p->>'emploi',''),
@@ -183,19 +204,21 @@ begin
       coalesce((p->>'salaireCategoriel')::bigint, 0),
       coalesce((p->>'sousControle')::boolean, false),
       coalesce(p->>'controleMotif',''),
-      nullif(p->>'controleDepuis','')::date
+      nullif(p->>'controleDepuis','')::date,
+      coalesce(p->>'compteBancaire','')
     ) returning id into v_id;
   end if;
 
   for v_per in select * from jsonb_array_elements(coalesce(p->'periodes','[]'::jsonb))
   loop
-    insert into periodes (employee_id, kind, label, debut, fin, salaire_base, net_cible, transport, position)
+    insert into periodes (employee_id, kind, label, debut, fin, fin_jour, salaire_base, net_cible, transport, position)
     values (
       v_id,
       coalesce(v_per->>'kind','cdd'),
       coalesce(v_per->>'label',''),
       ((v_per->>'debut') || '-01')::date,
       case when coalesce(v_per->>'fin','') = '' then null else ((v_per->>'fin') || '-01')::date end,
+      nullif(v_per->>'finJour','')::smallint,
       coalesce((v_per->>'salaireBase')::bigint, 0),
       coalesce((v_per->>'netCible')::bigint, 0),
       coalesce((v_per->>'transport')::bigint, 0),
@@ -250,6 +273,24 @@ begin
   return v_id;
 end; $$;
 
+-- Enregistre (upsert) le numéro de versement CNPS/CMU réel d'un mois — voir
+-- le commentaire sur la table versements. `ym` = « aaaa-mm ».
+create or replace function save_versement(p_ym text, p_numero_cnps text, p_numero_cnam text, p_date_versement text)
+returns void language plpgsql as $$
+begin
+  insert into versements (ym, numero_cnps, numero_cnam, date_versement)
+  values (
+    (p_ym || '-01')::date,
+    coalesce(p_numero_cnps,''),
+    coalesce(p_numero_cnam,''),
+    nullif(p_date_versement,'')::date
+  )
+  on conflict (ym) do update set
+    numero_cnps = coalesce(p_numero_cnps,''),
+    numero_cnam = coalesce(p_numero_cnam,''),
+    date_versement = nullif(p_date_versement,'')::date;
+end; $$;
+
 -- Sécurité (RLS) ------------------------------------------------------------
 -- MVP : RLS activé, clé publique (anon) autorisée à lire/écrire. Suffisant pour
 -- une démo / un cabinet de confiance. Étape suivante : Supabase Auth + owner.
@@ -259,6 +300,7 @@ alter table periodes               enable row level security;
 alter table primes                 enable row level security;
 alter table retenues               enable row level security;
 alter table heures_supplementaires enable row level security;
+alter table versements             enable row level security;
 
 drop policy if exists anon_all on settings;
 drop policy if exists anon_all on employees;
@@ -266,6 +308,7 @@ drop policy if exists anon_all on periodes;
 drop policy if exists anon_all on primes;
 drop policy if exists anon_all on retenues;
 drop policy if exists anon_all on heures_supplementaires;
+drop policy if exists anon_all on versements;
 
 create policy anon_all on settings               for all to anon, authenticated using (true) with check (true);
 create policy anon_all on employees              for all to anon, authenticated using (true) with check (true);
@@ -273,6 +316,8 @@ create policy anon_all on periodes               for all to anon, authenticated 
 create policy anon_all on primes                 for all to anon, authenticated using (true) with check (true);
 create policy anon_all on retenues               for all to anon, authenticated using (true) with check (true);
 create policy anon_all on heures_supplementaires for all to anon, authenticated using (true) with check (true);
+create policy anon_all on versements             for all to anon, authenticated using (true) with check (true);
 
--- La fonction save_employee est exécutable par la clé publique.
+-- Les fonctions save_employee / save_versement sont exécutables par la clé publique.
 grant execute on function save_employee(jsonb) to anon, authenticated;
+grant execute on function save_versement(text, text, text, text) to anon, authenticated;

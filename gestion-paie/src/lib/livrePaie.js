@@ -245,3 +245,47 @@ export async function telechargerLivrePaie(rows, ym, { t, locale }) {
 // Alias : le bouton « Imprimer / PDF » produit désormais le même fichier PDF
 // réel que « Télécharger » (aucune dépendance à window.print/window.open).
 export const imprimerLivrePaie = telechargerLivrePaie;
+
+// --------------------------- Ordre de virement (CSV) ------------------------
+// Export générique (CSV, universellement accepté) de l'ordre de virement du
+// mois : une ligne par salarié rémunéré par virement/Mobile Money, avec son
+// compte bancaire et son net à payer. Aucun format bancaire propriétaire
+// n'étant garanti sans les spécifications exactes de la banque du client,
+// ce CSV — colonnes explicites, séparateur point-virgule (compatible Excel
+// FR) — est la valeur sûre à adapter/réimporter dans l'outil de la banque.
+function csvField(v) {
+  const s = String(v ?? '');
+  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function virementCsv(rows) {
+  const header = ['Matricule', 'Nom et prénoms', 'Compte bancaire / Mobile Money', 'Net à payer (FCFA)'];
+  const lines = [header.join(';')];
+  for (const r of rows) {
+    lines.push([
+      csvField(r.employee.matricule),
+      csvField(r.employee.nom),
+      csvField(r.employee.compteBancaire || ''),
+      Math.round(r.calc.netAPayer)
+    ].join(';'));
+  }
+  // BOM UTF-8 : Excel (Windows, très majoritaire chez nos utilisateurs)
+  // n'affiche correctement les accents d'un CSV que si ce marqueur est
+  // présent en tête de fichier.
+  return '﻿' + lines.join('\r\n');
+}
+
+export function telechargerVirementCsv(rows, ym) {
+  if (!rows || rows.length === 0) return false;
+  const csv = virementCsv(rows);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ordre-virement-${ym}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return true;
+}

@@ -35,7 +35,7 @@ function SlipPreview({ data }) {
 }
 
 export default function Bulletins() {
-  const { settings, employees } = useStore();
+  const { settings, employees, versements } = useStore();
   const { t, locale } = useI18n();
   const [params] = useSearchParams();
   const preEmp = params.get('e');
@@ -82,7 +82,12 @@ export default function Bulletins() {
     const out = [];
     for (const e of targets) {
       for (const m of months) {
-        const bd = bulletinData(e, m, settings);
+        // Le n° de versement CNPS/CMU réel (voir Cotisations) est propre à
+        // chaque mois — on l'injecte dans les settings au moment de générer
+        // CE mois précis, sans toucher à la signature de bulletinData.
+        const v = versements?.[m];
+        const settingsMois = v ? { ...settings, versementCnps: v.numeroCnps, versementCnam: v.numeroCnam } : settings;
+        const bd = bulletinData(e, m, settingsMois);
         if (bd) out.push(bd);
       }
     }

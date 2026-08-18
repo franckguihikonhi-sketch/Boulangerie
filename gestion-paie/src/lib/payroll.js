@@ -466,3 +466,82 @@ export function congesEnCours(dateEmbauche, ym) {
   const moisCycle = moisTotal % 12;
   return Math.round(moisCycle * CONGE_JOURS_PAR_MOIS * 10) / 10;
 }
+
+// --------------------------- Prorata des mois incomplets -------------------
+// Convention des « 30èmes », standard en paie ivoirienne/OHADA (Sage Paie
+// Afrique et assimilés) : chaque mois compte pour 30 jours quelle que soit sa
+// durée calendaire réelle, et le jour du calendrier (1 à 31) se reporte
+// directement sur cette échelle (le 31 est ramené à 30). Le salaire
+// journalier est donc TOUJOURS salaire mensuel / 30, ce qui évite les écarts
+// entre un mois de 28 et un mois de 31 jours pour une même situation.
+
+// Nombre de jours (méthode des 30èmes) réellement couverts par une présence
+// du `debutJour` au `finJour` inclus (1-30, un 31 étant ramené à 30).
+export function joursTravaillesMois(debutJour, finJour) {
+  const debut = Math.max(1, Math.min(30, Number(debutJour) || 1));
+  const fin = Math.max(1, Math.min(30, Number(finJour) || 30));
+  if (fin < debut) return 0;
+  return fin - debut + 1;
+}
+
+// Coefficient à appliquer aux éléments de rémunération mensuels (salaire de
+// base, sursalaire visé, primes récurrentes...) pour un mois incomplet :
+// 1 = mois plein (comportement inchangé), < 1 = entrée/sortie en cours de
+// mois. `joursTravailles` est déjà exprimé en 30èmes (voir ci-dessus).
+export function coefficientProrata(joursTravailles) {
+  return Math.max(0, Math.min(1, (Number(joursTravailles) || 0) / 30));
+}
+
+// --------------------------- Solde de tout compte ---------------------------
+// Calcul des indemnités dues à la rupture d'un contrat, en sus du dernier
+// salaire (déjà couvert par le bulletin du mois de sortie, avec son prorata
+// éventuel). Purement un outil d'aide au calcul : rien n'est jamais imposé
+// automatiquement, le motif de rupture détermine simplement QUELS éléments
+// s'appliquent légalement — c'est à l'utilisateur de confirmer le motif réel.
+
+// Indemnité de licenciement (Code du travail ivoirien / Convention
+// Collective Interprofessionnelle, art. 17) : uniquement en cas de
+// licenciement non consécutif à une faute lourde, à partir d'un an
+// d'ancienneté. Barème PROGRESSIF par tranche d'ancienneté (pas un taux
+// unique appliqué à toutes les années) : 30 % du salaire moyen mensuel par
+// année pour les 5 premières années, 35 % de la 6ᵉ à la 10ᵉ, 40 % au-delà.
+export function indemniteLicenciement(salaireMoyenMensuel, anneesAnciennete) {
+  const a = Math.max(0, Number(anneesAnciennete) || 0);
+  const s = Math.max(0, Number(salaireMoyenMensuel) || 0);
+  if (a < 1 || s <= 0) return 0;
+  const tranche1 = Math.min(a, 5) * 0.30;
+  const tranche2 = Math.max(0, Math.min(a, 10) - 5) * 0.35;
+  const tranche3 = Math.max(0, a - 10) * 0.40;
+  return roundFCFA(s * (tranche1 + tranche2 + tranche3));
+}
+
+// Indemnité compensatrice de congés payés non pris à la date de rupture :
+// jours acquis dans le cycle en cours (voir congesEnCours) × salaire
+// journalier (méthode des 30èmes) sur la base du salaire moyen mensuel.
+export function indemniteCongesNonPris(salaireMoyenMensuel, joursRestants) {
+  const s = Math.max(0, Number(salaireMoyenMensuel) || 0);
+  const j = Math.max(0, Number(joursRestants) || 0);
+  return roundFCFA((s / 30) * j);
+}
+
+// Prime de précarité (CDD uniquement) : 3 % de la rémunération BRUTE totale
+// versée pendant toute la durée du CDD (renouvellements inclus), due sauf
+// si le contrat se poursuit en CDI ou si le salarié refuse une offre de CDI
+// sur le même poste.
+export const TAUX_PRIME_PRECARITE = 0.03;
+
+export function primePrecarite(cumulBrutCdd) {
+  return roundFCFA(Math.max(0, Number(cumulBrutCdd) || 0) * TAUX_PRIME_PRECARITE);
+}
+
+// Indemnité compensatrice de préavis (si le préavis légal/conventionnel n'est
+// pas exécuté) : la durée exacte dépend de la catégorie professionnelle et de
+// l'ancienneté selon la convention collective applicable — volontairement
+// LAISSÉE À LA SAISIE plutôt que devinée, pour éviter un montant faussement
+// précis mais légalement inexact. Ce calcul se contente de convertir un
+// nombre de jours de préavis (méthode des 30èmes) en indemnité.
+export function indemnitePreavis(salaireMoyenMensuel, joursPreavis) {
+  const s = Math.max(0, Number(salaireMoyenMensuel) || 0);
+  const j = Math.max(0, Number(joursPreavis) || 0);
+  return roundFCFA((s / 30) * j);
+}

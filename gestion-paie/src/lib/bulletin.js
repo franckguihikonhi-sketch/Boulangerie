@@ -8,10 +8,11 @@
 // gestion-devis) : aucune dépendance PDF externe, rendu identique à l'écran.
 // ===========================================================================
 
-import { formatFCFA, formatNum } from './money';
+import { formatFCFA, formatNum, roundFCFA } from './money';
 import {
   calculerDepuisNet, libelleMois, anneesAnciennete,
-  periodeEffective, estMoisAnniversaire, joursCongeAnnuels, congesEnCours
+  periodeEffective, estMoisAnniversaire, joursCongeAnnuels, congesEnCours,
+  joursTravaillesMois, coefficientProrata
 } from './payroll';
 import { paramsFromSettings } from './db';
 import { exportHtmlToPdf } from './pdfExport';
@@ -27,16 +28,54 @@ function pourCeMois(items, ym) {
   return (Array.isArray(items) ? items : []).filter((it) => !it.mois || it.mois === ym);
 }
 
+// Vrai si `periode` est la toute première période contractuelle du salarié
+// (par date de début) : seule celle-là peut démarrer un jour précis autre
+// que le 1ᵉʳ du mois (date d'embauche), les renouvellements suivants
+// s'enchaînant conventionnellement au 1ᵉʳ du mois dans ce modèle.
+function estPremierePeriode(employee, periode) {
+  const debuts = (employee.periodes || []).map((p) => p.debut).filter(Boolean).sort();
+  return debuts[0] === periode.debut;
+}
+
+// Jour d'entrée / de sortie (méthode des 30èmes) applicable au mois `ym`
+// pour cette période : plein mois (1 → 30) sauf sur le mois exact d'entrée
+// (date d'embauche, 1ʳᵉ période uniquement) ou de sortie (periode.finJour,
+// saisi lors d'un licenciement/fin de CDD en cours de mois).
+function joursDuMoisProrata(employee, periode, ym) {
+  let debutJour = 1;
+  let finJour = 30;
+  if (ym === periode.debut && employee.dateEmbauche && estPremierePeriode(employee, periode)) {
+    const j = Number(employee.dateEmbauche.split('-')[2]);
+    if (j > 1) debutJour = j;
+  }
+  if (ym === periode.fin && periode.finJour) {
+    finJour = periode.finJour;
+  }
+  return { debutJour, finJour };
+}
+
 // Calcule le bulletin d'un mois donné pour une période et un congé donnés.
+// Applique le prorata (méthode des 30èmes) sur les éléments mensuels du
+// salaire (base, sursalaire visé, salaire catégoriel, transport, primes
+// récurrentes) si le mois est incomplet — entrée ou sortie en cours de mois.
+// Les heures sup et les primes/retenues ponctuelles (déjà rattachées à un
+// mois précis) restent des montants réels, jamais proratisés.
 function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
   const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
+  const { debutJour, finJour } = joursDuMoisProrata(employee, periode, ym);
+  const joursTravailles = joursTravaillesMois(debutJour, finJour);
+  const coefficient = coefficientProrata(joursTravailles);
+  const prorata = (n) => (coefficient < 1 ? roundFCFA(n * coefficient) : roundFCFA(n));
+  const primesDuMois = pourCeMois(periode.primes, ym).map((p) =>
+    coefficient < 1 && !p.mois ? { ...p, montant: prorata(p.montant) } : p
+  );
   const calc = calculerDepuisNet(
-    periode.netCible,
+    prorata(periode.netCible),
     {
-      salaireBase: periode.salaireBase,
-      salaireCategoriel: employee.salaireCategoriel || periode.salaireBase,
-      transport: periode.transport,
-      primes: pourCeMois(periode.primes, ym),
+      salaireBase: prorata(periode.salaireBase),
+      salaireCategoriel: prorata(employee.salaireCategoriel || periode.salaireBase),
+      transport: prorata(periode.transport),
+      primes: primesDuMois,
       heuresSupplementaires: pourCeMois(periode.heuresSupplementaires, ym),
       situation: employee.situation,
       enfants: employee.enfants,
@@ -47,7 +86,7 @@ function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
     },
     params
   );
-  return { anciennete, calc };
+  return { anciennete, calc: { ...calc, joursTravailles, coefficientProrata: coefficient } };
 }
 
 // Bulletin d'un mois SANS indemnité de congé (sert d'assiette à la période de
@@ -232,12 +271,22 @@ function slipHtml(data, t, locale) {
     ? `<img class="logo" src="${esc(settings.logoDataUrl)}" alt="Logo" />`
     : '<span class="logo-empty"></span>';
 
+  // « N° de versement CNPS/CMU » (mention légale) : le numéro de la
+  // quittance de paiement RÉEL du mois, distinct du n° d'immatriculation
+  // employeur fixe ci-dessous — saisi une fois le versement du mois effectué
+  // (voir État des cotisations). Absent tant que non renseigné.
+  const versementLine = [
+    settings.versementCnps ? `Vers. CNPS ${settings.versementCnps}` : '',
+    settings.versementCnam ? `Vers. CMU ${settings.versementCnam}` : ''
+  ].filter(Boolean).join(' · ');
+
   const employerLines = [
     settings.adresse,
     settings.employeurCnps ? `CNPS employeur : ${settings.employeurCnps}` : '',
     settings.rccm ? `RCCM ${settings.rccm}` : '',
     settings.compteContribuable ? `Cpte contribuable ${settings.compteContribuable}` : '',
-    settings.activite
+    settings.activite,
+    versementLine
   ].filter(Boolean);
 
   return `
@@ -277,7 +326,7 @@ function slipHtml(data, t, locale) {
       <div class="stat">
         <p class="muted">Situation matrimoniale : <strong>${esc(t('situation.' + e.situation))}</strong></p>
         <p class="muted">Ancienneté : <strong>${anciennete}</strong> an(s)</p>
-        <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong>${p.requalifieCdi ? ' <em>(requalifié CDI — CDD &gt; 2 ans)</em>' : ''} · Rémunération : Mensuelle</p>
+        <p class="muted">Contrat : <strong>${esc(t('contract.' + p.kind))}${p.label ? ' — ' + esc(p.label) : ''}</strong>${p.requalifieCdi ? ' <em>(requalifié CDI — CDD &gt; 2 ans)</em>' : ''} · Rémunération : Mensuelle${calc.coefficientProrata < 1 ? ` · <strong>Mois incomplet : ${calc.joursTravailles}/30 j</strong>` : ''}</p>
         <p class="muted">Congés — acquis (cycle en cours) : <strong>${nb(data.congesCycle)} j</strong>${calc.congeJours ? ` · soldés ce mois : <strong>${nb(calc.congeJours)} j</strong>` : ''}</p>
       </div>
     </div>
@@ -298,9 +347,9 @@ function slipHtml(data, t, locale) {
         </tr>
       </thead>
       <tbody>
-        ${row({ code: 10, lib: 'SALAIRE DE BASE', nombre: 30, base: calc.salaireBase, gain: calc.salaireBase })}
+        ${row({ code: 10, lib: 'SALAIRE DE BASE', nombre: calc.joursTravailles, base: calc.salaireBase, gain: calc.salaireBase })}
         ${row({ code: 12, lib: 'PART I.G.R', nombre: calc.parts, cls: 'info' })}
-        ${calc.sursalaire > 0 ? row({ code: 20, lib: 'SURSALAIRE', nombre: 30, base: calc.sursalaire, gain: calc.sursalaire }) : ''}
+        ${calc.sursalaire > 0 ? row({ code: 20, lib: 'SURSALAIRE', nombre: calc.joursTravailles, base: calc.sursalaire, gain: calc.sursalaire }) : ''}
         ${heuresSupRows}
         ${calc.primeAnciennete > 0 ? row({ code: 40, lib: 'PRIME D’ANCIENNETÉ', base: calc.salaireCategoriel, txSal: calc.tauxAnciennete, gain: calc.primeAnciennete }) : ''}
         ${primesRows}

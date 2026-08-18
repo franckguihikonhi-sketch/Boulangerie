@@ -9,6 +9,7 @@ import LivrePaie from './pages/LivrePaie';
 import Cotisations from './pages/Cotisations';
 import Impots from './pages/Impots';
 import Simulateur from './pages/Simulateur';
+import SoldeToutCompte from './pages/SoldeToutCompte';
 import Parametres from './pages/Parametres';
 import About from './pages/About';
 
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="/etat-cotisations" element={<Cotisations />} />
         <Route path="/etat-impots" element={<Impots />} />
         <Route path="/simulateur" element={<Simulateur />} />
+        <Route path="/solde-tout-compte" element={<SoldeToutCompte />} />
         <Route path="/parametres" element={<Parametres />} />
         <Route path="/a-propos" element={<About />} />
         <Route path="*" element={<Navigate to="/" replace />} />
