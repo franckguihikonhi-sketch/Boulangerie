@@ -24,7 +24,7 @@ function emptyForm() {
   return {
     id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
     cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
-    sousControle: false, controleMotif: '', controleDepuis: null,
+    sousControle: false, controleMotif: '', controleDepuis: null, compteBancaire: '',
     periodes: [emptyPeriode('cdd')]
   };
 }
@@ -35,8 +35,9 @@ function fromEmployee(e) {
     enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, categorie: e.categorie || '', expatrie: e.expatrie === true,
     dateEmbauche: e.dateEmbauche, salaireCategoriel: e.salaireCategoriel,
     sousControle: e.sousControle === true, controleMotif: e.controleMotif || '', controleDepuis: e.controleDepuis || null,
+    compteBancaire: e.compteBancaire || '',
     periodes: e.periodes.map((p) => ({
-      ...p, fin: p.fin || '',
+      ...p, fin: p.fin || '', finJour: p.finJour || null,
       primes: p.primes.map((pr) => ({ ...pr, mois: pr.mois || '' })),
       retenues: (p.retenues || []).map((r) => ({ ...r, mois: r.mois || '' })),
       heuresSupplementaires: (p.heuresSupplementaires || []).map((h) => ({ ...h, mois: h.mois || '' }))
@@ -80,7 +81,7 @@ export default function Employees() {
   const openNew = () => { setError(''); setForm(emptyForm()); };
   const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
 
-  const openTerminate = (e, mode) => { setTerminateError(''); setTerminateDate(ym); setTerminate({ employee: e, mode }); };
+  const openTerminate = (e, mode) => { setTerminateError(''); setTerminateDate(todayIso()); setTerminate({ employee: e, mode }); };
 
   const confirmTerminate = async (evt) => {
     evt.preventDefault();
@@ -90,7 +91,14 @@ export default function Employees() {
     try {
       const payload = fromEmployee(terminate.employee);
       const last = payload.periodes.length - 1;
-      payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin: terminateDate } : p));
+      const fin = terminateDate.slice(0, 7);
+      // Jour exact de sortie (méthode des 30èmes) : le mois de sortie est
+      // proratisé automatiquement sur le bulletin SAUF si la sortie tombe le
+      // dernier jour du mois (mois plein, comportement historique).
+      const jourSortie = Number(terminateDate.slice(8, 10));
+      const dernierJourMois = new Date(Number(terminateDate.slice(0, 4)), Number(terminateDate.slice(5, 7)), 0).getDate();
+      const finJour = jourSortie < dernierJourMois ? jourSortie : null;
+      payload.periodes = payload.periodes.map((p, idx) => (idx === last ? { ...p, fin, finJour } : p));
       await saveEmployee(payload);
       setTerminate(null);
     } catch (err) {
@@ -454,8 +462,8 @@ export default function Employees() {
             <p className="text-sm text-stone-600">
               {t(terminate.mode === 'cdi' ? 'employees.licenciementHelp' : 'employees.endCddHelp', { nom: terminate.employee.nom })}
             </p>
-            <Field label={t('period.fin')}>
-              <input className={inputClass} type="month" value={terminateDate} onChange={(e) => setTerminateDate(e.target.value)} required />
+            <Field label={t('employees.terminateDate')} help={t('employees.terminateDateHelp')}>
+              <input className={inputClass} type="date" value={terminateDate} onChange={(e) => setTerminateDate(e.target.value)} required />
             </Field>
             <ErrorNote>{terminateError}</ErrorNote>
             <div className="flex justify-end gap-2 pt-1">
@@ -500,6 +508,9 @@ export default function Employees() {
               </Field>
               <Field label={t('employees.salaireCategoriel')} help={t('employees.salaireCategorielHelp')}>
                 <input className={inputClass} type="number" min="0" value={form.salaireCategoriel} onChange={(e) => setField('salaireCategoriel', e.target.value)} placeholder="auto" />
+              </Field>
+              <Field label={t('employees.compteBancaire')} help={t('employees.compteBancaireHelp')}>
+                <input className={inputClass} value={form.compteBancaire} onChange={(e) => setField('compteBancaire', e.target.value)} placeholder="ex. CI93 CI12 3456 7890 1234 5678 90" />
               </Field>
               <label className="flex items-center gap-2 self-end pb-2 text-sm text-stone-700">
                 <input type="checkbox" checked={form.expatrie} onChange={(e) => setField('expatrie', e.target.checked)} />

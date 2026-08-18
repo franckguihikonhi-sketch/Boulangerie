@@ -76,7 +76,7 @@ function defaultSettings() {
 }
 
 function emptyState() {
-  return { settings: defaultSettings(), employees: [] };
+  return { settings: defaultSettings(), employees: [], versements: {} };
 }
 
 function notify() {
@@ -170,6 +170,11 @@ function normPeriode(p) {
     // CDI (licenciement / rupture) : dans les deux cas, vide = contrat
     // toujours en cours.
     fin: p.fin || null,
+    // Jour exact de sortie dans le mois de `fin` (1-31, méthode des 30èmes —
+    // un 31 est ramené à 30), optionnel : vide = sortie en fin de mois plein
+    // (comportement historique inchangé) ; renseigné = le salaire du mois de
+    // sortie est proratisé sur les jours réellement travaillés.
+    finJour: p.finJour ? Math.max(1, Math.min(31, Math.round(Number(p.finJour)))) : null,
     salaireBase: roundFCFA(p.salaireBase),
     netCible: roundFCFA(p.netCible),
     transport: roundFCFA(p.transport ?? 0),
@@ -204,6 +209,9 @@ function buildEmployee(input) {
     sousControle: input.sousControle === true,
     controleMotif: input.controleMotif?.trim() || '',
     controleDepuis: input.controleDepuis || null,
+    // Compte bancaire / Mobile Money : facultatif, sert uniquement à générer
+    // l'ordre de virement (jamais utilisé dans les calculs de paie).
+    compteBancaire: input.compteBancaire?.trim() || '',
     periodes
   };
 }
@@ -289,7 +297,7 @@ function guestSessionActive() {
     /* ignore */
   }
   state = restored && Array.isArray(restored.employees)
-    ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees }
+    ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {} }
     : seededState();
   persistLocal();
   setStatus('ready');
@@ -313,6 +321,7 @@ const toPeriode = (r) => ({
   id: r.id, kind: r.kind, label: r.label,
   debut: (r.debut || '').slice(0, 7),
   fin: r.fin ? r.fin.slice(0, 7) : null,
+  finJour: r.fin_jour || null,
   salaireBase: Number(r.salaire_base), netCible: Number(r.net_cible),
   transport: Number(r.transport),
   primes: (r.primes || []).sort((a, b) => a.position - b.position).map(toPrime),
@@ -328,7 +337,12 @@ const toEmployee = (r) => ({
   sousControle: r.sous_controle === true,
   controleMotif: r.controle_motif || '',
   controleDepuis: r.controle_depuis || null,
+  compteBancaire: r.compte_bancaire || '',
   periodes: (r.periodes || []).sort((a, b) => a.position - b.position).map(toPeriode)
+});
+const toVersement = (r) => ({
+  numeroCnps: r.numero_cnps || '', numeroCnam: r.numero_cnam || '',
+  dateVersement: r.date_versement || null
 });
 const toSettings = (r) => ({
   raisonSociale: r.raison_sociale, employeurCnps: r.employeur_cnps,
@@ -350,14 +364,24 @@ function describeError(err) {
 }
 
 async function fetchAll() {
-  const [set, emp] = await Promise.all([
+  const [set, emp, ver] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
-    supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at')
+    supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at'),
+    // Table apparue avec migration_conformite.sql : absente sur une base pas
+    // encore migrée, on l'ignore alors silencieusement (pas d'erreur bloquante,
+    // juste aucun numéro de versement affiché) plutôt que de casser tout le
+    // chargement de l'application pour une fonctionnalité annexe.
+    supabase.from('versements').select('*')
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
+  const versements = {};
+  if (!ver.error) {
+    for (const r of ver.data || []) versements[(r.ym || '').slice(0, 7)] = toVersement(r);
+  }
   return {
     settings: set.data ? toSettings(set.data) : defaultSettings(),
-    employees: (emp.data || []).map(toEmployee)
+    employees: (emp.data || []).map(toEmployee),
+    versements
   };
 }
 
@@ -375,7 +399,7 @@ export async function hydrate() {
       /* ignore */
     }
     state = restored && Array.isArray(restored.employees)
-      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees }
+      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {} }
       : emptyState();
     setStatus('ready');
     notify();
@@ -465,6 +489,33 @@ export async function saveSettings(patch) {
   if (patch.transportExonere !== undefined) row.transport_exonere = roundFCFA(patch.transportExonere);
   row.updated_at = new Date().toISOString();
   const { error } = await supabase.from('settings').update(row).eq('id', 1);
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+// Numéro de versement CNPS/CMU réel d'un mois donné (voir table
+// `versements`) : mention légale distincte du n° d'immatriculation employeur
+// fixe (settings.employeurCnps), saisie une fois le paiement du mois
+// effectué — depuis l'État des cotisations sociales, le mois consulté.
+export async function saveVersement(ym, patch) {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.versements = s.versements || {};
+      s.versements[ym] = { ...(s.versements[ym] || { numeroCnps: '', numeroCnam: '', dateVersement: null }), ...patch };
+    });
+  }
+  // La fonction save_versement écrase les 3 colonnes à chaque appel (upsert
+  // simple, pas de mise à jour partielle côté SQL) : on fusionne donc avec
+  // la valeur déjà connue AVANT d'appeler le RPC, pour ne jamais effacer un
+  // champ que l'appelant n'a pas fourni dans `patch`.
+  const current = state.versements?.[ym] || { numeroCnps: '', numeroCnam: '', dateVersement: null };
+  const merged = { ...current, ...patch };
+  const { error } = await supabase.rpc('save_versement', {
+    p_ym: ym,
+    p_numero_cnps: merged.numeroCnps ?? '',
+    p_numero_cnam: merged.numeroCnam ?? '',
+    p_date_versement: merged.dateVersement ?? ''
+  });
   if (error) throw rpcError(error);
   await refresh();
 }

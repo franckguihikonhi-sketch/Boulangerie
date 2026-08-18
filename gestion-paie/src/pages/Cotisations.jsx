@@ -1,13 +1,68 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { libelleMois } from '../lib/payroll';
+import { saveVersement } from '../lib/db';
 import {
   cotisationsData, cotisationsTotaux, cotisationsDocumentHtml,
   imprimerCotisations, telechargerCotisations
 } from '../lib/cotisations';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
+
+// Numéro de versement CNPS/CMU réel du mois consulté (quittance de paiement
+// effectif), distinct du n° d'immatriculation employeur fixe (Paramètres) —
+// mention légale du bulletin, disponible seulement une fois le versement
+// fait. Enregistré indépendamment de la génération de l'état.
+function VersementCard({ ym, versement, t }) {
+  const [numeroCnps, setNumeroCnps] = useState(versement?.numeroCnps || '');
+  const [numeroCnam, setNumeroCnam] = useState(versement?.numeroCnam || '');
+  const [dateVersement, setDateVersement] = useState(versement?.dateVersement || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setNumeroCnps(versement?.numeroCnps || '');
+    setNumeroCnam(versement?.numeroCnam || '');
+    setDateVersement(versement?.dateVersement || '');
+    setSaved(false);
+  }, [ym]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await saveVersement(ym, { numeroCnps, numeroCnam, dateVersement: dateVersement || null });
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="mt-4 p-4">
+      <h2 className="mb-1 text-sm font-semibold text-stone-800">{t('cotisations.versementTitle')}</h2>
+      <p className="mb-3 text-xs text-stone-500">{t('cotisations.versementHelp')}</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label={t('cotisations.versementCnps')}>
+          <input className={inputClass} value={numeroCnps} onChange={(e) => setNumeroCnps(e.target.value)} />
+        </Field>
+        <Field label={t('cotisations.versementCnam')}>
+          <input className={inputClass} value={numeroCnam} onChange={(e) => setNumeroCnam(e.target.value)} />
+        </Field>
+        <Field label={t('cotisations.versementDate')}>
+          <input className={inputClass} type="date" value={dateVersement || ''} onChange={(e) => setDateVersement(e.target.value)} />
+        </Field>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <Button variant="secondary" onClick={save} disabled={saving}>
+          {saving ? t('common.saving') : t('common.save')}
+        </Button>
+        {saved && <span className="text-sm text-green-700">{t('cotisations.versementSaved')}</span>}
+      </div>
+    </Card>
+  );
+}
 
 // Aperçu fidèle : on affiche EXACTEMENT l'état imprimé dans un iframe isolé
 // (défilement horizontal, colonnes nombreuses).
@@ -35,7 +90,7 @@ function RegisterPreview({ rows, ym, t, locale }) {
 }
 
 export default function Cotisations() {
-  const { settings, employees } = useStore();
+  const { settings, employees, versements } = useStore();
   const { t, locale } = useI18n();
 
   // Mois par défaut choisi via le bouton « Base » (en-tête).
@@ -128,6 +183,8 @@ export default function Cotisations() {
           )}
         </div>
       )}
+
+      <VersementCard ym={ym} versement={versements?.[ym]} t={t} />
     </div>
   );
 }

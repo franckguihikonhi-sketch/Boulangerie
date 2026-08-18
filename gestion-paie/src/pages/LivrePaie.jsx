@@ -3,7 +3,10 @@ import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { libelleMois } from '../lib/payroll';
-import { livrePaieData, livrePaieTotaux, livreDocumentHtml, imprimerLivrePaie, telechargerLivrePaie } from '../lib/livrePaie';
+import {
+  livrePaieData, livrePaieTotaux, livreDocumentHtml, imprimerLivrePaie, telechargerLivrePaie,
+  telechargerVirementCsv
+} from '../lib/livrePaie';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 
 // Aperçu fidèle : on affiche EXACTEMENT le registre imprimé dans un iframe
@@ -72,6 +75,11 @@ export default function LivrePaie() {
 
   const print = () => runExport(imprimerLivrePaie);
   const download = () => runExport(telechargerLivrePaie);
+  const virement = () => {
+    if (!rows || !rows.length) return;
+    telechargerVirementCsv(rows, ym);
+    setNotice(t('livrePaie.virementDownloaded'));
+  };
 
   const totaux = rows && rows.length ? livrePaieTotaux(rows) : null;
 
@@ -96,6 +104,7 @@ export default function LivrePaie() {
               <Button variant="secondary" onClick={download} disabled={exporting}>
                 {exporting ? t('bulletins.generating') : t('bulletins.download')}
               </Button>
+              <Button variant="secondary" onClick={virement}>{t('livrePaie.virement')}</Button>
             </>
           )}
         </div>
