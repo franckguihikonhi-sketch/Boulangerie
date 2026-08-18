@@ -36,7 +36,7 @@ function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
       salaireBase: periode.salaireBase,
       salaireCategoriel: employee.salaireCategoriel || periode.salaireBase,
       transport: periode.transport,
-      primes: periode.primes,
+      primes: pourCeMois(periode.primes, ym),
       heuresSupplementaires: pourCeMois(periode.heuresSupplementaires, ym),
       situation: employee.situation,
       enfants: employee.enfants,
@@ -74,7 +74,12 @@ function congeMois(employee, ym, params) {
   }
   if (count === 0) return { montant: 0, jours: 0 };
   const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
-  return { montant: Math.round(sum / 12), jours: joursCongeAnnuels(anciennete) };
+  // Diviseur = nombre de mois RÉELLEMENT couverts (normalement 12, puisque
+  // `estMoisAnniversaire` exige déjà un an plein depuis l'embauche) plutôt
+  // qu'un 12 fixe : en cas de trou de contrat dans l'historique (CDD non
+  // renouvelé puis reprise), la moyenne reste juste au lieu d'être diluée par
+  // des mois sans aucune période contractuelle.
+  return { montant: Math.round(sum / count), jours: joursCongeAnnuels(anciennete) };
 }
 
 // Bulletin complet d'un mois : période effective (avec requalification) +

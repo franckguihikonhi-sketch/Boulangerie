@@ -130,6 +130,7 @@
   "period.netCibleHelp": "Le sursalaire est calculé automatiquement pour atteindre ce net.",
   "period.transport": "Prime de transport",
   "period.primes": "Autres primes",
+  "period.primesHelp": "Mois laissé vide = prime mensuelle récurrente, versée à tous les bulletins de cette période (ex. prime de logement). Mois renseigné = prime exceptionnelle versée ce mois-là uniquement (ex. 13ᵉ mois, prime de performance) — sinon elle serait comptée à tort chaque mois, y compris dans l'assiette de l'indemnité de congé payé.",
   "period.primeLabel": "Libellé",
   "period.primeMontant": "Montant",
   "period.primeImposable": "Imposable",
