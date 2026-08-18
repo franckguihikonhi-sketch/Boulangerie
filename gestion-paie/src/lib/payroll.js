@@ -137,12 +137,43 @@ export function its(brutImposable, situation, enfants, params = DEFAULT_PARAMS) 
   return Math.max(0, roundFCFA(impotBrut(brutImposable, params) - ricf(situation, enfants)));
 }
 
+// --------------------------- Heures supplémentaires -------------------------
+
+// Durée légale mensuelle de référence : 40 h/semaine × 52 semaines / 12 mois,
+// utilisée pour convertir le salaire de base en taux horaire (Décret
+// n° 96-203 du 7 mars 1996 relatif à la durée du travail).
+export const HEURES_LEGALES_MOIS = 173.33;
+
+// Majorations légales minimales des heures supplémentaires (Art. 21.2 du Code
+// du travail) : 15 % de la 41ᵉ à la 46ᵉ heure hebdomadaire, 50 % au-delà,
+// 75 % de jour un dimanche/jour férié ou de nuit un jour ouvrable, 100 % de
+// nuit un dimanche/jour férié.
+export const MAJORATIONS_HEURES_SUP = [
+  { valeur: 0.15, label: '+15 % (41ᵉ à 46ᵉ heure)' },
+  { valeur: 0.5, label: '+50 % (au-delà de la 46ᵉ heure)' },
+  { valeur: 0.75, label: '+75 % (nuit, ou jour un dimanche/férié)' },
+  { valeur: 1, label: '+100 % (nuit un dimanche/férié)' }
+];
+
+// Détaille chaque ligne d'heures supplémentaires avec son montant, à partir
+// du taux horaire du salaire de base (imposable et cotisable au même titre
+// que le salaire normal — aucune exonération spécifique en droit ivoirien).
+export function detailHeuresSup(salaireBase, heuresSup) {
+  const tauxHoraire = roundFCFA(salaireBase) / HEURES_LEGALES_MOIS;
+  return (Array.isArray(heuresSup) ? heuresSup : []).map((h) => {
+    const heures = Math.max(0, Number(h.heures) || 0);
+    const majoration = Math.max(0, Number(h.majoration) || 0);
+    return { heures, majoration, tauxHoraire, montant: roundFCFA(tauxHoraire * heures * (1 + majoration)) };
+  });
+}
+
 // --------------------------- Calcul complet d'un bulletin ------------------
 
 // Détaille l'intégralité d'un bulletin à partir des rubriques de gain.
 // `input` :
 //   salaireBase, sursalaire, salaireCategoriel (défaut = salaireBase),
 //   transport, primes: [{ label, montant, imposable }],
+//   heuresSupplementaires: [{ heures, majoration }],
 //   situation, enfants, anciennete (années)
 export function calculerBulletin(input, params = DEFAULT_PARAMS) {
   const salaireBase = roundFCFA(input.salaireBase);
@@ -154,6 +185,11 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
   // cotisable, ajoutée au brut en sus du salaire.
   const congePaye = roundFCFA(input.congePaye ?? 0);
   const congeJours = Number(input.congeJours) || 0;
+
+  // Heures supplémentaires : entièrement imposables et cotisables, comme le
+  // salaire de base (aucun régime d'exonération spécifique en Côte d'Ivoire).
+  const heuresSupDetail = detailHeuresSup(salaireBase, input.heuresSupplementaires);
+  const heuresSupMontant = roundFCFA(heuresSupDetail.reduce((s, h) => s + h.montant, 0));
 
   // 3. Prime d'ancienneté sur le salaire catégoriel (minimum conventionnel).
   const taux = tauxAnciennete(Number(input.anciennete) || 0);
@@ -174,7 +210,8 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
 
   // Salaire brut imposable (assiette de l'ITS).
   const brutImposable = roundFCFA(
-    salaireBase + sursalaire + primeAnciennete + transportImposable + autresPrimesImposables + congePaye
+    salaireBase + sursalaire + primeAnciennete + transportImposable + autresPrimesImposables
+      + congePaye + heuresSupMontant
   );
 
   // Salaire brut total (avant retenues) — inclut les éléments exonérés.
@@ -229,6 +266,8 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     primes,
     congePaye,
     congeJours,
+    heuresSupDetail,
+    heuresSupMontant,
     brutImposable,
     brutTotal,
     baseCotisable,
@@ -283,11 +322,13 @@ export function resoudreSursalaire(netCible, input, params = DEFAULT_PARAMS) {
 }
 
 // Calcule un bulletin complet à partir d'un salaire NET cible : résout d'abord
-// le sursalaire SUR LE SALAIRE NORMAL (hors congé, pour que l'indemnité de
-// congé s'ajoute au net et ne soit pas absorbée par le solveur), puis renvoie
-// le détail complet — avec l'indemnité de congé éventuelle en sus.
+// le sursalaire SUR LE SALAIRE NORMAL (hors congé ET hors heures sup, pour
+// que l'indemnité de congé et les heures supplémentaires s'ajoutent bien EN
+// SUS du net cible — rémunération réelle d'un événement ponctuel — au lieu
+// d'être neutralisées par une baisse automatique du sursalaire), puis renvoie
+// le détail complet avec ces éléments ponctuels en sus.
 export function calculerDepuisNet(netCible, input, params = DEFAULT_PARAMS) {
-  const sursalaire = resoudreSursalaire(netCible, { ...input, congePaye: 0 }, params);
+  const sursalaire = resoudreSursalaire(netCible, { ...input, congePaye: 0, heuresSupplementaires: [] }, params);
   const bulletin = calculerBulletin({ ...input, sursalaire }, params);
   return { ...bulletin, netCible: roundFCFA(netCible) };
 }

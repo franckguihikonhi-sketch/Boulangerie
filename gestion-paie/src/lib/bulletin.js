@@ -19,6 +19,14 @@ import { exportHtmlToPdf } from './pdfExport';
 const esc = (v) =>
   String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// Éléments ponctuels (heures sup, retenues particulières) rattachés à un mois
+// précis (`mois` = « aaaa-mm ») ne s'appliquent qu'à CE mois-là ; laissés sans
+// mois, ils s'appliquent à tous les bulletins de la période (comme les
+// primes) — utile pour une opposition judiciaire récurrente par exemple.
+function pourCeMois(items, ym) {
+  return (Array.isArray(items) ? items : []).filter((it) => !it.mois || it.mois === ym);
+}
+
 // Calcule le bulletin d'un mois donné pour une période et un congé donnés.
 function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
   const anciennete = anneesAnciennete(employee.dateEmbauche, `${ym}-01`);
@@ -29,6 +37,7 @@ function buildCalc(employee, periode, ym, params, congePaye, congeJours) {
       salaireCategoriel: employee.salaireCategoriel || periode.salaireBase,
       transport: periode.transport,
       primes: periode.primes,
+      heuresSupplementaires: pourCeMois(periode.heuresSupplementaires, ym),
       situation: employee.situation,
       enfants: employee.enfants,
       expatrie: employee.expatrie,
@@ -133,7 +142,12 @@ export function bulletinData(employee, ym, settings) {
   // Compteur légal de congés : jours acquis dans le cycle annuel en cours
   // (voir congesEnCours — pur affichage, sans incidence sur la paie).
   const congesCycle = congesEnCours(employee.dateEmbauche, ym);
-  return { employee, periode, ym, settings, params, anciennete, calc, conge, periodeDates, cumuls, congesCycle };
+  // Retenues particulières applicables CE mois précisément (voir pourCeMois).
+  const retenuesDuMois = pourCeMois(periode.retenues, ym);
+  return {
+    employee, periode, ym, settings, params, anciennete, calc, conge, periodeDates, cumuls,
+    congesCycle, retenuesDuMois
+  };
 }
 
 // --------------------------- Rendu HTML d'un bulletin ----------------------
@@ -165,6 +179,15 @@ function slipHtml(data, t, locale) {
     .map((pr) => row({ lib: pr.label + (pr.imposable === false ? ' (exonérée)' : ''), nombre: 1, base: pr.montant, gain: pr.montant }))
     .join('');
 
+  // Heures supplémentaires : une ligne par majoration légale utilisée ce mois
+  // (nombre d'heures, taux horaire de base, taux de majoration, montant).
+  const heuresSupRows = (calc.heuresSupDetail || [])
+    .map((h) => row({
+      code: 30, lib: `HEURES SUPPLÉMENTAIRES (+${rt(h.majoration)} %)`,
+      nombre: h.heures, base: h.tauxHoraire, txSal: h.majoration, gain: h.montant
+    }))
+    .join('');
+
   const modePaiement = settings.modePaiement || 'Virement';
 
   // Total des cotisations / retenues salariales (inclut l'ITS) et patronales.
@@ -184,9 +207,10 @@ function slipHtml(data, t, locale) {
   const cumulJours = (lib, per, ann) =>
     `<tr><td class="lib">${esc(lib)}</td><td class="num">${nb(per)} j</td><td class="num">${nb(ann)} j</td></tr>`;
 
-  // Retenues particulières (avances, prêts, oppositions…), le cas échéant :
-  // déduites du net légal, mentionnées à part du bloc des cotisations.
-  const retenuesDiverses = p.retenues || [];
+  // Retenues particulières (avances, prêts, oppositions…) applicables à CE
+  // mois précisément (voir pourCeMois), le cas échéant : déduites du net
+  // légal, mentionnées à part du bloc des cotisations.
+  const retenuesDiverses = data.retenuesDuMois || [];
   const totalRetenuesDiverses = retenuesDiverses.reduce((s, r) => s + (Number(r.montant) || 0), 0);
   const netFinal = calc.netAPayer - totalRetenuesDiverses;
   const retenuesHtml = retenuesDiverses.length
@@ -241,6 +265,7 @@ function slipHtml(data, t, locale) {
         ${row({ code: 10, lib: 'SALAIRE DE BASE', nombre: 30, base: calc.salaireBase, gain: calc.salaireBase })}
         ${row({ code: 12, lib: 'PART I.G.R', nombre: calc.parts, cls: 'info' })}
         ${calc.sursalaire > 0 ? row({ code: 20, lib: 'SURSALAIRE', nombre: 30, base: calc.sursalaire, gain: calc.sursalaire }) : ''}
+        ${heuresSupRows}
         ${calc.primeAnciennete > 0 ? row({ code: 40, lib: 'PRIME D’ANCIENNETÉ', base: calc.salaireCategoriel, txSal: calc.tauxAnciennete, gain: calc.primeAnciennete }) : ''}
         ${primesRows}
         ${calc.congePaye > 0 ? row({ code: 25, lib: `INDEMNITÉ DE CONGÉ PAYÉ${calc.congeJours ? ` (${calc.congeJours} j)` : ''}`, nombre: calc.congeJours || undefined, gain: calc.congePaye }) : ''}
