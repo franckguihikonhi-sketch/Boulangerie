@@ -392,10 +392,10 @@ const PRINT_CSS = `
   table.cumuls thead th { background: #fafaf9; color: #57534e; text-transform: uppercase; font-size: 9.5px; }
   table.cumuls .num { text-align: right; font-variant-numeric: tabular-nums; }
   table.cumuls .lib { text-align: left; }
-  .net { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; padding: 10px 18px; background: #4f46e5; color: #fff; border-radius: 6px; min-width: 240px; margin-left: auto; }
-  .net span:first-child { font-size: 11px; font-weight: 600; letter-spacing: .06em; opacity: .9; }
-  .net span:last-child { font-size: 19px; font-weight: 800; }
-  .net span.net-sub { font-size: 9.5px; font-weight: 500; opacity: .85; letter-spacing: 0; margin-bottom: 2px; }
+  .net { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 10px 18px; background: none; color: #000; border: 2px solid #000; border-radius: 6px; min-width: 240px; margin-left: auto; }
+  .net span:first-child { font-size: 14px; font-weight: 600; letter-spacing: .06em; opacity: .9; }
+  .net span:last-child { font-size: 26px; font-weight: 800; }
+  .net span.net-sub { font-size: 10.5px; font-weight: 500; opacity: .85; letter-spacing: 0; margin-bottom: 2px; }
   .warn { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 10.5px; margin: 8px 0 0; }
   .foot { margin-top: 6px; font-size: 9px; color: #a8a29e; text-align: center; line-height: 1.5; }
   .foot:first-of-type { margin-top: 12px; }
