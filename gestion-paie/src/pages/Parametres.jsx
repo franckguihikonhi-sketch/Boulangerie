@@ -14,6 +14,7 @@ export default function Parametres() {
     rccm: settings.rccm || '',
     compteContribuable: settings.compteContribuable || '',
     activite: settings.activite || '',
+    logoDataUrl: settings.logoDataUrl || '',
     adresse: settings.adresse,
     modePaiement: settings.modePaiement || 'Virement',
     tauxAT: (settings.tauxAccidentTravail * 100).toString(),
@@ -24,6 +25,27 @@ export default function Parametres() {
   const [error, setError] = useState('');
 
   const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setSaved(false); };
+
+  // Limite raisonnable (fichier source, avant encodage base64) pour garder un
+  // PDF léger et un temps de chargement correct de la page Paramètres.
+  const LOGO_MAX_BYTES = 500 * 1024;
+
+  const onLogoChange = (evt) => {
+    const file = evt.target.files?.[0];
+    evt.target.value = '';
+    if (!file) return;
+    setError('');
+    if (file.size > LOGO_MAX_BYTES) {
+      setError(t('settings.logoTooLarge'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => set('logoDataUrl', reader.result);
+    reader.onerror = () => setError(t('settings.logoReadError'));
+    reader.readAsDataURL(file);
+  };
+
+  const removeLogo = () => set('logoDataUrl', '');
 
   const save = async (e) => {
     e.preventDefault();
@@ -36,6 +58,7 @@ export default function Parametres() {
         rccm: form.rccm.trim(),
         compteContribuable: form.compteContribuable.trim(),
         activite: form.activite.trim(),
+        logoDataUrl: form.logoDataUrl,
         adresse: form.adresse.trim(),
         modePaiement: form.modePaiement,
         tauxAccidentTravail: Math.max(0, Number(form.tauxAT) || 0) / 100,
@@ -106,6 +129,25 @@ export default function Parametres() {
                 </select>
               </Field>
             </div>
+
+            <Field label={t('settings.logo')} help={t('settings.logoHelp')}>
+              <div className="flex items-center gap-3">
+                {form.logoDataUrl && (
+                  <img src={form.logoDataUrl} alt="Logo" className="h-14 w-auto rounded border border-stone-200 bg-white object-contain p-1" />
+                )}
+                <input
+                  className="block text-sm text-stone-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-brand-700 hover:file:bg-brand-100"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={onLogoChange}
+                />
+                {form.logoDataUrl && (
+                  <button type="button" className="text-xs font-medium text-red-600 hover:underline" onClick={removeLogo}>
+                    {t('settings.logoRemove')}
+                  </button>
+                )}
+              </div>
+            </Field>
 
             <h2 className="border-t border-stone-100 pt-4 text-sm font-semibold text-stone-800">{t('settings.payParams')}</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
