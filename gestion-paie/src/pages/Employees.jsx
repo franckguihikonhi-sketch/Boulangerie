@@ -16,13 +16,13 @@ function currentYm() {
 }
 
 const emptyPeriode = (kind = 'cdd') => ({
-  id: uid(), kind, label: '', debut: '', fin: '', salaireBase: '', netCible: '', transport: 30000, primes: []
+  id: uid(), kind, label: '', debut: '', fin: '', salaireBase: '', netCible: '', transport: 30000, primes: [], retenues: []
 });
 
 function emptyForm() {
   return {
     id: null, matricule: '', nom: '', situation: 'celibataire', enfants: 0,
-    cnps: '', emploi: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
+    cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '', salaireCategoriel: '',
     sousControle: false, controleMotif: '', controleDepuis: null,
     periodes: [emptyPeriode('cdd')]
   };
@@ -31,10 +31,14 @@ function emptyForm() {
 function fromEmployee(e) {
   return {
     id: e.id, matricule: e.matricule, nom: e.nom, situation: e.situation,
-    enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, expatrie: e.expatrie === true,
+    enfants: e.enfants, cnps: e.cnps, emploi: e.emploi, categorie: e.categorie || '', expatrie: e.expatrie === true,
     dateEmbauche: e.dateEmbauche, salaireCategoriel: e.salaireCategoriel,
     sousControle: e.sousControle === true, controleMotif: e.controleMotif || '', controleDepuis: e.controleDepuis || null,
-    periodes: e.periodes.map((p) => ({ ...p, fin: p.fin || '', primes: p.primes.map((pr) => ({ ...pr })) }))
+    periodes: e.periodes.map((p) => ({
+      ...p, fin: p.fin || '',
+      primes: p.primes.map((pr) => ({ ...pr })),
+      retenues: (p.retenues || []).map((r) => ({ ...r }))
+    }))
   };
 }
 
@@ -130,7 +134,8 @@ export default function Employees() {
         debut: entry.date,
         fin: '',
         netCible: entry.net,
-        primes: last.primes.map((pr) => ({ ...pr }))
+        primes: last.primes.map((pr) => ({ ...pr })),
+        retenues: (last.retenues || []).map((r) => ({ ...r }))
       };
       payload.periodes = [...payload.periodes.slice(0, lastIdx), closed, next];
       lastIdx = payload.periodes.length - 1;
@@ -212,6 +217,17 @@ export default function Employees() {
   const removePrime = (i, j) =>
     setPeriode(i, { primes: form.periodes[i].primes.filter((_, idx) => idx !== j) });
 
+  const addRetenue = (i) =>
+    setPeriode(i, { retenues: [...(form.periodes[i].retenues || []), { label: '', montant: '' }] });
+
+  const setRetenue = (i, j, patch) =>
+    setPeriode(i, {
+      retenues: (form.periodes[i].retenues || []).map((r, idx) => (idx === j ? { ...r, ...patch } : r))
+    });
+
+  const removeRetenue = (i, j) =>
+    setPeriode(i, { retenues: (form.periodes[i].retenues || []).filter((_, idx) => idx !== j) });
+
   const [saving, setSaving] = useState(false);
 
   const submit = async (e) => {
@@ -277,7 +293,10 @@ export default function Employees() {
                         </p>
                       )}
                     </td>
-                    <td className={td}>{e.emploi || '—'}</td>
+                    <td className={td}>
+                      {e.emploi || '—'}
+                      {e.categorie && <span className="block text-xs text-stone-400">{e.categorie}</span>}
+                    </td>
                     <td className={td}>
                       {t('situation.' + e.situation)}
                       <span className="text-stone-400"> · {e.enfants} enf.</span>
@@ -451,6 +470,9 @@ export default function Employees() {
               <Field label={t('employees.emploi')}>
                 <input className={inputClass} value={form.emploi} onChange={(e) => setField('emploi', e.target.value)} />
               </Field>
+              <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
+                <input className={inputClass} value={form.categorie} onChange={(e) => setField('categorie', e.target.value)} placeholder={t('employees.categoriePlaceholder')} />
+              </Field>
               <Field label={t('employees.dateEmbauche')} help={t('employees.dateEmbaucheHelp')}>
                 <input className={inputClass} type="date" value={form.dateEmbauche} onChange={(e) => setField('dateEmbauche', e.target.value)} />
               </Field>
@@ -524,6 +546,23 @@ export default function Employees() {
                             {t('period.primeImposable')}
                           </label>
                           <button type="button" className="text-red-500 hover:text-red-700" onClick={() => removePrime(i, j)} aria-label={t('period.remove')}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-2 border-t border-stone-200 pt-2">
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-xs font-medium text-stone-600">{t('period.retenues')}</span>
+                        <button type="button" className="text-xs font-medium text-red-700 hover:underline" onClick={() => addRetenue(i)}>
+                          + {t('period.addRetenue')}
+                        </button>
+                      </div>
+                      <InfoNote>{t('period.retenuesHelp')}</InfoNote>
+                      {(p.retenues || []).map((r, j) => (
+                        <div key={j} className="mt-1 flex items-center gap-2">
+                          <input className={inputClass + ' flex-1'} value={r.label} onChange={(e) => setRetenue(i, j, { label: e.target.value })} placeholder={t('period.retenueLabel')} />
+                          <input className={inputClass + ' w-28'} type="number" min="0" value={r.montant} onChange={(e) => setRetenue(i, j, { montant: e.target.value })} placeholder={t('period.retenueMontant')} />
+                          <button type="button" className="text-red-500 hover:text-red-700" onClick={() => removeRetenue(i, j)} aria-label={t('period.remove')}>✕</button>
                         </div>
                       ))}
                     </div>

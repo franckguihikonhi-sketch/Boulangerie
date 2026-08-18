@@ -8,6 +8,7 @@
 -- ===========================================================================
 
 -- Nettoyage (permet de relancer le script proprement) -----------------------
+drop table if exists retenues cascade;
 drop table if exists primes cascade;
 drop table if exists periodes cascade;
 drop table if exists employees cascade;
@@ -19,6 +20,11 @@ create table settings (
   id int primary key default 1 check (id = 1),
   raison_sociale text not null default 'Mon Entreprise',
   employeur_cnps text not null default '',
+  -- Mentions légales complémentaires d'identification employeur, obligatoires
+  -- sur le bulletin de paie (RCCM, compte contribuable, branche d'activité).
+  rccm text not null default '',
+  compte_contribuable text not null default '',
+  activite text not null default '',
   adresse text not null default '',
   mode_paiement text not null default 'Virement',
   -- Taux d'accident du travail notifié par la CNPS (2 % à 5 %).
@@ -39,6 +45,9 @@ create table employees (
   enfants int not null default 0 check (enfants >= 0),
   cnps text not null default '',
   emploi text not null default '',
+  -- Catégorie / classification professionnelle (convention collective) —
+  -- distincte de l'intitulé de poste (emploi), mention légale du bulletin.
+  categorie text not null default '',
   -- Salarié expatrié : déclenche l'impôt sur salaires patronal « expatriés »
   -- (11,5 %) en plus de la part locale (1,2 %).
   expatrie boolean not null default false,
@@ -83,6 +92,18 @@ create table primes (
 );
 create index on primes (periode_id);
 
+-- Retenues particulières rattachées à une période (avances sur salaire,
+-- prêts, oppositions judiciaires…) : déduites du net à payer, mentionnées à
+-- part sur le bulletin, distinctes des cotisations/impôts légaux.
+create table retenues (
+  id uuid primary key default gen_random_uuid(),
+  periode_id uuid not null references periodes(id) on delete cascade,
+  label text not null default 'Retenue',
+  montant bigint not null default 0 check (montant >= 0),
+  position int not null default 0
+);
+create index on retenues (periode_id);
+
 -- Enregistrement atomique d'un salarié et de toutes ses périodes/primes -------
 -- en une transaction. `p` est l'objet salarié complet (JSON) tel qu'envoyé par
 -- l'application. Les périodes existantes sont remplacées (cascade sur primes).
@@ -92,9 +113,11 @@ declare
   v_id uuid;
   v_per jsonb;
   v_prime jsonb;
+  v_retenue jsonb;
   v_pid uuid;
   v_ppos int := 0;
   v_prpos int;
+  v_rpos int;
 begin
   if coalesce(p->>'nom','') = '' then
     raise exception 'Le nom du salarié est obligatoire';
@@ -109,6 +132,7 @@ begin
       enfants = coalesce((p->>'enfants')::int, 0),
       cnps = coalesce(p->>'cnps',''),
       emploi = coalesce(p->>'emploi',''),
+      categorie = coalesce(p->>'categorie',''),
       expatrie = coalesce((p->>'expatrie')::boolean, false),
       date_embauche = nullif(p->>'dateEmbauche','')::date,
       salaire_categoriel = coalesce((p->>'salaireCategoriel')::bigint, 0),
@@ -119,11 +143,12 @@ begin
     if not found then raise exception 'Salarié introuvable'; end if;
     delete from periodes where employee_id = v_id;
   else
-    insert into employees (matricule, nom, situation, enfants, cnps, emploi,
+    insert into employees (matricule, nom, situation, enfants, cnps, emploi, categorie,
       expatrie, date_embauche, salaire_categoriel, sous_controle, controle_motif, controle_depuis)
     values (
       coalesce(p->>'matricule',''), p->>'nom', coalesce(p->>'situation','celibataire'),
       coalesce((p->>'enfants')::int, 0), coalesce(p->>'cnps',''), coalesce(p->>'emploi',''),
+      coalesce(p->>'categorie',''),
       coalesce((p->>'expatrie')::boolean, false), nullif(p->>'dateEmbauche','')::date,
       coalesce((p->>'salaireCategoriel')::bigint, 0),
       coalesce((p->>'sousControle')::boolean, false),
@@ -161,6 +186,19 @@ begin
       );
       v_prpos := v_prpos + 1;
     end loop;
+
+    v_rpos := 0;
+    for v_retenue in select * from jsonb_array_elements(coalesce(v_per->'retenues','[]'::jsonb))
+    loop
+      insert into retenues (periode_id, label, montant, position)
+      values (
+        v_pid,
+        coalesce(nullif(v_retenue->>'label',''), 'Retenue'),
+        coalesce((v_retenue->>'montant')::bigint, 0),
+        v_rpos
+      );
+      v_rpos := v_rpos + 1;
+    end loop;
   end loop;
 
   return v_id;
@@ -173,16 +211,19 @@ alter table settings  enable row level security;
 alter table employees enable row level security;
 alter table periodes  enable row level security;
 alter table primes    enable row level security;
+alter table retenues  enable row level security;
 
 drop policy if exists anon_all on settings;
 drop policy if exists anon_all on employees;
 drop policy if exists anon_all on periodes;
 drop policy if exists anon_all on primes;
+drop policy if exists anon_all on retenues;
 
 create policy anon_all on settings  for all to anon, authenticated using (true) with check (true);
 create policy anon_all on employees for all to anon, authenticated using (true) with check (true);
 create policy anon_all on periodes  for all to anon, authenticated using (true) with check (true);
 create policy anon_all on primes    for all to anon, authenticated using (true) with check (true);
+create policy anon_all on retenues  for all to anon, authenticated using (true) with check (true);
 
 -- La fonction save_employee est exécutable par la clé publique.
 grant execute on function save_employee(jsonb) to anon, authenticated;
