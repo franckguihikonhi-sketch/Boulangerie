@@ -110,6 +110,12 @@ export function paramsFromSettings(settings) {
 
 // --------------------------- Normalisation ---------------------------------
 
+// Primes rattachées à une période (prime de logement, de rendement…). `mois`
+// (aaaa-mm) optionnel, même logique que les retenues et heures sup : vide =
+// s'applique à tous les mois de la période (prime mensuelle récurrente) ;
+// renseigné = ce mois précis uniquement (prime exceptionnelle ponctuelle,
+// ex. 13ᵉ mois) — sans quoi elle serait comptée à tort chaque mois ET 12 fois
+// dans l'assiette de l'indemnité de congé payé (règle du 1/12ᵉ).
 function normPrimes(primes) {
   if (!Array.isArray(primes)) return [];
   return primes
@@ -117,7 +123,8 @@ function normPrimes(primes) {
     .map((p) => ({
       label: (p.label || '').trim() || 'Prime',
       montant: roundFCFA(p.montant),
-      imposable: p.imposable !== false
+      imposable: p.imposable !== false,
+      mois: p.mois || null
     }));
 }
 
@@ -293,7 +300,8 @@ function guestSessionActive() {
 // ===========================================================================
 
 const toPrime = (r) => ({
-  label: r.label, montant: Number(r.montant), imposable: r.imposable
+  label: r.label, montant: Number(r.montant), imposable: r.imposable,
+  mois: r.mois ? r.mois.slice(0, 7) : null
 });
 const toRetenue = (r) => ({
   label: r.label, montant: Number(r.montant), mois: r.mois ? r.mois.slice(0, 7) : null

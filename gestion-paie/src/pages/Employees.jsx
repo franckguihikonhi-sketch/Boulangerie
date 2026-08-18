@@ -37,7 +37,7 @@ function fromEmployee(e) {
     sousControle: e.sousControle === true, controleMotif: e.controleMotif || '', controleDepuis: e.controleDepuis || null,
     periodes: e.periodes.map((p) => ({
       ...p, fin: p.fin || '',
-      primes: p.primes.map((pr) => ({ ...pr })),
+      primes: p.primes.map((pr) => ({ ...pr, mois: pr.mois || '' })),
       retenues: (p.retenues || []).map((r) => ({ ...r, mois: r.mois || '' })),
       heuresSupplementaires: (p.heuresSupplementaires || []).map((h) => ({ ...h, mois: h.mois || '' }))
     }))
@@ -210,7 +210,7 @@ export default function Employees() {
     setForm((f) => ({ ...f, periodes: f.periodes.filter((_, idx) => idx !== i) }));
 
   const addPrime = (i) =>
-    setPeriode(i, { primes: [...form.periodes[i].primes, { label: '', montant: '', imposable: true }] });
+    setPeriode(i, { primes: [...form.periodes[i].primes, { label: '', montant: '', imposable: true, mois: '' }] });
 
   const setPrime = (i, j, patch) =>
     setPeriode(i, {
@@ -559,10 +559,12 @@ export default function Employees() {
                           + {t('period.addPrime')}
                         </button>
                       </div>
+                      <InfoNote>{t('period.primesHelp')}</InfoNote>
                       {p.primes.map((pr, j) => (
-                        <div key={j} className="mb-1 flex items-center gap-2">
+                        <div key={j} className="mt-1 flex items-center gap-2">
                           <input className={inputClass + ' flex-1'} value={pr.label} onChange={(e) => setPrime(i, j, { label: e.target.value })} placeholder={t('period.primeLabel')} />
                           <input className={inputClass + ' w-28'} type="number" min="0" value={pr.montant} onChange={(e) => setPrime(i, j, { montant: e.target.value })} placeholder={t('period.primeMontant')} />
+                          <input className={inputClass + ' w-36'} type="month" value={pr.mois || ''} onChange={(e) => setPrime(i, j, { mois: e.target.value })} title={t('period.retenueMoisHelp')} />
                           <label className="flex items-center gap-1 whitespace-nowrap text-xs text-stone-600">
                             <input type="checkbox" checked={pr.imposable !== false} onChange={(e) => setPrime(i, j, { imposable: e.target.checked })} />
                             {t('period.primeImposable')}

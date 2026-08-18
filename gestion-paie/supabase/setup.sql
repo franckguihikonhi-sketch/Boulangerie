@@ -85,13 +85,19 @@ create table periodes (
 );
 create index on periodes (employee_id);
 
--- Primes rattachées à une période -------------------------------------------
+-- Primes rattachées à une période (prime de logement, de rendement…). `mois`
+-- (aaaa-mm-01) optionnel, même logique que les retenues et heures sup : vide
+-- = s'applique à tous les mois de la période (prime mensuelle récurrente) ;
+-- renseigné = ce mois précis uniquement (prime exceptionnelle ponctuelle,
+-- ex. 13ᵉ mois) — sans quoi elle serait comptée à tort dans l'assiette de
+-- l'indemnité de congé payé (règle du 1/12ᵉ) pour les 12 mois de référence.
 create table primes (
   id uuid primary key default gen_random_uuid(),
   periode_id uuid not null references periodes(id) on delete cascade,
   label text not null default 'Prime',
   montant bigint not null default 0 check (montant >= 0),
   imposable boolean not null default true,
+  mois date,
   position int not null default 0
 );
 create index on primes (periode_id);
@@ -200,12 +206,13 @@ begin
     v_prpos := 0;
     for v_prime in select * from jsonb_array_elements(coalesce(v_per->'primes','[]'::jsonb))
     loop
-      insert into primes (periode_id, label, montant, imposable, position)
+      insert into primes (periode_id, label, montant, imposable, mois, position)
       values (
         v_pid,
         coalesce(nullif(v_prime->>'label',''), 'Prime'),
         coalesce((v_prime->>'montant')::bigint, 0),
         coalesce((v_prime->>'imposable')::boolean, true),
+        case when coalesce(v_prime->>'mois','') = '' then null else ((v_prime->>'mois') || '-01')::date end,
         v_prpos
       );
       v_prpos := v_prpos + 1;
