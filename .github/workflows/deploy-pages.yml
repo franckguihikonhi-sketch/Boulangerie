@@ -54,7 +54,12 @@ jobs:
       # Application autonome « PaieCI » (bulletins de paie) → sous-chemin
       # /gestion-paie/. Base relative ; les clés Supabase sont facultatives
       # (repli en mode démonstration / stockage local si non définies).
+      # Suite de tests (moteur de paie, prorata, congés, import CSV…) : un
+      # échec bloque le build et donc le déploiement — filet de sécurité
+      # permanent contre les régressions, avant toute mise en ligne.
       - run: npm ci
+        working-directory: gestion-paie
+      - run: npm test
         working-directory: gestion-paie
       - run: npm run build
         working-directory: gestion-paie

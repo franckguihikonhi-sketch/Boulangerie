@@ -1,0 +1,27 @@
+name: Tests PaieCI
+
+# Filet de sécurité permanent contre les régressions du moteur de paie :
+# s'exécute sur chaque pull request touchant gestion-paie/, AVANT le merge
+# (contrairement à deploy-pages.yml qui teste seulement au moment du build,
+# déjà sur main). Un échec ici bloque visiblement la PR.
+on:
+  pull_request:
+    paths:
+      - 'gestion-paie/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gestion-paie
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gestion-paie/package-lock.json
+      - run: npm ci
+      - run: npm test
