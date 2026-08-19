@@ -234,6 +234,8 @@ describe('joursCongeAnnuels', () => {
     expect(joursCongeAnnuels(5)).toBe(27);
     expect(joursCongeAnnuels(10)).toBe(28);
     expect(joursCongeAnnuels(25)).toBe(33);
+    expect(joursCongeAnnuels(30)).toBe(34);
+    expect(joursCongeAnnuels(40)).toBe(34); // pas de palier au-delà de 30 ans
   });
 });
 
