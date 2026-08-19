@@ -397,6 +397,14 @@ export function moisPrecedent(ym) {
   return `${y}-${String(m).padStart(2, '0')}`;
 }
 
+// Mois suivant une étiquette « aaaa-mm » (ex. « 2021-12 » -> « 2022-01 »).
+export function moisSuivant(ym) {
+  let [y, m] = ym.split('-').map(Number);
+  m += 1;
+  if (m > 12) { m = 1; y += 1; }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
 // Durée maximale d'un CDD (renouvellements inclus) avant requalification légale
 // en CDI, en Côte d'Ivoire : au-delà de 2 ans (24 mois).
 export const CDD_MAX_MOIS = 24;
@@ -505,6 +513,9 @@ export function coefficientProrata(joursTravailles) {
 // d'ancienneté. Barème PROGRESSIF par tranche d'ancienneté (pas un taux
 // unique appliqué à toutes les années) : 30 % du salaire moyen mensuel par
 // année pour les 5 premières années, 35 % de la 6ᵉ à la 10ᵉ, 40 % au-delà.
+// Ce barème est celui du CDI (ou d'un CDD requalifié en CDI après 24 mois,
+// voir CDD_MAX_MOIS) : pour un CDD encore en cours rompu avant son terme,
+// voir `indemniteRuptureAnticipeeCdd` ci-dessous, qui obéit à une autre règle.
 export function indemniteLicenciement(salaireMoyenMensuel, anneesAnciennete) {
   const a = Math.max(0, Number(anneesAnciennete) || 0);
   const s = Math.max(0, Number(salaireMoyenMensuel) || 0);
@@ -513,6 +524,20 @@ export function indemniteLicenciement(salaireMoyenMensuel, anneesAnciennete) {
   const tranche2 = Math.max(0, Math.min(a, 10) - 5) * 0.35;
   const tranche3 = Math.max(0, a - 10) * 0.40;
   return roundFCFA(s * (tranche1 + tranche2 + tranche3));
+}
+
+// Dommages-intérêts pour rupture anticipée d'un CDD encore en cours (avant
+// son terme), à l'initiative de l'employeur ou d'un commun accord, hors
+// faute lourde : le Code du travail ivoirien ne prévoit PAS le barème
+// d'indemnité de licenciement du CDI pour un CDD non arrivé à échéance — la
+// règle générale est une réparation égale aux rémunérations que le salarié
+// aurait perçues jusqu'au terme prévu du contrat. `moisRestants` : nombre de
+// mois entre le mois SUIVANT la sortie (le mois de sortie est déjà couvert
+// par le dernier bulletin) et le mois de fin de contrat prévu, inclus.
+export function indemniteRuptureAnticipeeCdd(salaireMoyenMensuel, moisRestants) {
+  const s = Math.max(0, Number(salaireMoyenMensuel) || 0);
+  const m = Math.max(0, Number(moisRestants) || 0);
+  return roundFCFA(s * m);
 }
 
 // Indemnité compensatrice de congés payés non pris à la date de rupture :

@@ -31,6 +31,15 @@ drop policy if exists anon_all on heures_supplementaires;
 drop policy if exists anon_all on versements;
 drop policy if exists anon_all on audit_log;
 
+drop policy if exists profiles_only on settings;
+drop policy if exists profiles_only on employees;
+drop policy if exists profiles_only on periodes;
+drop policy if exists profiles_only on primes;
+drop policy if exists profiles_only on retenues;
+drop policy if exists profiles_only on heures_supplementaires;
+drop policy if exists profiles_only on versements;
+drop policy if exists profiles_only on audit_log;
+
 create policy profiles_only on settings               for all to authenticated using (exists (select 1 from profiles where profiles.id = auth.uid())) with check (exists (select 1 from profiles where profiles.id = auth.uid()));
 create policy profiles_only on employees              for all to authenticated using (exists (select 1 from profiles where profiles.id = auth.uid())) with check (exists (select 1 from profiles where profiles.id = auth.uid()));
 create policy profiles_only on periodes               for all to authenticated using (exists (select 1 from profiles where profiles.id = auth.uid())) with check (exists (select 1 from profiles where profiles.id = auth.uid()));

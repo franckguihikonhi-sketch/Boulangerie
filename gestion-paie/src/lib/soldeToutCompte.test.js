@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calculerSolde, MOTIFS_RUPTURE } from './soldeToutCompte';
+import { roundFCFA } from './money';
 
 const settings = {
   raisonSociale: 'Test SARL', employeurCnps: '', rccm: '', compteContribuable: '', activite: '',
@@ -68,6 +69,46 @@ describe('calculerSolde — fin de CDD', () => {
     const solde = calculerSolde(employee, '2026-06', 'fin_cdd', 0, settings);
     expect(solde.licenciement).toBe(0);
     expect(solde.precarite).toBeGreaterThan(0);
+  });
+});
+
+describe('calculerSolde — rupture anticipée d\'un CDD (avant terme)', () => {
+  function employeeCdd(fin = '2027-06') {
+    return {
+      nom: 'Test CDD anticipé', matricule: 'S003', situation: 'celibataire', enfants: 0,
+      cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '2025-01-01', salaireCategoriel: 100000,
+      periodes: [{
+        id: 'p1', kind: 'cdd', debut: '2025-01', fin,
+        salaireBase: 100000, netCible: 120000, transport: 0, primes: [], retenues: [], heuresSupplementaires: []
+      }]
+    };
+  }
+
+  it('remplace l\'indemnité de licenciement par des dommages-intérêts égaux aux salaires restant au contrat', () => {
+    // Sortie en 2026-06, terme prévu 2027-06 -> 12 mois restants (2026-07 à 2027-06).
+    const solde = calculerSolde(employeeCdd('2027-06'), '2026-06', 'licenciement', 0, settings);
+    expect(solde.ruptureAnticipeeCdd).toBe(true);
+    expect(solde.moisRestantsCdd).toBe(12);
+    expect(solde.licenciement).toBe(roundFCFA(solde.salaireMoyen * 12));
+  });
+
+  it('donne un résultat différent du barème CDI, à ancienneté équivalente', () => {
+    const cdd = calculerSolde(employeeCdd('2027-06'), '2026-06', 'licenciement', 0, settings);
+    const cdi = calculerSolde(employeeStable('2025-01-01'), '2026-06', 'licenciement', 0, settings);
+    expect(cdd.licenciement).not.toBe(cdi.licenciement);
+  });
+
+  it('ne s\'applique pas à la fin normale du CDD (fin_cdd) : pas de dommages-intérêts, seulement la précarité', () => {
+    const solde = calculerSolde(employeeCdd('2026-06'), '2026-06', 'fin_cdd', 0, settings);
+    expect(solde.ruptureAnticipeeCdd).toBe(false);
+    expect(solde.licenciement).toBe(0);
+    expect(solde.precarite).toBeGreaterThan(0);
+  });
+
+  it('sans date de terme connue, retombe sur le barème CDI plutôt que de rendre 0', () => {
+    const solde = calculerSolde(employeeCdd(null), '2026-06', 'licenciement', 0, settings);
+    expect(solde.ruptureAnticipeeCdd).toBe(false);
+    expect(solde.licenciement).toBeGreaterThan(0);
   });
 });
 

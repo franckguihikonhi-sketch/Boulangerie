@@ -296,6 +296,8 @@
   "solde.totalTip": "S'ajoute au dernier bulletin de salaire (mois de sortie), en plus du salaire déjà dû.",
   "solde.detail": "Détail des indemnités",
   "solde.indemniteLicenciement": "Indemnité de licenciement",
+  "solde.indemniteRuptureCdd": "Dommages-intérêts (rupture anticipée de CDD)",
+  "solde.ruptureCddNote": "Contrat en CDD non arrivé à échéance : le barème d'indemnité de licenciement du CDI ne s'applique pas ici. Le montant correspond aux salaires restant à courir jusqu'au terme prévu du contrat.",
   "solde.indemniteConges": "Indemnité compensatrice de congés payés",
   "solde.primePrecarite": "Prime de précarité (CDD, 3 %)",
   "solde.indemnitePreavis": "Indemnité compensatrice de préavis",
