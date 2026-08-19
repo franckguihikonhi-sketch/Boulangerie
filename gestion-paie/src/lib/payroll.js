@@ -432,8 +432,8 @@ export function periodeEffective(employee, ym) {
 // --------------------------- Congés payés ----------------------------------
 
 // Barème légal ivoirien : 2,2 jours ouvrables acquis par mois de service
-// effectif, majoré selon l'ancienneté (jours supplémentaires par tranches de
-// 5 ans au-delà de 5 ans de présence).
+// effectif, majoré selon l'ancienneté (jours supplémentaires par tranches au-
+// delà de 5 ans de présence, jusqu'à +8 jours à partir de 30 ans).
 export const CONGE_JOURS_PAR_MOIS = 2.2;
 
 export function joursCongeAnnuels(anciennete) {
@@ -445,6 +445,7 @@ export function joursCongeAnnuels(anciennete) {
   if (a >= 15) sup = 3;
   if (a >= 20) sup = 5;
   if (a >= 25) sup = 7;
+  if (a >= 30) sup = 8;
   return base + sup;
 }
 
