@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useI18n } from '../i18n/I18nContext';
 import { useAuth } from '../lib/auth';
-import { useActivePeriod } from '../lib/useStore';
+import { useActivePeriod, useStore } from '../lib/useStore';
 import { setActivePeriod } from '../lib/period';
 import { libelleMois } from '../lib/payroll';
 import { Modal } from './ui';
@@ -76,6 +76,8 @@ const MOIS_ABREGES = {
 function BaseButton() {
   const { t, locale } = useI18n();
   const activeYm = useActivePeriod();
+  const { clotures } = useStore();
+  const estCloture = !!clotures?.[activeYm];
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(() => Number(activeYm.slice(0, 4)));
 
@@ -108,6 +110,11 @@ function BaseButton() {
             mobile. Seule la date affichée à côté se raccourcit. */}
         <span>{t('base.button')}</span>
         <span className="hidden capitalize sm:inline">· {libelleMois(activeYm, locale)}</span>
+        {estCloture && (
+          <span className="flex-none rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-green-800">
+            {t('livrePaie.clotureBadge')}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -126,17 +133,23 @@ function BaseButton() {
             {months.map((label, idx) => {
               const m = idx + 1;
               const isActive = year === activeYear && m === activeMonth;
+              const ymBouton = `${year}-${String(m).padStart(2, '0')}`;
+              const isCloture = !!clotures?.[ymBouton];
               return (
                 <button
                   key={m}
                   type="button"
                   onClick={() => pick(m)}
-                  className={`rounded-lg border px-2 py-2.5 text-sm font-medium transition ${
+                  title={isCloture ? t('livrePaie.clotureBadge') : undefined}
+                  className={`relative rounded-lg border px-2 py-2.5 text-sm font-medium transition ${
                     isActive
                       ? 'border-brand-600 bg-brand-600 text-white'
                       : 'border-stone-200 text-stone-700 hover:border-brand-300 hover:bg-brand-50'
                   }`}
                 >
+                  {isCloture && (
+                    <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${isActive ? 'bg-white' : 'bg-green-500'}`} />
+                  )}
                   {label}
                 </button>
               );
