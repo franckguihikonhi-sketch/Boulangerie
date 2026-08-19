@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
-import { saveSettings, saveEmployee, saveVersement, resetDemoData, isDemoMode, isLocalMode } from '../lib/db';
+import { saveSettings, saveVersement, resetDemoData, isDemoMode, isLocalMode } from '../lib/db';
+import { saveEmployee } from '../lib/cloture';
 import { DEFAULT_PARAMS } from '../lib/payroll';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
 

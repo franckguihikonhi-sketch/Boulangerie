@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/useStore';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../i18n/I18nContext';
-import { SITUATIONS, TYPES_CONTRAT, saveEmployee, deleteEmployee, uid } from '../lib/db';
+import { SITUATIONS, TYPES_CONTRAT, deleteEmployee, uid } from '../lib/db';
+// saveEmployee vient de cloture.js (et non de db.js directement) : il refuse
+// toute modification qui changerait le bulletin déjà calculé d'un mois
+// clôturé — voir ce module pour le détail du garde-fou.
+import { saveEmployee } from '../lib/cloture';
 import { periodeEffective, moisPrecedent, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import { employeesFromCsv, employeesCsvTemplate } from '../lib/csvImport';

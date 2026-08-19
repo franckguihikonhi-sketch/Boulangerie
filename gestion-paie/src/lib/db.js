@@ -76,7 +76,7 @@ function defaultSettings() {
 }
 
 function emptyState() {
-  return { settings: defaultSettings(), employees: [], versements: {}, auditLog: [] };
+  return { settings: defaultSettings(), employees: [], versements: {}, clotures: {}, auditLog: [] };
 }
 
 // Historique des modifications (qui a changé quoi, quand) : plafonné pour
@@ -195,8 +195,11 @@ function normPeriode(p) {
   };
 }
 
-// Construit l'enregistrement salarié normalisé à partir des saisies.
-function buildEmployee(input) {
+// Construit l'enregistrement salarié normalisé à partir des saisies. Exporté
+// pour cloture.js, qui en a besoin pour comparer un salarié avant/après
+// modification sur la même base normalisée que ce qui sera réellement
+// persisté (arrondis, mois vides -> null, etc.).
+export function buildEmployee(input) {
   if (!input.nom?.trim()) throw new Error('errors.nameRequired');
   const periodes = (input.periodes || []).map(normPeriode).filter((p) => p.debut);
   if (periodes.length === 0) throw new Error('errors.noPeriod');
@@ -311,7 +314,10 @@ function guestSessionActive() {
     /* ignore */
   }
   state = restored && Array.isArray(restored.employees)
-    ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {}, auditLog: restored.auditLog || [] }
+    ? {
+        settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
+        versements: restored.versements || {}, clotures: restored.clotures || {}, auditLog: restored.auditLog || []
+      }
     : seededState();
   persistLocal();
   setStatus('ready');
@@ -359,6 +365,9 @@ const toVersement = (r) => ({
   numeroCnps: r.numero_cnps || '', numeroCnam: r.numero_cnam || '',
   dateVersement: r.date_versement || null
 });
+const toCloture = (r) => ({
+  clotureLe: r.cloture_le || null, cloturePar: r.cloture_par || ''
+});
 const toAuditEntry = (r) => ({
   id: r.id, createdAt: r.created_at, employeeId: r.employee_id, employeeNom: r.employee_nom || '',
   utilisateur: r.utilisateur || '', action: r.action, avant: r.avant || null, apres: r.apres || null
@@ -383,14 +392,15 @@ function describeError(err) {
 }
 
 async function fetchAll() {
-  const [set, emp, ver, audit] = await Promise.all([
+  const [set, emp, ver, clot, audit] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at'),
-    // Tables apparues avec migration_conformite.sql : absentes sur une base
-    // pas encore migrée, on les ignore alors silencieusement (pas d'erreur
-    // bloquante, juste la fonctionnalité annexe indisponible) plutôt que de
-    // casser tout le chargement de l'application.
+    // Tables apparues avec migration_conformite.sql / migration_cloture_paie.sql :
+    // absentes sur une base pas encore migrée, on les ignore alors
+    // silencieusement (pas d'erreur bloquante, juste la fonctionnalité
+    // annexe indisponible) plutôt que de casser tout le chargement de l'appli.
     supabase.from('versements').select('*'),
+    supabase.from('clotures_paie').select('*'),
     supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(300)
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
@@ -398,11 +408,16 @@ async function fetchAll() {
   if (!ver.error) {
     for (const r of ver.data || []) versements[(r.ym || '').slice(0, 7)] = toVersement(r);
   }
+  const clotures = {};
+  if (!clot.error) {
+    for (const r of clot.data || []) clotures[(r.ym || '').slice(0, 7)] = toCloture(r);
+  }
   const auditLog = audit.error ? [] : (audit.data || []).map(toAuditEntry);
   return {
     settings: set.data ? toSettings(set.data) : defaultSettings(),
     employees: (emp.data || []).map(toEmployee),
     versements,
+    clotures,
     auditLog
   };
 }
@@ -421,7 +436,10 @@ export async function hydrate() {
       /* ignore */
     }
     state = restored && Array.isArray(restored.employees)
-      ? { settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees, versements: restored.versements || {}, auditLog: restored.auditLog || [] }
+      ? {
+          settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
+          versements: restored.versements || {}, clotures: restored.clotures || {}, auditLog: restored.auditLog || []
+        }
       : emptyState();
     setStatus('ready');
     notify();
@@ -466,7 +484,7 @@ function setupSync() {
   syncSetup = true;
   try {
     const channel = supabase.channel('gpaie-sync');
-    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'audit_log']) {
+    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'clotures_paie', 'audit_log']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
     channel.subscribe();
@@ -538,6 +556,44 @@ export async function saveVersement(ym, patch) {
     p_numero_cnam: merged.numeroCnam ?? '',
     p_date_versement: merged.dateVersement ?? ''
   });
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+// --------------------------- Clôture mensuelle de la paie -------------------
+// Marqueur PARTAGÉ (visible par tous, voir bouton « Base » / Livre de paie) :
+// un mois clôturé signale que la paie de ce mois a été traitée et payée.
+// Sert aussi de garde-fou — voir cloture.js, qui enveloppe saveEmployee()
+// pour refuser toute modification changeant le bulletin déjà calculé d'un
+// mois clôturé, tant qu'il n'est pas rouvert.
+export function isMoisCloture(ym) {
+  return !!(state.clotures && state.clotures[ym]);
+}
+
+export function getCloture(ym) {
+  return (state.clotures && state.clotures[ym]) || null;
+}
+
+export async function cloturerMois(ym, meta = {}) {
+  const cloturePar = meta.utilisateur || '';
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.clotures = s.clotures || {};
+      s.clotures[ym] = { clotureLe: new Date().toISOString(), cloturePar };
+    });
+  }
+  const { error } = await supabase.rpc('save_cloture', { p_ym: ym, p_cloture_par: cloturePar });
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+export async function rouvrirMois(ym) {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      if (s.clotures) delete s.clotures[ym];
+    });
+  }
+  const { error } = await supabase.rpc('annuler_cloture', { p_ym: ym });
   if (error) throw rpcError(error);
   await refresh();
 }

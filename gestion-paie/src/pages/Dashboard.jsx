@@ -8,11 +8,12 @@ import { bulletinData } from '../lib/bulletin';
 import { Button, Card, PageTitle, StatCard, Badge, InfoNote } from '../components/ui';
 
 export default function Dashboard() {
-  const { settings, employees } = useStore();
+  const { settings, employees, clotures } = useStore();
   const { t, locale } = useI18n();
   // Mois choisi via le bouton « Base » (en-tête) — se met à jour en direct
   // si l'utilisateur change de période sans quitter le tableau de bord.
   const ym = useActivePeriod();
+  const cloture = clotures?.[ym] || null;
 
   const totals = useMemo(() => {
     let net = 0;
@@ -48,9 +49,16 @@ export default function Dashboard() {
         {t('dashboard.title')}
       </PageTitle>
 
-      <p className="mb-4 text-sm text-stone-500">
-        {t('dashboard.currentMonth')} : <strong className="text-stone-700">{libelleMois(ym, locale)}</strong>
-        {' · '}<Badge tone="brand">{totals.actifs} {t('dashboard.employees').toLowerCase()}</Badge>
+      <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-stone-500">
+        <span>{t('dashboard.currentMonth')} : <strong className="text-stone-700">{libelleMois(ym, locale)}</strong></span>
+        <Badge tone="brand">{totals.actifs} {t('dashboard.employees').toLowerCase()}</Badge>
+        {cloture ? (
+          <Badge tone="success">{t('livrePaie.clotureBadge')}</Badge>
+        ) : (
+          <Link to="/livre-de-paie" className="text-xs font-medium text-brand-700 hover:underline">
+            {t('livrePaie.cloturer')} →
+          </Link>
+        )}
       </p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
