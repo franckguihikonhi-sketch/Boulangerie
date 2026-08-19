@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { listerMois, libelleMois } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote } from '../components/ui';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, Badge, TableWrap, th, td } from '../components/ui';
 
 // Aperçu fidèle : on affiche EXACTEMENT le bulletin imprimé (part salariale ET
 // part patronale, cumuls, net) dans un iframe isolé. « Ce qui est affiché est
@@ -86,6 +86,10 @@ export default function Bulletins() {
   const [from, setFrom] = useState(ym);
   const [to, setTo] = useState(ym);
   const [slips, setSlips] = useState(null);
+  // Étape 2/2 (édition/impression), débloquée seulement après le contrôle du
+  // calcul (étape 1/2, voir plus bas) — même principe qu'un vrai logiciel de
+  // paie (Sage…) : on calcule et on vérifie AVANT d'éditer quoi que ce soit.
+  const [edition, setEdition] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -95,6 +99,7 @@ export default function Bulletins() {
   const build = () => {
     setError('');
     setNotice('');
+    setEdition(false);
     if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
     if (!rangeOk) { setError(t('bulletins.badRange')); return; }
     const months = listerMois(from, to);
@@ -152,6 +157,27 @@ export default function Bulletins() {
     [slips]
   );
 
+  // Contrôle du calcul (étape 1/2) : un bulletin est en anomalie si le net à
+  // payer calculé n'est pas strictement positif — presque toujours le signe
+  // d'une saisie à corriger (net cible, prime/retenue ponctuelle…) plutôt
+  // qu'un montant à éditer tel quel. Purement indicatif : rien n'est jamais
+  // bloqué, l'utilisateur reste seul décideur (voir Employees.jsx et
+  // l'ensemble de l'appli).
+  const controle = useMemo(() => {
+    if (!slips) return null;
+    const lignes = slips.map((s) => ({ slip: s, anomalie: !(s.calc.netAPayer > 0) }));
+    const anomalies = lignes.filter((l) => l.anomalie).length;
+    const totaux = slips.reduce(
+      (a, s) => ({
+        brut: a.brut + s.calc.brutTotal,
+        net: a.net + s.calc.netAPayer,
+        cout: a.cout + s.calc.coutTotalEmployeur
+      }),
+      { brut: 0, net: 0, cout: 0 }
+    );
+    return { lignes, anomalies, totaux };
+  }, [slips]);
+
   return (
     <div>
       <PageTitle>{t('bulletins.title')}</PageTitle>
@@ -180,17 +206,7 @@ export default function Bulletins() {
           </Field>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button onClick={build}>{t('bulletins.generate')}</Button>
-          {slips && slips.length > 0 && (
-            <>
-              <Button onClick={print} disabled={exporting}>
-                {exporting ? t('bulletins.generating') : t('bulletins.print', { n: slips.length })}
-              </Button>
-              <Button variant="secondary" onClick={download} disabled={exporting}>
-                {exporting ? t('bulletins.generating') : t('bulletins.download')}
-              </Button>
-            </>
-          )}
+          <Button onClick={build}>{t('bulletins.calculer')}</Button>
         </div>
         {notice && (
           <p className="mt-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-800">{notice}</p>
@@ -198,36 +214,96 @@ export default function Bulletins() {
         <ErrorNote>{error}</ErrorNote>
       </Card>
 
-      {slips && (
+      {/* Étape 1/2 — Calcul et contrôle : les montants calculés, AVANT toute
+          édition, comme un vrai calcul de paie (Sage…) qu'on vérifie avant
+          de sortir les bulletins. */}
+      {slips && !edition && (
         <div className="mt-5">
           {slips.length === 0 ? (
             <InfoNote>{t('bulletins.none')}</InfoNote>
           ) : (
-            <>
+            <Card className="p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm text-stone-600">
-                  {t('bulletins.count', { n: slips.length })} ·{' '}
-                  <span className="font-semibold text-stone-800">{t('slip.netAPayer')} : {formatFCFA(total, locale)}</span>
-                </p>
-                <div className="flex gap-2">
-                  <Button onClick={print} disabled={exporting}>
-                    {exporting ? t('bulletins.generating') : t('bulletins.print', { n: slips.length })}
-                  </Button>
-                  <Button variant="secondary" onClick={download} disabled={exporting}>
-                    {exporting ? t('bulletins.generating') : t('bulletins.download')}
-                  </Button>
-                </div>
+                <h2 className="text-sm font-semibold text-stone-800">{t('bulletins.controleTitle')}</h2>
+                {controle.anomalies > 0 ? (
+                  <Badge tone="danger">{t('bulletins.anomalies', { n: controle.anomalies })}</Badge>
+                ) : (
+                  <Badge tone="success">{t('bulletins.aucuneAnomalie')}</Badge>
+                )}
               </div>
-              <InfoNote>{t('bulletins.previewNote')}</InfoNote>
-              <div className="mt-3 flex flex-col gap-5">
-                {slips.slice(0, 12).map((s, i) => <SlipPreview key={i} data={s} />)}
+              <InfoNote>{t('bulletins.controleHelp')}</InfoNote>
+              <div className="mt-3">
+                <TableWrap min={640}>
+                  <thead>
+                    <tr>
+                      <th className={th}>{t('bulletins.employee')}</th>
+                      <th className={th}>{t('livrePaie.month')}</th>
+                      <th className={`${th} text-right`}>{t('slip.brutTotal')}</th>
+                      <th className={`${th} text-right`}>{t('slip.netAPayer')}</th>
+                      <th className={`${th} text-right`}>{t('slip.coutTotal')}</th>
+                      <th className={th}>{t('bulletins.statut')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {controle.lignes.map(({ slip: s, anomalie }, i) => (
+                      <tr key={i} className={anomalie ? 'bg-red-50/60' : undefined}>
+                        <td className={td}>{s.employee.nom}</td>
+                        <td className={`${td} capitalize`}>{libelleMois(s.ym, locale)}</td>
+                        <td className={`${td} text-right`}>{formatFCFA(s.calc.brutTotal, locale)}</td>
+                        <td className={`${td} text-right font-medium`}>{formatFCFA(s.calc.netAPayer, locale)}</td>
+                        <td className={`${td} text-right`}>{formatFCFA(s.calc.coutTotalEmployeur, locale)}</td>
+                        <td className={td}>
+                          {anomalie ? <Badge tone="danger">{t('bulletins.anomalie')}</Badge> : <Badge tone="success">OK</Badge>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-stone-200 font-semibold">
+                      <td className={td} colSpan={2}>{t('bulletins.totalLigne')}</td>
+                      <td className={`${td} text-right`}>{formatFCFA(controle.totaux.brut, locale)}</td>
+                      <td className={`${td} text-right`}>{formatFCFA(controle.totaux.net, locale)}</td>
+                      <td className={`${td} text-right`}>{formatFCFA(controle.totaux.cout, locale)}</td>
+                      <td className={td}></td>
+                    </tr>
+                  </tfoot>
+                </TableWrap>
               </div>
-              {slips.length > 12 && (
-                <p className="mt-4 text-center text-sm text-stone-500">
-                  + {slips.length - 12} bulletin(s) supplémentaire(s) inclus à l'impression.
-                </p>
-              )}
-            </>
+              <div className="mt-4 flex justify-end">
+                <Button onClick={() => setEdition(true)}>{t('bulletins.editer')}</Button>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Étape 2/2 — Édition/impression des bulletins, débloquée après le
+          contrôle ci-dessus. */}
+      {slips && edition && slips.length > 0 && (
+        <div className="mt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <Button variant="secondary" onClick={() => setEdition(false)}>{t('bulletins.retourControle')}</Button>
+            <p className="text-sm text-stone-600">
+              {t('bulletins.count', { n: slips.length })} ·{' '}
+              <span className="font-semibold text-stone-800">{t('slip.netAPayer')} : {formatFCFA(total, locale)}</span>
+            </p>
+            <div className="flex gap-2">
+              <Button onClick={print} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('bulletins.print', { n: slips.length })}
+              </Button>
+              <Button variant="secondary" onClick={download} disabled={exporting}>
+                {exporting ? t('bulletins.generating') : t('bulletins.download')}
+              </Button>
+            </div>
+          </div>
+          <InfoNote>{t('bulletins.previewNote')}</InfoNote>
+          <div className="mt-3 flex flex-col gap-5">
+            {slips.slice(0, 12).map((s, i) => <SlipPreview key={i} data={s} />)}
+          </div>
+          {slips.length > 12 && (
+            <p className="mt-4 text-center text-sm text-stone-500">
+              + {slips.length - 12} bulletin(s) supplémentaire(s) inclus à l'impression.
+            </p>
           )}
         </div>
       )}
