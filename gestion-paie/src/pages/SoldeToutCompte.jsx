@@ -102,7 +102,11 @@ export default function SoldeToutCompte() {
                 <h2 className="mb-2 text-sm font-semibold text-stone-800">{t('solde.detail')}</h2>
                 <ul className="divide-y divide-stone-50 text-sm">
                   <li className="flex items-center justify-between py-1.5">
-                    <span className="text-stone-600">{t('solde.indemniteLicenciement')} ({solde.anciennete} an(s))</span>
+                    <span className="text-stone-600">
+                      {solde.ruptureAnticipeeCdd
+                        ? `${t('solde.indemniteRuptureCdd')} (${solde.moisRestantsCdd} mois)`
+                        : `${t('solde.indemniteLicenciement')} (${solde.anciennete} an(s))`}
+                    </span>
                     <span className="font-medium text-stone-800">{formatFCFA(solde.licenciement, locale)}</span>
                   </li>
                   <li className="flex items-center justify-between py-1.5">
@@ -122,6 +126,7 @@ export default function SoldeToutCompte() {
                     <span>{formatFCFA(solde.total, locale)}</span>
                   </li>
                 </ul>
+                {solde.ruptureAnticipeeCdd && <InfoNote>{t('solde.ruptureCddNote')}</InfoNote>}
                 <InfoNote>{t('solde.disclaimer')}</InfoNote>
               </Card>
             </>

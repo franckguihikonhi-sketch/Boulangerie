@@ -11,8 +11,8 @@
 
 import { formatFCFA, formatNum, roundFCFA } from './money';
 import {
-  anneesAnciennete, indemniteLicenciement, indemniteCongesNonPris, primePrecarite,
-  indemnitePreavis, congesEnCours, libelleMois
+  anneesAnciennete, indemniteLicenciement, indemniteRuptureAnticipeeCdd, indemniteCongesNonPris,
+  primePrecarite, indemnitePreavis, congesEnCours, libelleMois, periodeEffective, moisEntre, moisSuivant
 } from './payroll';
 import { bulletinData } from './bulletin';
 import { exportHtmlToPdf } from './pdfExport';
@@ -83,7 +83,23 @@ export function calculerSolde(employee, ymSortie, motifValue, joursPreavis, sett
   const salaireMoyen = salaireMoyen12Mois(employee, ymSortie, settings);
   const joursConges = congesEnCours(employee.dateEmbauche, ymSortie);
 
-  const licenciement = motif.indemniteLicenciement ? indemniteLicenciement(salaireMoyen, anciennete) : 0;
+  // Un CDD encore en cours (non requalifié en CDI, voir CDD_MAX_MOIS) rompu
+  // avant son terme par l'employeur (ou d'un commun accord) ne suit PAS le
+  // barème d'indemnité de licenciement du CDI : la règle est une réparation
+  // égale aux salaires restant à courir jusqu'au terme prévu du contrat. La
+  // fin normale d'un CDD (motif « fin_cdd ») n'est jamais concernée — elle
+  // n'ouvre déjà aucun droit à l'indemnité de licenciement, seulement à la
+  // prime de précarité.
+  const periode = periodeEffective(employee, ymSortie);
+  const cddEnCours = periode?.kind === 'cdd' && !periode.requalifieCdi;
+  const ruptureAnticipeeCdd = motif.indemniteLicenciement && cddEnCours && !!periode.fin;
+  const moisRestantsCdd = ruptureAnticipeeCdd ? Math.max(0, moisEntre(moisSuivant(ymSortie), periode.fin)) : 0;
+
+  const licenciement = !motif.indemniteLicenciement
+    ? 0
+    : ruptureAnticipeeCdd
+      ? indemniteRuptureAnticipeeCdd(salaireMoyen, moisRestantsCdd)
+      : indemniteLicenciement(salaireMoyen, anciennete);
   const conges = motif.indemniteConges ? indemniteCongesNonPris(salaireMoyen, joursConges) : 0;
   const precarite = motif.precarite ? primePrecarite(cumulBrutCdd(employee, ymSortie, settings)) : 0;
   const joursPreavisEff = motif.preavisEligible ? Math.max(0, Number(joursPreavis) || 0) : 0;
@@ -91,7 +107,10 @@ export function calculerSolde(employee, ymSortie, motifValue, joursPreavis, sett
 
   const total = roundFCFA(licenciement + conges + precarite + preavis);
 
-  return { motif, anciennete, salaireMoyen, joursConges, joursPreavis: joursPreavisEff, licenciement, conges, precarite, preavis, total };
+  return {
+    motif, anciennete, salaireMoyen, joursConges, joursPreavis: joursPreavisEff,
+    ruptureAnticipeeCdd, moisRestantsCdd, licenciement, conges, precarite, preavis, total
+  };
 }
 
 // --------------------------- Fiche imprimable -------------------------------
@@ -124,7 +143,11 @@ const PRINT_CSS = `
 export function soldeDocumentHtml(employee, ymSortie, solde, settings, { locale } = {}) {
   const money = (n) => (n ? formatNum(n, locale) : '0');
   const rows = [
-    ...(solde.licenciement > 0 ? [['Indemnité de licenciement', solde.licenciement]] : []),
+    ...(solde.licenciement > 0
+      ? [[solde.ruptureAnticipeeCdd
+          ? `Dommages-intérêts pour rupture anticipée du CDD (${solde.moisRestantsCdd} mois restant au contrat)`
+          : 'Indemnité de licenciement', solde.licenciement]]
+      : []),
     ...(solde.conges > 0 ? [[`Indemnité compensatrice de congés payés (${solde.joursConges} j)`, solde.conges]] : []),
     ...(solde.precarite > 0 ? [['Prime de précarité (fin de CDD, 3 %)', solde.precarite]] : []),
     ...(solde.preavis > 0 ? [[`Indemnité compensatrice de préavis (${solde.joursPreavis} j)`, solde.preavis]] : [])
@@ -157,7 +180,7 @@ export function soldeDocumentHtml(employee, ymSortie, solde, settings, { locale 
       </table>
 
       <p class="note">
-        Ce montant s'ajoute au dernier bulletin de salaire (mois de sortie, proratisé si incomplet — voir Bulletins). La durée du préavis dû dépend de la catégorie professionnelle et de la convention collective applicable : elle doit être vérifiée et saisie manuellement, elle n'est jamais devinée automatiquement. Simulation indicative basée sur les règles générales du Code du travail ivoirien — à faire valider avant tout paiement définitif.
+        Ce montant s'ajoute au dernier bulletin de salaire (mois de sortie, proratisé si incomplet — voir Bulletins). La durée du préavis dû dépend de la catégorie professionnelle et de la convention collective applicable : elle doit être vérifiée et saisie manuellement, elle n'est jamais devinée automatiquement.${solde.ruptureAnticipeeCdd ? ' Contrat en CDD non arrivé à échéance : le barème d’indemnité de licenciement du CDI ne s’applique pas — le montant ci-dessus correspond aux salaires restant à courir jusqu’au terme prévu du contrat.' : ''} Simulation indicative basée sur les règles générales du Code du travail ivoirien — à faire valider avant tout paiement définitif.
       </p>
       <p class="foot">Document généré le ${esc(new Date().toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US'))}.</p>
     </section>
