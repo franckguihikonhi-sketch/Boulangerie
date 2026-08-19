@@ -221,6 +221,8 @@
   "livrePaie.footer": "État établi conformément à la législation sociale et fiscale en vigueur en Côte d'Ivoire. Document à conserver sans limitation de durée.",
   "livrePaie.virement": "Ordre de virement (CSV)",
   "livrePaie.virementDownloaded": "Fichier CSV téléchargé (matricule, nom, compte, net à payer) — à importer dans l'outil de votre banque.",
+  "livrePaie.listePaiement": "Liste de paiement (CSV)",
+  "livrePaie.listePaiementHelp": "Un clic suffit, sans passer par « Prévisualiser » : la liste de tous les salariés de ce mois avec leur numéro de compte bancaire / Mobile Money complet et leur net à payer, prête pour votre banque — le geste de fin de paie.",
   "livrePaie.clotureTitle": "Clôture du mois",
   "livrePaie.clotureBadge": "Clôturé",
   "livrePaie.ouvertBadge": "Ouvert",

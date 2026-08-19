@@ -131,6 +131,22 @@ export default function LivrePaie() {
     setNotice(t('livrePaie.virementDownloaded'));
   };
 
+  // Liste de paiement (tous les salariés, avec leur compte bancaire complet)
+  // directement depuis la carte « Clôture du mois » : accessible en un clic
+  // à la fin de la paie, sans devoir d'abord cliquer « Prévisualiser ».
+  // Même export CSV que le bouton ci-dessus (matricule, nom, compte bancaire
+  // intégral, net à payer), juste calculé à la volée pour ce mois.
+  const telechargerListePaiement = () => {
+    setError('');
+    setNotice('');
+    if (employees.length === 0) { setError(t('bulletins.noEmployees')); return; }
+    const targets = employees.filter((e) => !e.sousControle);
+    const data = livrePaieData(targets, ym, settings);
+    if (data.length === 0) { setError(t('livrePaie.none')); return; }
+    telechargerVirementCsv(data, ym);
+    setNotice(t('livrePaie.virementDownloaded'));
+  };
+
   const totaux = rows && rows.length ? livrePaieTotaux(rows) : null;
 
   return (
@@ -181,6 +197,7 @@ export default function LivrePaie() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={telechargerListePaiement}>{t('livrePaie.listePaiement')}</Button>
             {cloture ? (
               <>
                 <Button variant="secondary" onClick={rouvrir} disabled={clotureSaving}>
@@ -195,6 +212,7 @@ export default function LivrePaie() {
             )}
           </div>
         </div>
+        <p className="mt-2 text-xs text-stone-400">{t('livrePaie.listePaiementHelp')}</p>
       </Card>
 
       {rows && (
