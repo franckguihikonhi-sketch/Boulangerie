@@ -140,6 +140,16 @@ export default function Employees() {
   const openNew = () => { setError(''); setForm(emptyForm()); };
   const openEdit = (e) => { setError(''); setForm(fromEmployee(e)); };
 
+  // Précédent/Suivant dans la boîte de dialogue « Modifier » : navigue dans
+  // la liste des salariés (même ordre que le tableau), sans avoir à fermer
+  // puis rouvrir la fenêtre à chaque fois. Uniquement pour un salarié
+  // existant (pas la fiche « Nouveau salarié ») — voir le rendu plus bas.
+  const editIndex = form?.id ? employees.findIndex((e) => e.id === form.id) : -1;
+  const goEdit = (idx) => {
+    if (idx < 0 || idx >= employees.length) return;
+    openEdit(employees[idx]);
+  };
+
   const openTerminate = (e, mode) => { setTerminateError(''); setTerminateDate(todayIso()); setTerminate({ employee: e, mode }); };
 
   const confirmTerminate = async (evt) => {
@@ -573,6 +583,29 @@ export default function Employees() {
       {form && (
         <Modal title={form.id ? t('employees.edit') : t('employees.add')} onClose={() => setForm(null)} wide>
           <form onSubmit={submit} className="space-y-4">
+            {editIndex >= 0 && (
+              <div className="-mt-1 mb-1 flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => goEdit(editIndex - 1)}
+                  disabled={editIndex <= 0}
+                  className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  {t('employees.navPrev')}
+                </button>
+                <span className="text-xs text-stone-500">{t('employees.navPosition', { n: editIndex + 1, total: employees.length })}</span>
+                <button
+                  type="button"
+                  onClick={() => goEdit(editIndex + 1)}
+                  disabled={editIndex >= employees.length - 1}
+                  className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
+                >
+                  {t('employees.navNext')}
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label={t('employees.name')}>
                 <input className={inputClass} value={form.nom} onChange={(e) => setField('nom', e.target.value)} required />
