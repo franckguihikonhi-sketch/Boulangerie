@@ -42,16 +42,17 @@ export default function Simulateur() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  // Choix d'une catégorie du barème : positionne AUTOMATIQUEMENT le salaire
-  // de base sur le minimum conventionnel, sauf s'il est déjà conforme ou
-  // supérieur (voir Salariés, même principe).
+  // Choix d'une catégorie du barème : le salaire de base se cale
+  // SYSTÉMATIQUEMENT sur son minimum conventionnel (contrairement à
+  // Salariés, qui ne relève qu'un salaire déjà sous le minimum — voir
+  // Employees.jsx#setCategorie — ici, outil de simulation pure, chaque
+  // catégorie doit reproduire fidèlement son profil de référence). Comme
+  // `calc` (ci-dessous) dépend de `form` en entier, tous les montants du
+  // résultat se recalculent automatiquement dans la foulée. « Non classé »
+  // laisse le salaire de base tel quel (aucun minimum applicable).
   const setCategorie = (categorie) => {
     const min = salaireMinimumCategoriel(categorie);
-    setForm((f) => ({
-      ...f,
-      categorie,
-      salaireBase: min != null && (Number(f.salaireBase) || 0) < min ? min : f.salaireBase
-    }));
+    setForm((f) => ({ ...f, categorie, salaireBase: min != null ? min : f.salaireBase }));
   };
 
   const addPrime = () => setPrimes((p) => [...p, emptyPrime()]);
@@ -135,7 +136,7 @@ export default function Simulateur() {
               <input className={inputClass} type="number" min="0" value={form.transport} onChange={(e) => set('transport', e.target.value)} />
             </Field>
             <div className="sm:col-span-2">
-              <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
+              <Field label={t('employees.categorie')} help={t('simulateur.categorieHelp')}>
                 <select className={inputClass} value={form.categorie} onChange={(e) => setCategorie(e.target.value)}>
                   <option value="">{t('employees.categorieNonClassee')}</option>
                   <optgroup label={t('employees.groupeAgentMaitrise')}>
