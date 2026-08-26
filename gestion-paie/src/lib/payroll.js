@@ -500,7 +500,11 @@ export function congesEnCours(dateEmbauche, ym) {
 // anniversaires, et se clôture (versement de l'indemnité, voir
 // estMoisAnniversaire) au mois anniversaire suivant. Sert à savoir quels
 // congés déjà pris (voir onglet Congés) se rattachent à CE cycle plutôt qu'à
-// un cycle antérieur — jamais utilisé dans le calcul de paie lui-même.
+// un cycle antérieur — utilisé pour l'onglet Congés ET pour déduire les
+// congés déjà pris de l'indemnité compensatrice au solde de tout compte
+// (voir soldeToutCompte.js), mais jamais dans le calcul du bulletin mensuel
+// courant (l'indemnité de congé versée au mois anniversaire reste
+// automatique, indépendante de ce qui a été physiquement pris).
 export function cycleConges(dateEmbauche, ym) {
   if (!dateEmbauche) return null;
   const [ey, em] = dateEmbauche.split('-').map(Number);
@@ -515,6 +519,29 @@ export function cycleConges(dateEmbauche, ym) {
   let fm = sm + 11;
   while (fm > 12) { fm -= 12; fy += 1; }
   return { debut: `${sy}-${String(sm).padStart(2, '0')}`, fin: `${fy}-${String(fm).padStart(2, '0')}` };
+}
+
+// Liste TOUS les cycles d'acquisition d'un salarié, du tout premier (mois
+// d'embauche) jusqu'à celui contenant `ymRef` inclus (généralement
+// aujourd'hui) — permet de clôturer un cycle ancien aussi bien que l'actuel
+// (voir onglet Congés), pas seulement le cycle en cours.
+export function listeCyclesConges(dateEmbauche, ymRef) {
+  const cycles = [];
+  if (!dateEmbauche) return cycles;
+  let debut = dateEmbauche.slice(0, 7);
+  let garde = 0;
+  while (debut <= ymRef && garde < 200) {
+    const c = cycleConges(dateEmbauche, debut);
+    if (!c) break;
+    cycles.push(c);
+    const [fy, fm] = c.fin.split('-').map(Number);
+    let ny = fy;
+    let nm = fm + 1;
+    if (nm > 12) { nm = 1; ny += 1; }
+    debut = `${ny}-${String(nm).padStart(2, '0')}`;
+    garde += 1;
+  }
+  return cycles;
 }
 
 // --------------------------- Prorata des mois incomplets -------------------

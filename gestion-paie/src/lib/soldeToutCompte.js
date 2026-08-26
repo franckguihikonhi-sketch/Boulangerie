@@ -12,7 +12,7 @@
 import { formatFCFA, formatNum, roundFCFA } from './money';
 import {
   anneesAnciennete, indemniteLicenciement, indemniteRuptureAnticipeeCdd, indemniteCongesNonPris,
-  primePrecarite, indemnitePreavis, congesEnCours, libelleMois, periodeEffective, moisEntre, moisSuivant
+  primePrecarite, indemnitePreavis, congesEnCours, cycleConges, libelleMois, periodeEffective, moisEntre, moisSuivant
 } from './payroll';
 import { bulletinData } from './bulletin';
 import { exportHtmlToPdf } from './pdfExport';
@@ -77,11 +77,27 @@ function cumulBrutCdd(employee, ymSortie, settings) {
 // jours de préavis NON exécutés à indemniser (0 si le préavis a été
 // travaillé ou n'est pas dû) — la durée légale/conventionnelle du préavis
 // varie selon la catégorie professionnelle et n'est pas devinée ici.
-export function calculerSolde(employee, ymSortie, motifValue, joursPreavis, settings) {
+// `congesPris` (facultatif) : historique des congés effectivement posés par
+// le salarié (voir db.js#congesDeEmployee, onglet Congés) — les jours déjà
+// pris sur le cycle d'acquisition en cours à la date de sortie (voir
+// payroll.js#cycleConges) sont déduits des jours acquis avant de calculer
+// l'indemnité compensatrice, pour ne jamais payer deux fois un congé déjà
+// consommé par le salarié.
+export function calculerSolde(employee, ymSortie, motifValue, joursPreavis, settings, congesPris = []) {
   const motif = MOTIFS_RUPTURE.find((m) => m.value === motifValue) || MOTIFS_RUPTURE[0];
   const anciennete = anneesAnciennete(employee.dateEmbauche, `${ymSortie}-01`);
   const salaireMoyen = salaireMoyen12Mois(employee, ymSortie, settings);
-  const joursConges = congesEnCours(employee.dateEmbauche, ymSortie);
+  const joursAcquis = congesEnCours(employee.dateEmbauche, ymSortie);
+  const cycleSortie = cycleConges(employee.dateEmbauche, ymSortie);
+  const joursPrisCycle = cycleSortie
+    ? (congesPris || [])
+        .filter((c) => {
+          const ymDebut = (c.debut || '').slice(0, 7);
+          return ymDebut >= cycleSortie.debut && ymDebut <= cycleSortie.fin;
+        })
+        .reduce((sum, c) => sum + (Number(c.jours) || 0), 0)
+    : 0;
+  const joursConges = Math.max(0, Math.round((joursAcquis - joursPrisCycle) * 10) / 10);
 
   // Un CDD encore en cours (non requalifié en CDI, voir CDD_MAX_MOIS) rompu
   // avant son terme par l'employeur (ou d'un commun accord) ne suit PAS le
@@ -108,7 +124,7 @@ export function calculerSolde(employee, ymSortie, motifValue, joursPreavis, sett
   const total = roundFCFA(licenciement + conges + precarite + preavis);
 
   return {
-    motif, anciennete, salaireMoyen, joursConges, joursPreavis: joursPreavisEff,
+    motif, anciennete, salaireMoyen, joursAcquis, joursPrisCycle, joursConges, joursPreavis: joursPreavisEff,
     ruptureAnticipeeCdd, moisRestantsCdd, licenciement, conges, precarite, preavis, total
   };
 }
@@ -148,7 +164,9 @@ export function soldeDocumentHtml(employee, ymSortie, solde, settings, { locale 
           ? `Dommages-intérêts pour rupture anticipée du CDD (${solde.moisRestantsCdd} mois restant au contrat)`
           : 'Indemnité de licenciement', solde.licenciement]]
       : []),
-    ...(solde.conges > 0 ? [[`Indemnité compensatrice de congés payés (${solde.joursConges} j)`, solde.conges]] : []),
+    ...(solde.conges > 0
+      ? [[`Indemnité compensatrice de congés payés (${solde.joursConges} j${solde.joursPrisCycle > 0 ? ` — ${solde.joursAcquis} j acquis moins ${solde.joursPrisCycle} j déjà pris` : ''})`, solde.conges]]
+      : []),
     ...(solde.precarite > 0 ? [['Prime de précarité (fin de CDD, 3 %)', solde.precarite]] : []),
     ...(solde.preavis > 0 ? [[`Indemnité compensatrice de préavis (${solde.joursPreavis} j)`, solde.preavis]] : [])
   ];

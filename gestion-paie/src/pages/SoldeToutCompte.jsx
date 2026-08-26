@@ -14,7 +14,7 @@ function todayIso() {
 // interactif que le Simulateur : rien n'est enregistré, le motif de rupture
 // choisi détermine quels éléments légaux s'appliquent (voir soldeToutCompte.js).
 export default function SoldeToutCompte() {
-  const { settings, employees } = useStore();
+  const { settings, employees, congesPris } = useStore();
   const { t, locale } = useI18n();
 
   const [employeeId, setEmployeeId] = useState(employees[0]?.id || '');
@@ -28,10 +28,15 @@ export default function SoldeToutCompte() {
   const ymSortie = dateSortie.slice(0, 7);
   const motifDef = MOTIFS_RUPTURE.find((m) => m.value === motif) || MOTIFS_RUPTURE[0];
 
+  const congesEmploye = useMemo(
+    () => (congesPris || []).filter((c) => c.employeeId === employeeId),
+    [congesPris, employeeId]
+  );
+
   const solde = useMemo(() => {
     if (!employee || !ymSortie) return null;
-    return calculerSolde(employee, ymSortie, motif, joursPreavis, settings);
-  }, [employee, ymSortie, motif, joursPreavis, settings]);
+    return calculerSolde(employee, ymSortie, motif, joursPreavis, settings, congesEmploye);
+  }, [employee, ymSortie, motif, joursPreavis, settings, congesEmploye]);
 
   const print = async () => {
     if (!solde || !employee || exporting) return;
@@ -110,7 +115,14 @@ export default function SoldeToutCompte() {
                     <span className="font-medium text-stone-800">{formatFCFA(solde.licenciement, locale)}</span>
                   </li>
                   <li className="flex items-center justify-between py-1.5">
-                    <span className="text-stone-600">{t('solde.indemniteConges')} ({solde.joursConges} j)</span>
+                    <span className="text-stone-600">
+                      {t('solde.indemniteConges')} ({solde.joursConges} j)
+                      {solde.joursPrisCycle > 0 && (
+                        <span className="ml-1 text-xs text-stone-400">
+                          ({solde.joursAcquis} j {t('solde.joursAcquisAbrege')} − {solde.joursPrisCycle} j {t('solde.joursDejaPrisAbrege')})
+                        </span>
+                      )}
+                    </span>
                     <span className="font-medium text-stone-800">{formatFCFA(solde.conges, locale)}</span>
                   </li>
                   <li className="flex items-center justify-between py-1.5">

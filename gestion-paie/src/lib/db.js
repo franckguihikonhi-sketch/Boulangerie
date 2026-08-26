@@ -19,7 +19,7 @@
 // ---------------------------------------------------------------------------
 
 import { roundFCFA } from './money';
-import { DEFAULT_PARAMS } from './payroll';
+import { DEFAULT_PARAMS, cycleConges } from './payroll';
 import { supabase, supabaseConfigured } from './supabase';
 import { safeGet, safeSet, safeRemove } from './storage';
 
@@ -76,7 +76,10 @@ function defaultSettings() {
 }
 
 function emptyState() {
-  return { settings: defaultSettings(), employees: [], versements: {}, clotures: {}, congesPris: [], auditLog: [] };
+  return {
+    settings: defaultSettings(), employees: [], versements: {}, clotures: {},
+    congesPris: [], cyclesCongesClotures: [], auditLog: []
+  };
 }
 
 // Historique des modifications (qui a changé quoi, quand) : plafonné pour
@@ -317,7 +320,8 @@ function guestSessionActive() {
     ? {
         settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
         versements: restored.versements || {}, clotures: restored.clotures || {},
-        congesPris: restored.congesPris || [], auditLog: restored.auditLog || []
+        congesPris: restored.congesPris || [], cyclesCongesClotures: restored.cyclesCongesClotures || [],
+        auditLog: restored.auditLog || []
       }
     : seededState();
   persistLocal();
@@ -375,6 +379,12 @@ const toCongePris = (r) => ({
   jours: Number(r.jours) || 0, commentaire: r.commentaire || '',
   creePar: r.cree_par || '', createdAt: r.created_at
 });
+const toCycleCongeCloture = (r) => ({
+  employeeId: r.employee_id,
+  cycleDebut: (r.cycle_debut || '').slice(0, 7),
+  clotureLe: r.cloture_le || null,
+  cloturePar: r.cloture_par || ''
+});
 const toAuditEntry = (r) => ({
   id: r.id, createdAt: r.created_at, employeeId: r.employee_id, employeeNom: r.employee_nom || '',
   utilisateur: r.utilisateur || '', action: r.action, avant: r.avant || null, apres: r.apres || null
@@ -399,17 +409,18 @@ function describeError(err) {
 }
 
 async function fetchAll() {
-  const [set, emp, ver, clot, conges, audit] = await Promise.all([
+  const [set, emp, ver, clot, conges, cyclesClot, audit] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at'),
     // Tables apparues avec migration_conformite.sql / migration_cloture_paie.sql /
-    // migration_conges_pris.sql : absentes sur une base pas encore migrée, on
-    // les ignore alors silencieusement (pas d'erreur bloquante, juste la
-    // fonctionnalité annexe indisponible) plutôt que de casser tout le
-    // chargement de l'appli.
+    // migration_conges_pris.sql / migration_cycles_conges.sql : absentes sur
+    // une base pas encore migrée, on les ignore alors silencieusement (pas
+    // d'erreur bloquante, juste la fonctionnalité annexe indisponible) plutôt
+    // que de casser tout le chargement de l'appli.
     supabase.from('versements').select('*'),
     supabase.from('clotures_paie').select('*'),
     supabase.from('conges_pris').select('*').order('debut'),
+    supabase.from('conges_cycles_clotures').select('*'),
     supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(300)
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
@@ -422,6 +433,7 @@ async function fetchAll() {
     for (const r of clot.data || []) clotures[(r.ym || '').slice(0, 7)] = toCloture(r);
   }
   const congesPris = conges.error ? [] : (conges.data || []).map(toCongePris);
+  const cyclesCongesClotures = cyclesClot.error ? [] : (cyclesClot.data || []).map(toCycleCongeCloture);
   const auditLog = audit.error ? [] : (audit.data || []).map(toAuditEntry);
   return {
     settings: set.data ? toSettings(set.data) : defaultSettings(),
@@ -429,6 +441,7 @@ async function fetchAll() {
     versements,
     clotures,
     congesPris,
+    cyclesCongesClotures,
     auditLog
   };
 }
@@ -450,7 +463,8 @@ export async function hydrate() {
       ? {
           settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
           versements: restored.versements || {}, clotures: restored.clotures || {},
-          congesPris: restored.congesPris || [], auditLog: restored.auditLog || []
+          congesPris: restored.congesPris || [], cyclesCongesClotures: restored.cyclesCongesClotures || [],
+          auditLog: restored.auditLog || []
         }
       : emptyState();
     setStatus('ready');
@@ -496,7 +510,7 @@ function setupSync() {
   syncSetup = true;
   try {
     const channel = supabase.channel('gpaie-sync');
-    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'clotures_paie', 'conges_pris', 'audit_log']) {
+    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'clotures_paie', 'conges_pris', 'conges_cycles_clotures', 'audit_log']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
     channel.subscribe();
@@ -629,6 +643,11 @@ export async function ajouterCongePris(employeeId, patch, meta = {}) {
     commentaire: (patch.commentaire || '').trim()
   };
   if (!record.debut || !record.fin) throw new Error('errors.congeDatesRequired');
+  const employee = state.employees.find((e) => e.id === employeeId);
+  const cycle = employee ? cycleConges(employee.dateEmbauche, record.debut.slice(0, 7)) : null;
+  if (cycle && isCycleCongesCloture(employeeId, cycle.debut)) {
+    throw new Error('errors.congeCycleCloture');
+  }
   const creePar = meta.utilisateur || '';
   if (demoMode || !supabaseConfigured) {
     return memMutate((s) => {
@@ -652,12 +671,80 @@ export async function ajouterCongePris(employeeId, patch, meta = {}) {
 }
 
 export async function supprimerCongePris(id) {
+  const conge = (state.congesPris || []).find((c) => c.id === id);
+  if (conge) {
+    const employee = state.employees.find((e) => e.id === conge.employeeId);
+    const cycle = employee ? cycleConges(employee.dateEmbauche, conge.debut.slice(0, 7)) : null;
+    if (cycle && isCycleCongesCloture(conge.employeeId, cycle.debut)) {
+      throw new Error('errors.congeCycleCloture');
+    }
+  }
   if (demoMode || !supabaseConfigured) {
     return memMutate((s) => {
       s.congesPris = (s.congesPris || []).filter((c) => c.id !== id);
     });
   }
   const { error } = await supabase.from('conges_pris').delete().eq('id', id);
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+// --------------------- Clôture des cycles de congés (par salarié) ----------
+// Un salarié + un cycle d'acquisition donné (année antérieure, en cours ou
+// future — voir payroll.js#listeCyclesConges) peut être clôturé une fois ses
+// congés soldés sur cette période : l'application refuse alors tout ajout ou
+// toute suppression de congé pris daté dans ce cycle, tant qu'il n'est pas
+// rouvert. Même principe que la clôture mensuelle de la paie ci-dessus, mais
+// à la maille salarié + cycle plutôt que mois calendaire global.
+export function getCycleCongesCloture(employeeId, cycleDebut) {
+  return (state.cyclesCongesClotures || []).find(
+    (c) => c.employeeId === employeeId && c.cycleDebut === cycleDebut
+  ) || null;
+}
+
+export function isCycleCongesCloture(employeeId, cycleDebut) {
+  return !!getCycleCongesCloture(employeeId, cycleDebut);
+}
+
+export async function cloturerCycleConges(employeeId, cycleDebut, meta = {}) {
+  const cloturePar = meta.utilisateur || '';
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.cyclesCongesClotures = s.cyclesCongesClotures || [];
+      const existant = s.cyclesCongesClotures.find(
+        (c) => c.employeeId === employeeId && c.cycleDebut === cycleDebut
+      );
+      const entry = { employeeId, cycleDebut, clotureLe: new Date().toISOString(), cloturePar };
+      if (existant) Object.assign(existant, entry);
+      else s.cyclesCongesClotures.push(entry);
+    });
+  }
+  const { error } = await supabase
+    .from('conges_cycles_clotures')
+    .upsert(
+      {
+        employee_id: employeeId, cycle_debut: `${cycleDebut}-01`,
+        cloture_par: cloturePar, cloture_le: new Date().toISOString()
+      },
+      { onConflict: 'employee_id,cycle_debut' }
+    );
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
+export async function rouvrirCycleConges(employeeId, cycleDebut) {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.cyclesCongesClotures = (s.cyclesCongesClotures || []).filter(
+        (c) => !(c.employeeId === employeeId && c.cycleDebut === cycleDebut)
+      );
+    });
+  }
+  const { error } = await supabase
+    .from('conges_cycles_clotures')
+    .delete()
+    .eq('employee_id', employeeId)
+    .eq('cycle_debut', `${cycleDebut}-01`);
   if (error) throw rpcError(error);
   await refresh();
 }
@@ -721,6 +808,7 @@ export async function deleteEmployee(id, meta = {}) {
       // Mode Supabase : ON DELETE CASCADE côté base (voir migration_conges_pris.sql).
       // En local/démo, il faut nettoyer nous-mêmes l'état en mémoire.
       s.congesPris = (s.congesPris || []).filter((c) => c.employeeId !== id);
+      s.cyclesCongesClotures = (s.cyclesCongesClotures || []).filter((c) => c.employeeId !== id);
       if (e) {
         pushAuditEntry(s, {
           employeeId: id, employeeNom: e.nom, utilisateur,
