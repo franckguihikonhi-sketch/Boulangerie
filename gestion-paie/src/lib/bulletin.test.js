@@ -136,4 +136,58 @@ describe('bulletinData — mois hors contrat', () => {
     expect(bulletinData(employee, '2023-12', settings)).toBeNull();
     expect(bulletinData(employee, '2024-07', settings)).toBeNull();
   });
+
+  it("renvoie null avant la date d'embauche ENREGISTRÉE, même si une période contractuelle (mal saisie) débute plus tôt", () => {
+    // Reproduit exactement le cas visé par le garde-fou de periodeEffective :
+    // la 1ʳᵉ période contractuelle démarre en 2015, mais la date d'embauche
+    // officiellement enregistrée est 2020-06 (ex. correction ultérieure) —
+    // aucun bulletin ne doit pouvoir être généré avant cette date, sous
+    // peine de fausser les déclarations CNPS/CMU/ITS (Livre de paie,
+    // Cotisations, Impôts) pour une période où le salarié n'était pas
+    // encore effectivement en poste.
+    const employee = {
+      nom: 'Test Embauche Tardive', matricule: 'T033', situation: 'celibataire', enfants: 0,
+      cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '2020-06-01', salaireCategoriel: 150000,
+      periodes: [{
+        id: 'p1', kind: 'cdi', debut: '2015-01', fin: null,
+        salaireBase: 150000, netCible: 180000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: []
+      }]
+    };
+    expect(bulletinData(employee, '2018-01', settings)).toBeNull();
+    expect(bulletinData(employee, '2020-06', settings)).not.toBeNull();
+  });
+});
+
+describe('bulletinData — CMU proportionnelle au nombre de personnes couvertes', () => {
+  it('1 000 FCFA (500 salarié + 500 employeur) par personne couverte, salarié inclus', () => {
+    const employee = {
+      nom: 'Test CMU', matricule: 'T034', situation: 'marie', enfants: 3,
+      cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '2023-01-01', salaireCategoriel: 150000,
+      periodes: [{
+        id: 'p1', kind: 'cdi', debut: '2023-01', fin: null,
+        salaireBase: 150000, netCible: 180000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: []
+      }]
+    };
+    const b = bulletinData(employee, '2026-06', settings);
+    expect(b.calc.cmuPersonnes).toBe(4); // le salarié + ses 3 enfants à charge
+    expect(b.calc.cmu).toBe(2000);
+    expect(b.calc.patronal.cmu).toBe(2000);
+  });
+});
+
+describe('bulletinData — indemnité de congé au mois anniversaire (palier 30 ans)', () => {
+  it('verse 34 jours (au lieu de 26) une fois les 30 ans de service atteints', () => {
+    const employee = {
+      nom: 'Test Ancienneté 30 Ans', matricule: 'T035', situation: 'celibataire', enfants: 0,
+      cnps: '', emploi: '', categorie: '', expatrie: false, dateEmbauche: '1994-06-01', salaireCategoriel: 200000,
+      periodes: [{
+        id: 'p1', kind: 'cdi', debut: '1994-06', fin: null,
+        salaireBase: 200000, netCible: 250000, transport: 30000, primes: [], retenues: [], heuresSupplementaires: []
+      }]
+    };
+    const b = bulletinData(employee, '2024-06', settings); // mois anniversaire, 30 ans pile
+    expect(b.anciennete).toBe(30);
+    expect(b.calc.congeJours).toBe(34);
+    expect(b.calc.congePaye).toBeGreaterThan(0);
+  });
 });

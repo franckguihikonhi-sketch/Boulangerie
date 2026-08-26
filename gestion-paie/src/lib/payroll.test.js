@@ -290,6 +290,15 @@ describe('congesEnCours', () => {
     expect(congesEnCours('2024-01-15', '2024-01-01')).toBe(0);
     expect(congesEnCours('2024-01-15', '2024-07-01')).toBeCloseTo(13.2, 5); // 6 mois * 2.2
   });
+
+  it('repart à 0 le mois anniversaire même (le cycle précédent vient d\'être soldé via congeMois)', () => {
+    // Évite tout double paiement : le cycle qui se termine est déjà versé en
+    // intégralité par l'indemnité automatique du mois anniversaire (voir
+    // bulletin.js#congeMois) — le nouveau cycle démarre donc à 0, pas de
+    // reliquat qui se rajouterait en plus au solde de tout compte plus tard.
+    expect(congesEnCours('2024-01-15', '2025-01-01')).toBe(0);
+    expect(congesEnCours('2024-01-15', '2025-02-01')).toBeCloseTo(2.2, 5);
+  });
 });
 
 describe('cycleConges', () => {
