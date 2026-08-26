@@ -5,7 +5,7 @@ import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { listerMois, libelleMois, periodeEffective } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, Badge, TableWrap, th, td } from '../components/ui';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, Badge, TableWrap, th, td, EmployeeNav } from '../components/ui';
 
 // Aperçu fidèle : on affiche EXACTEMENT le bulletin imprimé (part salariale ET
 // part patronale, cumuls, net) dans un iframe isolé. « Ce qui est affiché est
@@ -114,6 +114,15 @@ export default function Bulletins() {
       setEmployeeId(employeesPourPlage[0].id);
     }
   }, [scope, employeesPourPlage, employeeId]);
+
+  // Précédent/Suivant : navigue dans la liste affichée par le sélecteur
+  // ci-dessous (même filtrage par période), pour traiter les bulletins
+  // salarié par salarié sans revenir au menu déroulant à chaque fois.
+  const employeeIndex = employeesPourPlage.findIndex((e) => e.id === employeeId);
+  const goEmployee = (idx) => {
+    if (idx < 0 || idx >= employeesPourPlage.length) return;
+    setEmployeeId(employeesPourPlage[idx].id);
+  };
 
   const build = () => {
     setError('');
@@ -226,6 +235,16 @@ export default function Bulletins() {
             <input className={inputClass} type="month" value={to} onChange={(e) => setTo(e.target.value)} />
           </Field>
         </div>
+        {scope === 'one' && employeesPourPlage.length > 0 && (
+          <div className="mt-3">
+            <EmployeeNav
+              index={employeeIndex}
+              total={employeesPourPlage.length}
+              onPrev={() => goEmployee(employeeIndex - 1)}
+              onNext={() => goEmployee(employeeIndex + 1)}
+            />
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button onClick={build}>{t('bulletins.calculer')}</Button>
         </div>

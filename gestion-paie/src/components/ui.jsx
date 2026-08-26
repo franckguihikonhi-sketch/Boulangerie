@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useI18n } from '../i18n/I18nContext';
 
 export function Card({ children, className = '' }) {
   return (
@@ -67,6 +68,40 @@ export function Button({ children, variant = 'primary', className = '', ...props
     >
       {children}
     </button>
+  );
+}
+
+// Navigation Précédent/Suivant réutilisable pour tout écran qui traite les
+// salariés un par un (fiche « Modifier », gestion des congés, bulletin
+// individuel, solde de tout compte…) : cohérence d'ergonomie garantie dans
+// toute l'application, sans avoir à ouvrir/fermer/rechercher à chaque fois.
+// `index` (0-based) et `total` portent sur la liste RÉELLEMENT affichée par
+// l'écran appelant (déjà filtrée le cas échéant, ex. par la période « Base »).
+export function EmployeeNav({ index, total, onPrev, onNext }) {
+  const { t } = useI18n();
+  if (!(total > 0)) return null;
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={index <= 0}
+        className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
+      >
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        {t('employees.navPrev')}
+      </button>
+      <span className="text-xs text-stone-500">{t('employees.navPosition', { n: index + 1, total })}</span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={index >= total - 1}
+        className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
+      >
+        {t('employees.navNext')}
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+    </div>
   );
 }
 

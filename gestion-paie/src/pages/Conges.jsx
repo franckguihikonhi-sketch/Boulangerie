@@ -6,7 +6,7 @@ import { ajouterCongePris, supprimerCongePris, cloturerCycleConges, rouvrirCycle
 import { anneesAnciennete, congesEnCours, joursCongeAnnuels, cycleConges, listeCyclesConges, libelleMois } from '../lib/payroll';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
-  Badge, TableWrap, th, td
+  Badge, TableWrap, th, td, EmployeeNav
 } from '../components/ui';
 
 function todayIso() {
@@ -91,6 +91,14 @@ export default function Conges() {
     setCycleError('');
     setForm(emptyForm());
     setGestion(employee);
+  };
+
+  // Précédent/Suivant : parcourt les salariés de la liste ci-dessus sans
+  // repasser par le bouton « Gérer » à chaque fois.
+  const gestionIndex = gestion ? employees.findIndex((e) => e.id === gestion.id) : -1;
+  const goGestion = (idx) => {
+    if (idx < 0 || idx >= employees.length) return;
+    ouvrirGestion(employees[idx]);
   };
 
   const congesGestion = gestion ? (congesPris || []).filter((c) => c.employeeId === gestion.id) : [];
@@ -212,6 +220,12 @@ export default function Conges() {
       {gestion && (
         <Modal title={t('conges.modalTitle', { nom: gestion.nom })} onClose={() => setGestion(null)} wide>
           <div className="space-y-4">
+            <EmployeeNav
+              index={gestionIndex}
+              total={employees.length}
+              onPrev={() => goGestion(gestionIndex - 1)}
+              onNext={() => goGestion(gestionIndex + 1)}
+            />
             <div className="grid grid-cols-2 gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3 sm:grid-cols-4">
               <div>
                 <p className="text-xs text-stone-500">{t('conges.acquisCeJour')}</p>

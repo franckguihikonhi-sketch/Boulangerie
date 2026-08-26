@@ -3,7 +3,7 @@ import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
 import { calculerSolde, telechargerSolde, MOTIFS_RUPTURE } from '../lib/soldeToutCompte';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote, StatCard } from '../components/ui';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, StatCard, EmployeeNav } from '../components/ui';
 
 function todayIso() {
   const d = new Date();
@@ -27,6 +27,14 @@ export default function SoldeToutCompte() {
   const employee = employees.find((e) => e.id === employeeId) || null;
   const ymSortie = dateSortie.slice(0, 7);
   const motifDef = MOTIFS_RUPTURE.find((m) => m.value === motif) || MOTIFS_RUPTURE[0];
+
+  // Précédent/Suivant : parcourt les salariés un par un sans revenir au menu
+  // déroulant à chaque fois (même principe que Salariés/Bulletins).
+  const employeeIndex = employees.findIndex((e) => e.id === employeeId);
+  const goEmployee = (idx) => {
+    if (idx < 0 || idx >= employees.length) return;
+    setEmployeeId(employees[idx].id);
+  };
 
   const congesEmploye = useMemo(
     () => (congesPris || []).filter((c) => c.employeeId === employeeId),
@@ -67,6 +75,12 @@ export default function SoldeToutCompte() {
                   {employees.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
                 </select>
               </Field>
+              <EmployeeNav
+                index={employeeIndex}
+                total={employees.length}
+                onPrev={() => goEmployee(employeeIndex - 1)}
+                onNext={() => goEmployee(employeeIndex + 1)}
+              />
               <Field label={t('solde.dateSortie')} help={t('solde.dateSortieHelp')}>
                 <input className={inputClass} type="date" value={dateSortie} onChange={(e) => setDateSortie(e.target.value)} />
               </Field>
