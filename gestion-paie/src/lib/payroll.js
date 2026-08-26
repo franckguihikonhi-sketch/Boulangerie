@@ -34,7 +34,12 @@ export const DEFAULT_PARAMS = {
 
   // Cotisations salariales.
   cnpsRetraiteSalarie: 0.063, // 6,3 % (assiette plafonnée à plafondCnps)
-  // CMU : 1 000 FCFA/mois/assuré au total, répartis 500 salarié + 500 employeur.
+  // CMU (Couverture Maladie Universelle, loi n°2014-131) : cotisation
+  // FORFAITAIRE de 1 000 FCFA/mois PAR PERSONNE couverte (500 salarié + 500
+  // employeur), et non un pourcentage du salaire. Le salarié lui-même compte
+  // toujours pour une personne ; ses enfants à charge (voir `enfants`,
+  // déjà saisi pour le calcul de l'IGR/RICF) s'ajoutent comme bénéficiaires
+  // supplémentaires — voir `cmuNombrePersonnes` ci-dessous.
   cmuSalarie: 500,
 
   // Cotisations patronales (coût employeur).
@@ -49,7 +54,7 @@ export const DEFAULT_PARAMS = {
   fpc: 0.006, // 0,6 % — quote-part mensuelle de la Taxe FPC (FDFP)
   isLocal: 0.012, // 1,2 % — Impôt sur salaires, part patronale (locaux)
   isExpatrie: 0.115, // 11,5 % — Impôt sur salaires, part patronale (expatriés)
-  cmuPatronale: 500, // part employeur CMU (500 FCFA / assuré)
+  cmuPatronale: 500, // part employeur CMU (500 FCFA / personne couverte)
 
   // Prime de transport : exonérée jusqu'à 30 000 FCFA ; l'excédent est
   // imposable ET soumis à cotisations.
@@ -167,6 +172,16 @@ export function detailHeuresSup(salaireBase, heuresSup) {
   });
 }
 
+// --------------------------- CMU (Couverture Maladie Universelle) ----------
+
+// Nombre de personnes couvertes par la CMU pour ce salarié : lui-même
+// (toujours 1) + ses enfants à charge. La cotisation forfaitaire de 1 000
+// FCFA (500 salarié + 500 employeur) s'applique PAR PERSONNE, pas par
+// salarié — voir cmuSalarie/cmuPatronale dans DEFAULT_PARAMS.
+export function cmuNombrePersonnes(enfants) {
+  return 1 + Math.max(0, Math.floor(Number(enfants) || 0));
+}
+
 // --------------------------- Calcul complet d'un bulletin ------------------
 
 // Détaille l'intégralité d'un bulletin à partir des rubriques de gain.
@@ -225,7 +240,10 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
 
   // 6. Retenues salariales.
   const cnpsRetraite = roundFCFA(baseCotisable * params.cnpsRetraiteSalarie);
-  const cmu = roundFCFA(params.cmuSalarie);
+  // CMU : forfait par personne couverte (salarié + enfants à charge), pas un
+  // montant fixe par salarié — voir cmuNombrePersonnes ci-dessus.
+  const cmuPersonnes = cmuNombrePersonnes(input.enfants);
+  const cmu = roundFCFA(params.cmuSalarie * cmuPersonnes);
 
   // 4-5. Impôt sur salaire.
   const impotBrutAvantRicf = impotBrut(brutImposable, params);
@@ -247,7 +265,7 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     isExpatrie: isExpatrie ? roundFCFA(brutImposable * params.isExpatrie) : 0,
     taxeApprentissage: roundFCFA(brutImposable * params.taxeApprentissage),
     fpc: roundFCFA(brutImposable * params.fpc),
-    cmu: roundFCFA(params.cmuPatronale)
+    cmu: roundFCFA(params.cmuPatronale * cmuPersonnes)
   };
   const totalPatronal = roundFCFA(Object.values(patronal).reduce((a, b) => a + b, 0));
   const coutTotalEmployeur = roundFCFA(brutTotal + totalPatronal);
@@ -274,6 +292,7 @@ export function calculerBulletin(input, params = DEFAULT_PARAMS) {
     basePfAt,
     cnpsRetraite,
     cmu,
+    cmuPersonnes,
     parts: nombreParts(input.situation, input.enfants),
     impotBrutAvantRicf,
     reductionRicf,
