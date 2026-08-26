@@ -93,6 +93,51 @@ export function tauxAnciennete(annees) {
   return Math.min(annees, 25) / 100;
 }
 
+// --------------------- Barème des salaires minima catégoriels --------------
+
+// Barème des salaires minima catégoriels conventionnels — Convention
+// Collective Interprofessionnelle de Côte d'Ivoire (2023). Le salaire de
+// base contractuel d'un salarié ne peut jamais être inférieur au minimum de
+// sa catégorie socioprofessionnelle : voir salaireMinimumCategoriel, utilisée
+// pour bloquer strictement toute saisie non conforme (Salariés, import CSV,
+// Simulateur).
+export const BAREME_CATEGORIES = [
+  { categorie: '1A', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 75000 },
+  { categorie: '1B', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 83344 },
+  { categorie: '2', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 89376 },
+  { categorie: '3', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 92085 },
+  { categorie: '4', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 99506 },
+  { categorie: '5', definition: null, groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 118738 },
+  { categorie: '6', definition: 'M1', groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 128907 },
+  { categorie: '7A', definition: 'M2', groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 129313 },
+  { categorie: '7B', definition: 'M3', groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 135942 },
+  { categorie: '8A', definition: 'M4', groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 135942 },
+  { categorie: '8B', definition: 'M5', groupe: 'EMPLOYE_AGENT_MAITRISE', salaireMin: 137956 },
+  { categorie: '8C', definition: null, groupe: 'CADRE', salaireMin: 137956 },
+  { categorie: '9A', definition: null, groupe: 'CADRE', salaireMin: 139660 },
+  { categorie: '9B', definition: null, groupe: 'CADRE', salaireMin: 157121 },
+  { categorie: '10A', definition: null, groupe: 'CADRE', salaireMin: 164939 },
+  { categorie: '10B', definition: null, groupe: 'CADRE', salaireMin: 184733 },
+  { categorie: '10C', definition: null, groupe: 'CADRE', salaireMin: 207825 },
+  { categorie: '11', definition: null, groupe: 'CADRE', salaireMin: 230918 }
+];
+
+// Retrouve la ligne du barème correspondant à une catégorie (comparaison
+// insensible à la casse et aux espaces superflus) — renvoie null si la
+// catégorie est vide ou ne correspond à aucun code du barème (ex. ancienne
+// valeur libre saisie avant l'introduction de ce barème).
+export function categorieBareme(categorie) {
+  const c = (categorie || '').trim().toUpperCase();
+  if (!c) return null;
+  return BAREME_CATEGORIES.find((x) => x.categorie === c) || null;
+}
+
+// Salaire minimum mensuel conventionnel pour une catégorie du barème, ou null
+// si la catégorie est vide ou non reconnue (aucune contrainte applicable).
+export function salaireMinimumCategoriel(categorie) {
+  return categorieBareme(categorie)?.salaireMin ?? null;
+}
+
 // --------------------------- Parts IGR & RICF ------------------------------
 
 // Nombre de parts (quotient familial IGR) selon la situation matrimoniale et

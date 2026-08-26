@@ -7,7 +7,8 @@ import {
   joursCongeAnnuels, estMoisAnniversaire, congesEnCours, cycleConges, listeCyclesConges,
   joursTravaillesMois, coefficientProrata,
   indemniteLicenciement, indemniteCongesNonPris, primePrecarite, indemnitePreavis,
-  moisEntre, listerMois, moisPrecedent, libelleMois, cmuNombrePersonnes
+  moisEntre, listerMois, moisPrecedent, libelleMois, cmuNombrePersonnes,
+  BAREME_CATEGORIES, categorieBareme, salaireMinimumCategoriel
 } from './payroll';
 
 // --------------------------- Ancienneté -------------------------------------
@@ -38,6 +39,35 @@ describe('tauxAnciennete', () => {
     expect(tauxAnciennete(10)).toBe(0.10);
     expect(tauxAnciennete(25)).toBe(0.25);
     expect(tauxAnciennete(40)).toBe(0.25);
+  });
+});
+
+describe('salaireMinimumCategoriel / categorieBareme (barème conventionnel 2023)', () => {
+  it('couvre les 18 catégories du barème, chacune avec un code unique', () => {
+    expect(BAREME_CATEGORIES).toHaveLength(18);
+    expect(new Set(BAREME_CATEGORIES.map((c) => c.categorie)).size).toBe(18);
+  });
+
+  it('renvoie le minimum exact pour quelques catégories repères', () => {
+    expect(salaireMinimumCategoriel('1A')).toBe(75000);
+    expect(salaireMinimumCategoriel('8B')).toBe(137956);
+    expect(salaireMinimumCategoriel('11')).toBe(230918);
+  });
+
+  it('est insensible à la casse et aux espaces superflus', () => {
+    expect(salaireMinimumCategoriel(' 8b ')).toBe(137956);
+    expect(salaireMinimumCategoriel('9a')).toBe(139660);
+  });
+
+  it('renvoie null pour une catégorie vide ou non reconnue (aucune contrainte)', () => {
+    expect(salaireMinimumCategoriel('')).toBeNull();
+    expect(salaireMinimumCategoriel(null)).toBeNull();
+    expect(salaireMinimumCategoriel('Catégorie 3B')).toBeNull(); // ancien format libre
+  });
+
+  it('categorieBareme distingue le groupe employé/agent de maîtrise du groupe cadre', () => {
+    expect(categorieBareme('7B').groupe).toBe('EMPLOYE_AGENT_MAITRISE');
+    expect(categorieBareme('9A').groupe).toBe('CADRE');
   });
 });
 

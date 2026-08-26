@@ -10,6 +10,8 @@
 // automatiquement sur la ligne d'en-tête.
 // ===========================================================================
 
+import { salaireMinimumCategoriel } from './payroll';
+
 export const CSV_COLUMNS = [
   'Nom', 'Matricule', 'CNPS', 'Emploi', 'Categorie', 'Situation', 'Enfants',
   'DateEmbauche', 'SalaireCategoriel', 'CompteBancaire', 'Email',
@@ -65,7 +67,7 @@ export function parseCsv(text) {
 // Modèle CSV téléchargeable (en-tête + une ligne d'exemple).
 export function employeesCsvTemplate() {
   const example = [
-    'KOUAMÉ Adjoua Sylvie', 'SAL-010', '9988776 C', 'Vendeuse', 'Catégorie 3B',
+    'KOUAMÉ Adjoua Sylvie', 'SAL-010', '9988776 C', 'Vendeuse', '5',
     'marie', '2', '2026-01-15', '150000', '', 'adjoua.kouame@exemple.ci',
     'cdi', '2026-01', '150000', '190000', '30000'
   ];
@@ -102,6 +104,17 @@ export function employeesFromCsv(text) {
       errors.push({ ligne, message: `Salaire NET cible invalide ("${row.NetCible}").` });
       return;
     }
+    const categorie = (row.Categorie || '').trim();
+    // Garde-fou STRICT, identique à la fiche salarié : sans catégorie
+    // reconnue du barème (champ vide ou valeur libre), aucune contrainte.
+    const minCategoriel = salaireMinimumCategoriel(categorie);
+    if (minCategoriel != null && salaireBase < minCategoriel) {
+      errors.push({
+        ligne,
+        message: `Salaire de base (${salaireBase} FCFA) inférieur au minimum conventionnel de la catégorie ${categorie} (${minCategoriel} FCFA).`
+      });
+      return;
+    }
     const situation = SITUATIONS_VALIDES.includes((row.Situation || '').trim())
       ? row.Situation.trim() : 'celibataire';
     const typeContrat = (row.TypeContrat || '').trim().toLowerCase() === 'cdi' ? 'cdi' : 'cdd';
@@ -113,7 +126,7 @@ export function employeesFromCsv(text) {
       matricule: (row.Matricule || '').trim(),
       cnps: (row.CNPS || '').trim(),
       emploi: (row.Emploi || '').trim(),
-      categorie: (row.Categorie || '').trim(),
+      categorie,
       situation,
       enfants: Math.max(0, Math.floor(Number(row.Enfants) || 0)),
       dateEmbauche,
