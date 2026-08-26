@@ -250,6 +250,20 @@ describe('periodeEffective (requalification CDD -> CDI après 24 mois)', () => {
   });
 });
 
+describe('periodeEffective — garde-fou sur la date d\'embauche enregistrée', () => {
+  it('renvoie null pour un mois antérieur à la date d\'embauche, même si une période contractuelle (mal saisie) le couvrirait', () => {
+    const employee = { dateEmbauche: '2020-06-01', periodes: [{ kind: 'cdi', debut: '2015-01', fin: null }] };
+    expect(periodeEffective(employee, '2018-01')).toBeNull(); // 2018 < embauche 2020-06
+    expect(periodeEffective(employee, '2020-06')).not.toBeNull(); // mois d'embauche : OK
+    expect(periodeEffective(employee, '2020-07')).not.toBeNull(); // après : OK
+  });
+
+  it("n'affecte pas un salarié sans dateEmbauche renseignée (comportement historique)", () => {
+    const employee = { periodes: [{ kind: 'cdi', debut: '2015-01', fin: null }] };
+    expect(periodeEffective(employee, '2016-01')).not.toBeNull();
+  });
+});
+
 // --------------------------- Congés payés -----------------------------------
 
 describe('joursCongeAnnuels', () => {

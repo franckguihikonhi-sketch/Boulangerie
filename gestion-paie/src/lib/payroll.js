@@ -432,7 +432,17 @@ export const CDD_MAX_MOIS = 24;
 // cumule plus de 24 mois de CDD, la période est traitée comme un CDI à partir
 // du 25ᵉ mois (mêmes salaire / net / primes). Renvoie la période enrichie d'un
 // indicateur `requalifieCdi`.
+//
+// Garde-fou sur la date d'embauche ENREGISTRÉE (champ `dateEmbauche`, saisi
+// indépendamment des périodes contractuelles) : un salarié n'est jamais
+// considéré présent avant elle, même si une période contractuelle mal saisie
+// (import, correction ultérieure de la date d'embauche...) le laisserait
+// croire. Sert de source de vérité unique pour tous les écrans pilotés par le
+// sélecteur « Base » (Tableau de bord, Bulletins, Livre de paie, Cotisations,
+// Impôts) : changer de période ne doit jamais faire apparaître un salarié à
+// une date antérieure à son embauche.
 export function periodeEffective(employee, ym) {
+  if (employee?.dateEmbauche && employee.dateEmbauche.slice(0, 7) > ym) return null;
   const p = periodePourMois(employee?.periodes, ym);
   if (!p) return null;
   if (p.kind === 'cdd') {

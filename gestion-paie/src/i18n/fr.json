@@ -43,7 +43,7 @@
 
   "dashboard.title": "Tableau de bord",
   "dashboard.employees": "Salariés",
-  "dashboard.employeesTip": "Nombre de salariés enregistrés.",
+  "dashboard.employeesTip": "Nombre de salariés présents sur la période affichée (voir « Base »), d'après leur date d'embauche et leurs contrats.",
   "dashboard.masseNet": "Masse salariale nette (mois courant)",
   "dashboard.masseNetTip": "Somme des salaires nets à payer pour le mois en cours.",
   "dashboard.masseBrut": "Masse salariale brute (mois courant)",
@@ -53,6 +53,7 @@
   "dashboard.currentMonth": "Mois de référence",
   "dashboard.recent": "Salariés récents",
   "dashboard.noEmployees": "Aucun salarié. Commencez par en ajouter un.",
+  "dashboard.recentEmptyPeriod": "Aucun salarié n'était encore embauché sur la période affichée.",
   "dashboard.goEmployees": "Gérer les salariés",
   "dashboard.goBulletins": "Générer des bulletins",
   "dashboard.sousControle": "Salarié(s) sous contrôle — traitement suspendu",
@@ -203,6 +204,7 @@
   "bulletins.none": "Aucun bulletin sur cette période (vérifiez les dates des contrats).",
   "bulletins.badRange": "Le mois de fin doit être postérieur ou égal au mois de début.",
   "bulletins.noEmployees": "Ajoutez d'abord au moins un salarié.",
+  "bulletins.noEmployeesRange": "Aucun salarié présent sur cette période.",
   "bulletins.previewNote": "Aperçu fidèle du bulletin imprimé (parts salariale ET patronale, cotisations, cumuls). Le bouton « Imprimer / PDF » ouvre la fenêtre d'impression avec tous les bulletins de la période, prêts à enregistrer en PDF.",
 
   "livrePaie.title": "Livre de paie",
