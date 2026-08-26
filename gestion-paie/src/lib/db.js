@@ -76,7 +76,7 @@ function defaultSettings() {
 }
 
 function emptyState() {
-  return { settings: defaultSettings(), employees: [], versements: {}, clotures: {}, auditLog: [] };
+  return { settings: defaultSettings(), employees: [], versements: {}, clotures: {}, congesPris: [], auditLog: [] };
 }
 
 // Historique des modifications (qui a changé quoi, quand) : plafonné pour
@@ -316,7 +316,8 @@ function guestSessionActive() {
   state = restored && Array.isArray(restored.employees)
     ? {
         settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
-        versements: restored.versements || {}, clotures: restored.clotures || {}, auditLog: restored.auditLog || []
+        versements: restored.versements || {}, clotures: restored.clotures || {},
+        congesPris: restored.congesPris || [], auditLog: restored.auditLog || []
       }
     : seededState();
   persistLocal();
@@ -368,6 +369,12 @@ const toVersement = (r) => ({
 const toCloture = (r) => ({
   clotureLe: r.cloture_le || null, cloturePar: r.cloture_par || ''
 });
+const toCongePris = (r) => ({
+  id: r.id, employeeId: r.employee_id,
+  debut: (r.debut || '').slice(0, 10), fin: (r.fin || '').slice(0, 10),
+  jours: Number(r.jours) || 0, commentaire: r.commentaire || '',
+  creePar: r.cree_par || '', createdAt: r.created_at
+});
 const toAuditEntry = (r) => ({
   id: r.id, createdAt: r.created_at, employeeId: r.employee_id, employeeNom: r.employee_nom || '',
   utilisateur: r.utilisateur || '', action: r.action, avant: r.avant || null, apres: r.apres || null
@@ -392,15 +399,17 @@ function describeError(err) {
 }
 
 async function fetchAll() {
-  const [set, emp, ver, clot, audit] = await Promise.all([
+  const [set, emp, ver, clot, conges, audit] = await Promise.all([
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('employees').select('*, periodes(*, primes(*), retenues(*), heures_supplementaires(*))').order('created_at'),
-    // Tables apparues avec migration_conformite.sql / migration_cloture_paie.sql :
-    // absentes sur une base pas encore migrée, on les ignore alors
-    // silencieusement (pas d'erreur bloquante, juste la fonctionnalité
-    // annexe indisponible) plutôt que de casser tout le chargement de l'appli.
+    // Tables apparues avec migration_conformite.sql / migration_cloture_paie.sql /
+    // migration_conges_pris.sql : absentes sur une base pas encore migrée, on
+    // les ignore alors silencieusement (pas d'erreur bloquante, juste la
+    // fonctionnalité annexe indisponible) plutôt que de casser tout le
+    // chargement de l'appli.
     supabase.from('versements').select('*'),
     supabase.from('clotures_paie').select('*'),
+    supabase.from('conges_pris').select('*').order('debut'),
     supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(300)
   ]);
   for (const r of [set, emp]) if (r.error) throw r.error;
@@ -412,12 +421,14 @@ async function fetchAll() {
   if (!clot.error) {
     for (const r of clot.data || []) clotures[(r.ym || '').slice(0, 7)] = toCloture(r);
   }
+  const congesPris = conges.error ? [] : (conges.data || []).map(toCongePris);
   const auditLog = audit.error ? [] : (audit.data || []).map(toAuditEntry);
   return {
     settings: set.data ? toSettings(set.data) : defaultSettings(),
     employees: (emp.data || []).map(toEmployee),
     versements,
     clotures,
+    congesPris,
     auditLog
   };
 }
@@ -438,7 +449,8 @@ export async function hydrate() {
     state = restored && Array.isArray(restored.employees)
       ? {
           settings: { ...defaultSettings(), ...restored.settings }, employees: restored.employees,
-          versements: restored.versements || {}, clotures: restored.clotures || {}, auditLog: restored.auditLog || []
+          versements: restored.versements || {}, clotures: restored.clotures || {},
+          congesPris: restored.congesPris || [], auditLog: restored.auditLog || []
         }
       : emptyState();
     setStatus('ready');
@@ -484,7 +496,7 @@ function setupSync() {
   syncSetup = true;
   try {
     const channel = supabase.channel('gpaie-sync');
-    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'clotures_paie', 'audit_log']) {
+    for (const table of ['settings', 'employees', 'periodes', 'primes', 'versements', 'clotures_paie', 'conges_pris', 'audit_log']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
     }
     channel.subscribe();
@@ -598,6 +610,58 @@ export async function rouvrirMois(ym) {
   await refresh();
 }
 
+// --------------------------- Congés pris (onglet Congés) --------------------
+// Module de SUIVI RH, distinct du moteur de paie : enregistre les périodes de
+// congé effectivement posées par un salarié, pour afficher un solde (jours
+// acquis dans le cycle en cours, voir payroll.js#cycleConges, moins les jours
+// déjà pris sur ce même cycle). N'affecte jamais le calcul de paie
+// (l'indemnité de congé versée au mois anniversaire reste automatique, voir
+// bulletin.js) — ce n'est qu'un historique consultable, pas un droit imposé.
+export function congesDeEmployee(employeeId) {
+  return (state.congesPris || []).filter((c) => c.employeeId === employeeId);
+}
+
+export async function ajouterCongePris(employeeId, patch, meta = {}) {
+  const record = {
+    debut: patch.debut,
+    fin: patch.fin,
+    jours: Math.max(0, Math.round((Number(patch.jours) || 0) * 10) / 10),
+    commentaire: (patch.commentaire || '').trim()
+  };
+  if (!record.debut || !record.fin) throw new Error('errors.congeDatesRequired');
+  const creePar = meta.utilisateur || '';
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.congesPris = s.congesPris || [];
+      const id = uid();
+      s.congesPris.push({ id, employeeId, ...record, creePar, createdAt: new Date().toISOString() });
+      return id;
+    });
+  }
+  const { data, error } = await supabase
+    .from('conges_pris')
+    .insert({
+      employee_id: employeeId, debut: record.debut, fin: record.fin,
+      jours: record.jours, commentaire: record.commentaire, cree_par: creePar
+    })
+    .select('id')
+    .single();
+  if (error) throw rpcError(error);
+  await refresh();
+  return data.id;
+}
+
+export async function supprimerCongePris(id) {
+  if (demoMode || !supabaseConfigured) {
+    return memMutate((s) => {
+      s.congesPris = (s.congesPris || []).filter((c) => c.id !== id);
+    });
+  }
+  const { error } = await supabase.from('conges_pris').delete().eq('id', id);
+  if (error) throw rpcError(error);
+  await refresh();
+}
+
 // `meta.utilisateur` (facultatif) : nom/email de la personne connectée, pour
 // l'historique des modifications (voir Historique). Purement déclaratif —
 // aucune vérification d'identité, cohérent avec le modèle d'authentification
@@ -654,6 +718,9 @@ export async function deleteEmployee(id, meta = {}) {
     return memMutate((s) => {
       const e = s.employees.find((x) => x.id === id);
       s.employees = s.employees.filter((x) => x.id !== id);
+      // Mode Supabase : ON DELETE CASCADE côté base (voir migration_conges_pris.sql).
+      // En local/démo, il faut nettoyer nous-mêmes l'état en mémoire.
+      s.congesPris = (s.congesPris || []).filter((c) => c.employeeId !== id);
       if (e) {
         pushAuditEntry(s, {
           employeeId: id, employeeNom: e.nom, utilisateur,

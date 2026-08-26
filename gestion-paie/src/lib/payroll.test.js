@@ -4,7 +4,7 @@ import {
   anneesAnciennete, tauxAnciennete, nombreParts, ricf, impotBrut, its,
   detailHeuresSup, calculerBulletin, resoudreSursalaire, calculerDepuisNet,
   periodePourMois, periodeEffective, CDD_MAX_MOIS,
-  joursCongeAnnuels, estMoisAnniversaire, congesEnCours,
+  joursCongeAnnuels, estMoisAnniversaire, congesEnCours, cycleConges,
   joursTravaillesMois, coefficientProrata,
   indemniteLicenciement, indemniteCongesNonPris, primePrecarite, indemnitePreavis,
   moisEntre, listerMois, moisPrecedent, libelleMois, cmuNombrePersonnes
@@ -275,6 +275,22 @@ describe('congesEnCours', () => {
   it('accumule 2,2 j/mois depuis le dernier anniversaire (ou l\'embauche)', () => {
     expect(congesEnCours('2024-01-15', '2024-01-01')).toBe(0);
     expect(congesEnCours('2024-01-15', '2024-07-01')).toBeCloseTo(13.2, 5); // 6 mois * 2.2
+  });
+});
+
+describe('cycleConges', () => {
+  it('1er cycle : du mois d\'embauche à son 11ᵉ mois suivant', () => {
+    expect(cycleConges('2024-01-15', '2024-06')).toEqual({ debut: '2024-01', fin: '2024-12' });
+  });
+
+  it('2ᵉ cycle après le premier anniversaire (12 mois révolus)', () => {
+    expect(cycleConges('2024-01-15', '2025-01')).toEqual({ debut: '2025-01', fin: '2025-12' });
+    expect(cycleConges('2024-01-15', '2025-06')).toEqual({ debut: '2025-01', fin: '2025-12' });
+  });
+
+  it('renvoie null avant l\'embauche ou sans date d\'embauche', () => {
+    expect(cycleConges('2025-01-01', '2024-06')).toBeNull();
+    expect(cycleConges(null, '2024-06')).toBeNull();
   });
 });
 

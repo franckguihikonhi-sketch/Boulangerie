@@ -495,6 +495,28 @@ export function congesEnCours(dateEmbauche, ym) {
   return Math.round(moisCycle * CONGE_JOURS_PAR_MOIS * 10) / 10;
 }
 
+// Bornes (aaaa-mm) du cycle d'acquisition de congé EN COURS à `ym` : un cycle
+// dure toujours 12 mois, démarre au mois d'embauche ou à l'un de ses
+// anniversaires, et se clôture (versement de l'indemnité, voir
+// estMoisAnniversaire) au mois anniversaire suivant. Sert à savoir quels
+// congés déjà pris (voir onglet Congés) se rattachent à CE cycle plutôt qu'à
+// un cycle antérieur — jamais utilisé dans le calcul de paie lui-même.
+export function cycleConges(dateEmbauche, ym) {
+  if (!dateEmbauche) return null;
+  const [ey, em] = dateEmbauche.split('-').map(Number);
+  const [y, m] = ym.split('-').map(Number);
+  const moisTotal = (y - ey) * 12 + (m - em);
+  if (moisTotal < 0) return null;
+  const moisCycle = moisTotal % 12;
+  let sy = y;
+  let sm = m - moisCycle;
+  while (sm < 1) { sm += 12; sy -= 1; }
+  let fy = sy;
+  let fm = sm + 11;
+  while (fm > 12) { fm -= 12; fy += 1; }
+  return { debut: `${sy}-${String(sm).padStart(2, '0')}`, fin: `${fy}-${String(fm).padStart(2, '0')}` };
+}
+
 // --------------------------- Prorata des mois incomplets -------------------
 // Convention des « 30èmes », standard en paie ivoirienne/OHADA (Sage Paie
 // Afrique et assimilés) : chaque mois compte pour 30 jours quelle que soit sa

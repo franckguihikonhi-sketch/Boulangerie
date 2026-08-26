@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Employees from './pages/Employees';
 import Bulletins from './pages/Bulletins';
 import LivrePaie from './pages/LivrePaie';
+import Conges from './pages/Conges';
 import Cotisations from './pages/Cotisations';
 import Impots from './pages/Impots';
 import Simulateur from './pages/Simulateur';
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/salaries" element={<Employees />} />
         <Route path="/bulletins" element={<Bulletins />} />
         <Route path="/livre-de-paie" element={<LivrePaie />} />
+        <Route path="/conges" element={<Conges />} />
         <Route path="/etat-cotisations" element={<Cotisations />} />
         <Route path="/etat-impots" element={<Impots />} />
         <Route path="/simulateur" element={<Simulateur />} />
