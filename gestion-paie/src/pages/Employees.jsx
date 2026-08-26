@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore } from '../lib/useStore';
+import { useStore, useActivePeriod } from '../lib/useStore';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, TYPES_CONTRAT, deleteEmployee, uid } from '../lib/db';
@@ -27,11 +27,6 @@ function downloadTextFile(filename, content, mime = 'text/csv;charset=utf-8;') {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-}
-
-function currentYm() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 const emptyPeriode = (kind = 'cdd') => ({
@@ -99,7 +94,14 @@ export default function Employees() {
   const [revisions, setRevisions] = useState([emptyRevision()]);
   const [reviseError, setReviseError] = useState('');
   const [reviseSaving, setReviseSaving] = useState(false);
-  const ym = currentYm();
+  // Mois choisi via le bouton « Base » (en-tête) : la liste ci-dessous
+  // n'affiche que les salariés déjà présents à cette période — voir
+  // payroll.js#periodeEffective, qui exclut tout salarié dont la date
+  // d'embauche enregistrée est postérieure. Remonter Base à une période
+  // ancienne masque donc les salariés pas encore embauchés à l'époque,
+  // exactement comme le Tableau de bord et les Bulletins.
+  const ym = useActivePeriod();
+  const enPeriode = useMemo(() => employees.filter((e) => periodeEffective(e, ym)), [employees, ym]);
 
   // Import en masse (CSV) : un salarié par ligne, avec sa 1ʳᵉ période. Les
   // lignes en erreur (nom manquant, montants invalides…) sont rapportées
@@ -144,10 +146,10 @@ export default function Employees() {
   // la liste des salariés (même ordre que le tableau), sans avoir à fermer
   // puis rouvrir la fenêtre à chaque fois. Uniquement pour un salarié
   // existant (pas la fiche « Nouveau salarié ») — voir le rendu plus bas.
-  const editIndex = form?.id ? employees.findIndex((e) => e.id === form.id) : -1;
+  const editIndex = form?.id ? enPeriode.findIndex((e) => e.id === form.id) : -1;
   const goEdit = (idx) => {
-    if (idx < 0 || idx >= employees.length) return;
-    openEdit(employees[idx]);
+    if (idx < 0 || idx >= enPeriode.length) return;
+    openEdit(enPeriode[idx]);
   };
 
   const openTerminate = (e, mode) => { setTerminateError(''); setTerminateDate(todayIso()); setTerminate({ employee: e, mode }); };
@@ -396,6 +398,8 @@ export default function Employees() {
       <Card>
         {employees.length === 0 ? (
           <p className="p-6 text-center text-sm text-stone-500">{t('employees.empty')}</p>
+        ) : enPeriode.length === 0 ? (
+          <p className="p-6 text-center text-sm text-stone-500">{t('employees.emptyPeriod')}</p>
         ) : (
           <TableWrap min={720}>
             <thead>
@@ -408,8 +412,8 @@ export default function Employees() {
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {employees.map((e) => {
-                const p = periodeEffective(e, ym) || e.periodes[e.periodes.length - 1];
+              {enPeriode.map((e) => {
+                const p = periodeEffective(e, ym);
                 return (
                   <tr key={e.id} className={e.sousControle ? 'bg-red-50/70' : undefined}>
                     <td className={td}>
@@ -594,11 +598,11 @@ export default function Employees() {
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   {t('employees.navPrev')}
                 </button>
-                <span className="text-xs text-stone-500">{t('employees.navPosition', { n: editIndex + 1, total: employees.length })}</span>
+                <span className="text-xs text-stone-500">{t('employees.navPosition', { n: editIndex + 1, total: enPeriode.length })}</span>
                 <button
                   type="button"
                   onClick={() => goEdit(editIndex + 1)}
-                  disabled={editIndex >= employees.length - 1}
+                  disabled={editIndex >= enPeriode.length - 1}
                   className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
                 >
                   {t('employees.navNext')}

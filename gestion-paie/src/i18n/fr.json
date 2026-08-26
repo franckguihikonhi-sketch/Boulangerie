@@ -70,6 +70,7 @@
   "employees.importSummary": "{ok} salarié(s) importé(s) avec succès. {errors} ligne(s) en erreur.",
   "employees.importErrorLine": "Ligne {ligne}",
   "employees.empty": "Aucun salarié enregistré.",
+  "employees.emptyPeriod": "Aucun salarié n'était encore embauché sur la période affichée (voir « Base »).",
   "employees.name": "Nom et prénoms",
   "employees.matricule": "Matricule",
   "employees.situation": "Situation matrimoniale",
