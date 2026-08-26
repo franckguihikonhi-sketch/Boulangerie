@@ -34,7 +34,13 @@ export default function Dashboard() {
     return { net, brut, cout, actifs };
   }, [employees, settings, ym]);
 
-  const sousControle = useMemo(() => employees.filter((e) => e.sousControle), [employees]);
+  // Salariés PRÉSENTS sur la période affichée (« Base »), d'après leur date
+  // d'embauche enregistrée et leurs périodes contractuelles (voir
+  // payroll.js#periodeEffective) — en remontant à une période ancienne, un
+  // salarié embauché après cette date n'apparaît nulle part sur cette page.
+  const enPeriode = useMemo(() => employees.filter((e) => periodeEffective(e, ym)), [employees, ym]);
+
+  const sousControle = useMemo(() => enPeriode.filter((e) => e.sousControle), [enPeriode]);
 
   return (
     <div>
@@ -62,7 +68,7 @@ export default function Dashboard() {
       </p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label={t('dashboard.employees')} value={employees.length} tip={t('dashboard.employeesTip')} tone="brand" />
+        <StatCard label={t('dashboard.employees')} value={enPeriode.length} tip={t('dashboard.employeesTip')} tone="brand" />
         <StatCard label={t('dashboard.masseNet')} value={formatFCFA(totals.net, locale)} tip={t('dashboard.masseNetTip')} tone="good" />
         <StatCard label={t('dashboard.masseBrut')} value={formatFCFA(totals.brut, locale)} tip={t('dashboard.masseBrutTip')} />
         <StatCard label={t('dashboard.coutEmployeur')} value={formatFCFA(totals.cout, locale)} tip={t('dashboard.coutEmployeurTip')} tone="bad" />
@@ -113,10 +119,12 @@ export default function Dashboard() {
             <p>{t('dashboard.noEmployees')}</p>
             <Link to="/salaries" className="mt-3 inline-block"><Button>{t('employees.add')}</Button></Link>
           </div>
+        ) : enPeriode.length === 0 ? (
+          <p className="py-6 text-center text-sm text-stone-500">{t('dashboard.recentEmptyPeriod')}</p>
         ) : (
           <ul className="divide-y divide-stone-100">
-            {employees.slice(0, 6).map((e) => {
-              const p = periodeEffective(e, ym) || e.periodes[e.periodes.length - 1];
+            {enPeriode.slice(0, 6).map((e) => {
+              const p = periodeEffective(e, ym);
               return (
                 <li key={e.id} className="flex items-center justify-between py-2.5">
                   <div>

@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore, useActivePeriod } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { formatFCFA } from '../lib/money';
-import { listerMois, libelleMois } from '../lib/payroll';
+import { listerMois, libelleMois, periodeEffective } from '../lib/payroll';
 import { bulletinData, imprimerBulletins, telechargerBulletins, slipDocumentHtml } from '../lib/bulletin';
 import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, Badge, TableWrap, th, td } from '../components/ui';
 
@@ -95,6 +95,25 @@ export default function Bulletins() {
   const [exporting, setExporting] = useState(false);
 
   const rangeOk = from <= to;
+
+  // Salariés PRÉSENTS sur au moins un mois de la plage sélectionnée, d'après
+  // leur date d'embauche enregistrée et leurs périodes contractuelles (voir
+  // payroll.js#periodeEffective) — un salarié pas encore embauché sur toute
+  // la plage n'apparaît pas dans le sélecteur « Salarié » ci-dessous.
+  const employeesPourPlage = useMemo(() => {
+    if (!rangeOk) return employees;
+    const months = listerMois(from, to);
+    return employees.filter((e) => months.some((m) => periodeEffective(e, m)));
+  }, [employees, from, to, rangeOk]);
+
+  // Si la plage change et que le salarié sélectionné n'y était pas présent,
+  // on retombe sur le premier salarié valide plutôt que de garder une
+  // sélection fantôme.
+  useEffect(() => {
+    if (scope === 'one' && employeesPourPlage.length && !employeesPourPlage.some((e) => e.id === employeeId)) {
+      setEmployeeId(employeesPourPlage[0].id);
+    }
+  }, [scope, employeesPourPlage, employeeId]);
 
   const build = () => {
     setError('');
@@ -193,8 +212,10 @@ export default function Bulletins() {
           </Field>
           {scope === 'one' && (
             <Field label={t('bulletins.employee')}>
-              <select className={inputClass} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-                {employees.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+              <select className={inputClass} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={employeesPourPlage.length === 0}>
+                {employeesPourPlage.length === 0
+                  ? <option value="">{t('bulletins.noEmployeesRange')}</option>
+                  : employeesPourPlage.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
               </select>
             </Field>
           )}
