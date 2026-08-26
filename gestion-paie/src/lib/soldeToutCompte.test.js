@@ -112,6 +112,37 @@ describe('calculerSolde — rupture anticipée d\'un CDD (avant terme)', () => {
   });
 });
 
+describe('calculerSolde — congés déjà pris nettés du cycle en cours à la sortie', () => {
+  it('déduit les jours déjà pris sur le cycle de sortie de l\'indemnité de congés', () => {
+    // Sortie 2026-11, embauche 2023-08-01 -> cycle de sortie 2026-08 → 2027-07.
+    const sansConge = calculerSolde(employeeStable(), '2026-11', 'licenciement', 0, settings);
+    const congesPris = [{ employeeId: 'x', debut: '2026-09-01', fin: '2026-09-10', jours: 5 }];
+    const avecConge = calculerSolde(employeeStable(), '2026-11', 'licenciement', 0, settings, congesPris);
+
+    expect(avecConge.joursAcquis).toBe(sansConge.joursConges);
+    expect(avecConge.joursPrisCycle).toBe(5);
+    expect(avecConge.joursConges).toBe(Math.round((sansConge.joursConges - 5) * 10) / 10);
+    expect(avecConge.conges).toBeLessThan(sansConge.conges);
+    expect(avecConge.total).toBe(avecConge.licenciement + avecConge.conges + avecConge.preavis);
+  });
+
+  it('ignore les congés pris sur un cycle antérieur à celui de la sortie', () => {
+    const sansConge = calculerSolde(employeeStable(), '2026-11', 'licenciement', 0, settings);
+    const congesPris = [{ employeeId: 'x', debut: '2024-01-01', fin: '2024-01-10', jours: 10 }];
+    const avecConge = calculerSolde(employeeStable(), '2026-11', 'licenciement', 0, settings, congesPris);
+    expect(avecConge.joursPrisCycle).toBe(0);
+    expect(avecConge.joursConges).toBe(sansConge.joursConges);
+    expect(avecConge.conges).toBe(sansConge.conges);
+  });
+
+  it('ne rend jamais un nombre de jours de congé négatif même si les jours pris dépassent les jours acquis', () => {
+    const congesPris = [{ employeeId: 'x', debut: '2026-09-01', fin: '2026-09-30', jours: 9999 }];
+    const solde = calculerSolde(employeeStable(), '2026-11', 'licenciement', 0, settings, congesPris);
+    expect(solde.joursConges).toBe(0);
+    expect(solde.conges).toBe(0);
+  });
+});
+
 describe('MOTIFS_RUPTURE', () => {
   it('couvre tous les motifs attendus, chacun avec une valeur unique', () => {
     const valeurs = MOTIFS_RUPTURE.map((m) => m.value);

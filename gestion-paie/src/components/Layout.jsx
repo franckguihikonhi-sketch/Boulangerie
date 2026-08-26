@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/salaries', key: 'nav.employees', icon: 'M12 12a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 0114 0' },
   { to: '/bulletins', key: 'nav.bulletins', icon: 'M7 3h7l5 5v13H5V5a2 2 0 012-2zm7 0v5h5M8 13h8M8 17h5' },
   { to: '/livre-de-paie', key: 'nav.livrePaie', icon: 'M4 5a2 2 0 012-2h9l5 5v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM15 3v5h5M8 11h8M8 15h8M8 19h5' },
+  { to: '/conges', key: 'nav.conges', icon: 'M8 7V3m8 4V3M4 11h16M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM8 15l2 2 4-4' },
   { to: '/etat-cotisations', key: 'nav.cotisations', icon: 'M12 2a10 10 0 100 20 10 10 0 000-20zM12 6v6l4 2' },
   { to: '/etat-impots', key: 'nav.impots', icon: 'M12 3v18M7 21h10M4 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2M5 7l-3 8c1.7 1.3 4.3 1.3 6 0L5 7zM19 7l-3 8c1.7 1.3 4.3 1.3 6 0L19 7z' },
   { to: '/simulateur', key: 'nav.simulateur', icon: 'M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2zM7 7h10M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01' },
