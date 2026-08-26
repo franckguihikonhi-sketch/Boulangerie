@@ -192,6 +192,11 @@ export default function Simulateur() {
                 )}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <StatCard
+                  label={t('period.sursalaire')}
+                  value={formatFCFA(calc.sursalaire, locale)}
+                  tip={t('simulateur.sursalaireTip')}
+                />
                 <StatCard label={t('simulateur.brutImposable')} value={formatFCFA(calc.brutImposable, locale)} tip={t('simulateur.brutImposableTip')} />
                 <StatCard label={t('slip.netAPayer')} value={formatFCFA(calc.netAPayer, locale)} tone="good" tip={t('simulateur.netTip')} />
                 <StatCard label={t('simulateur.totalPatronal')} value={formatFCFA(calc.totalPatronal, locale)} tone="bad" tip={t('simulateur.totalPatronalTip')} />
