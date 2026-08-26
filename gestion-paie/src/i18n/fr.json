@@ -78,7 +78,7 @@
   "employees.cnps": "N° CNPS",
   "employees.emploi": "Emploi / poste",
   "employees.categorie": "Catégorie professionnelle",
-  "employees.categorieHelp": "Barème conventionnel 2023 (Convention Collective Interprofessionnelle). Le salaire de base d'aucune période ne peut être inférieur au minimum de la catégorie choisie.",
+  "employees.categorieHelp": "Barème conventionnel 2023 (Convention Collective Interprofessionnelle). Le salaire de base de chaque période se positionne automatiquement sur ce minimum (les salaires déjà conformes ou supérieurs restent inchangés) ; aucune période ne peut être enregistrée en dessous.",
   "employees.categorieNonClassee": "— Non classé (aucun minimum imposé) —",
   "employees.groupeAgentMaitrise": "Employés — Agents de maîtrise",
   "employees.groupeCadre": "Cadres",

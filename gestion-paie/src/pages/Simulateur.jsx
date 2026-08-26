@@ -42,6 +42,18 @@ export default function Simulateur() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Choix d'une catégorie du barème : positionne AUTOMATIQUEMENT le salaire
+  // de base sur le minimum conventionnel, sauf s'il est déjà conforme ou
+  // supérieur (voir Salariés, même principe).
+  const setCategorie = (categorie) => {
+    const min = salaireMinimumCategoriel(categorie);
+    setForm((f) => ({
+      ...f,
+      categorie,
+      salaireBase: min != null && (Number(f.salaireBase) || 0) < min ? min : f.salaireBase
+    }));
+  };
+
   const addPrime = () => setPrimes((p) => [...p, emptyPrime()]);
   const setPrime = (i, patch) => setPrimes((p) => p.map((pr, idx) => (idx === i ? { ...pr, ...patch } : pr)));
   const removePrime = (i) => setPrimes((p) => p.filter((_, idx) => idx !== i));
@@ -124,7 +136,7 @@ export default function Simulateur() {
             </Field>
             <div className="sm:col-span-2">
               <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
-                <select className={inputClass} value={form.categorie} onChange={(e) => set('categorie', e.target.value)}>
+                <select className={inputClass} value={form.categorie} onChange={(e) => setCategorie(e.target.value)}>
                   <option value="">{t('employees.categorieNonClassee')}</option>
                   <optgroup label={t('employees.groupeAgentMaitrise')}>
                     {BAREME_CATEGORIES.filter((c) => c.groupe === 'EMPLOYE_AGENT_MAITRISE').map((c) => (
