@@ -1,22 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useStore } from '../lib/useStore';
+import { useStore, useActivePeriod } from '../lib/useStore';
 import { useAuth } from '../lib/auth';
 import { useI18n } from '../i18n/I18nContext';
 import { ajouterCongePris, supprimerCongePris, cloturerCycleConges, rouvrirCycleConges } from '../lib/db';
-import { anneesAnciennete, congesEnCours, joursCongeAnnuels, cycleConges, listeCyclesConges, libelleMois } from '../lib/payroll';
+import {
+  anneesAnciennete, congesEnCours, joursCongeAnnuels, cycleConges, listeCyclesConges, libelleMois,
+  periodeEffective
+} from '../lib/payroll';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
   Badge, TableWrap, th, td, EmployeeNav
 } from '../components/ui';
-
-function todayIso() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function currentYm() {
-  return todayIso().slice(0, 7);
-}
 
 // Nombre décimal affiché à la française (« 13,20 j »), cohérent avec le
 // bulletin de paie (voir bulletin.js) — jamais arrondi à l'entier, les jours
@@ -69,7 +63,13 @@ export default function Conges() {
   const { t, locale } = useI18n();
   const auditMeta = { utilisateur: user?.name || user?.email || '' };
 
-  const ym = currentYm();
+  // Mois choisi via le bouton « Base » (en-tête) : la liste ci-dessous ne
+  // montre que les salariés déjà présents à cette période — voir
+  // payroll.js#periodeEffective, même garde-fou que sur Salariés/Tableau de
+  // bord/Bulletins. Remonter Base à une période ancienne masque donc les
+  // salariés pas encore embauchés à l'époque, ici aussi.
+  const ym = useActivePeriod();
+  const enPeriode = useMemo(() => employees.filter((e) => periodeEffective(e, ym)), [employees, ym]);
   const [gestion, setGestion] = useState(null); // employee en cours de gestion
   const [form, setForm] = useState(emptyForm());
   const [error, setError] = useState('');
@@ -79,11 +79,11 @@ export default function Conges() {
 
   const lignes = useMemo(
     () =>
-      employees.map((e) => {
+      enPeriode.map((e) => {
         const congesEmployee = (congesPris || []).filter((c) => c.employeeId === e.id);
         return { employee: e, congesEmployee, situation: situationConges(e, congesEmployee, ym) };
       }),
-    [employees, congesPris, ym]
+    [enPeriode, congesPris, ym]
   );
 
   const ouvrirGestion = (employee) => {
@@ -93,12 +93,12 @@ export default function Conges() {
     setGestion(employee);
   };
 
-  // Précédent/Suivant : parcourt les salariés de la liste ci-dessus sans
-  // repasser par le bouton « Gérer » à chaque fois.
-  const gestionIndex = gestion ? employees.findIndex((e) => e.id === gestion.id) : -1;
+  // Précédent/Suivant : parcourt les salariés de la liste ci-dessus (déjà
+  // filtrée par la période Base) sans repasser par le bouton « Gérer ».
+  const gestionIndex = gestion ? enPeriode.findIndex((e) => e.id === gestion.id) : -1;
   const goGestion = (idx) => {
-    if (idx < 0 || idx >= employees.length) return;
-    ouvrirGestion(employees[idx]);
+    if (idx < 0 || idx >= enPeriode.length) return;
+    ouvrirGestion(enPeriode[idx]);
   };
 
   const congesGestion = gestion ? (congesPris || []).filter((c) => c.employeeId === gestion.id) : [];
@@ -170,6 +170,8 @@ export default function Conges() {
       <Card className="mt-4">
         {employees.length === 0 ? (
           <p className="p-6 text-center text-sm text-stone-500">{t('employees.empty')}</p>
+        ) : enPeriode.length === 0 ? (
+          <p className="p-6 text-center text-sm text-stone-500">{t('employees.emptyPeriod')}</p>
         ) : (
           <TableWrap min={860}>
             <thead>
@@ -222,7 +224,7 @@ export default function Conges() {
           <div className="space-y-4">
             <EmployeeNav
               index={gestionIndex}
-              total={employees.length}
+              total={enPeriode.length}
               onPrev={() => goGestion(gestionIndex - 1)}
               onNext={() => goGestion(gestionIndex + 1)}
             />
