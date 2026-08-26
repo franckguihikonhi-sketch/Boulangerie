@@ -8,7 +8,7 @@ import { SITUATIONS, TYPES_CONTRAT, deleteEmployee, uid } from '../lib/db';
 // toute modification qui changerait le bulletin déjà calculé d'un mois
 // clôturé — voir ce module pour le détail du garde-fou.
 import { saveEmployee } from '../lib/cloture';
-import { periodeEffective, moisPrecedent, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
+import { periodeEffective, moisPrecedent, MAJORATIONS_HEURES_SUP, BAREME_CATEGORIES, salaireMinimumCategoriel } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import { employeesFromCsv, employeesCsvTemplate } from '../lib/csvImport';
 import {
@@ -334,6 +334,23 @@ export default function Employees() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    // Garde-fou STRICT : le salaire de base d'aucune période ne peut être
+    // inférieur au minimum conventionnel de la catégorie socioprofessionnelle
+    // choisie (barème 2023) — voir payroll.js#salaireMinimumCategoriel. Sans
+    // catégorie reconnue (champ vide ou ancienne valeur libre), aucune
+    // contrainte n'est appliquée.
+    const minCategoriel = salaireMinimumCategoriel(form.categorie);
+    if (minCategoriel != null) {
+      const periodeSousMinimum = form.periodes.find((p) => (Number(p.salaireBase) || 0) < minCategoriel);
+      if (periodeSousMinimum) {
+        setError(t('employees.salaireSousMinimum', {
+          categorie: form.categorie,
+          min: formatFCFA(minCategoriel),
+          salaire: formatFCFA(Number(periodeSousMinimum.salaireBase) || 0)
+        }));
+        return;
+      }
+    }
     setSaving(true);
     try {
       await saveEmployee(form, auditMeta);
@@ -619,7 +636,23 @@ export default function Employees() {
                 <input className={inputClass} value={form.emploi} onChange={(e) => setField('emploi', e.target.value)} />
               </Field>
               <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
-                <input className={inputClass} value={form.categorie} onChange={(e) => setField('categorie', e.target.value)} placeholder={t('employees.categoriePlaceholder')} />
+                <select className={inputClass} value={form.categorie} onChange={(e) => setField('categorie', e.target.value)}>
+                  <option value="">{t('employees.categorieNonClassee')}</option>
+                  <optgroup label={t('employees.groupeAgentMaitrise')}>
+                    {BAREME_CATEGORIES.filter((c) => c.groupe === 'EMPLOYE_AGENT_MAITRISE').map((c) => (
+                      <option key={c.categorie} value={c.categorie}>
+                        {c.categorie}{c.definition ? ` (${c.definition})` : ''} — min. {formatFCFA(c.salaireMin)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t('employees.groupeCadre')}>
+                    {BAREME_CATEGORIES.filter((c) => c.groupe === 'CADRE').map((c) => (
+                      <option key={c.categorie} value={c.categorie}>
+                        {c.categorie} — min. {formatFCFA(c.salaireMin)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </Field>
               <Field label={t('employees.dateEmbauche')} help={t('employees.dateEmbaucheHelp')}>
                 <input className={inputClass} type="date" value={form.dateEmbauche} onChange={(e) => setField('dateEmbauche', e.target.value)} />

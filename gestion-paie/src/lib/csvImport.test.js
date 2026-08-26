@@ -98,4 +98,26 @@ describe('employeesFromCsv', () => {
     const { employees } = employeesFromCsv(csv);
     expect(employees[0].dateEmbauche).toBe('2026-03-01');
   });
+
+  it('rejette une ligne dont le salaire de base est sous le minimum conventionnel de la catégorie reconnue', () => {
+    // Catégorie 8B (barème 2023) : minimum 137 956 FCFA.
+    const csv = [header, 'Test;;;;8B;;;;;;;cdi;2026-01;100000;150000;0'].join('\n');
+    const { employees, errors } = employeesFromCsv(csv);
+    expect(employees).toHaveLength(0);
+    expect(errors[0].message).toMatch(/inférieur au minimum conventionnel/i);
+  });
+
+  it('accepte une ligne dont le salaire de base atteint le minimum conventionnel de la catégorie', () => {
+    const csv = [header, 'Test;;;;8B;;;;;;;cdi;2026-01;137956;150000;0'].join('\n');
+    const { employees, errors } = employeesFromCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(employees).toHaveLength(1);
+  });
+
+  it("n'applique aucune contrainte si la catégorie n'est pas reconnue (valeur libre ou vide)", () => {
+    const csv = [header, 'Test;;;;Catégorie inconnue;;;;;;;cdi;2026-01;10000;120000;0'].join('\n');
+    const { employees, errors } = employeesFromCsv(csv);
+    expect(errors).toHaveLength(0);
+    expect(employees).toHaveLength(1);
+  });
 });

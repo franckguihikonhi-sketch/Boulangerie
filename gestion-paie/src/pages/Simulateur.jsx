@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { useStore } from '../lib/useStore';
 import { useI18n } from '../i18n/I18nContext';
 import { SITUATIONS, paramsFromSettings } from '../lib/db';
-import { calculerDepuisNet, MAJORATIONS_HEURES_SUP } from '../lib/payroll';
+import { calculerDepuisNet, MAJORATIONS_HEURES_SUP, BAREME_CATEGORIES, salaireMinimumCategoriel } from '../lib/payroll';
 import { formatFCFA } from '../lib/money';
 import { telechargerSimulation } from '../lib/simulateurDoc';
-import { Button, Card, PageTitle, Field, inputClass, InfoNote, StatCard } from '../components/ui';
+import { Button, Card, PageTitle, Field, inputClass, InfoNote, ErrorNote, StatCard } from '../components/ui';
 
 // Simulateur de coût d'embauche : à partir d'un profil (salaire de base,
 // net visé, situation…), calcule EXACTEMENT le même détail qu'un bulletin
@@ -74,6 +74,11 @@ export default function Simulateur() {
     );
   }, [form, primes, heuresSup, params]);
 
+  // Garde-fou STRICT, identique à la fiche salarié : sans catégorie reconnue
+  // du barème (champ vide), aucune contrainte n'est signalée.
+  const minCategoriel = salaireMinimumCategoriel(form.categorie);
+  const salaireSousMinimum = minCategoriel != null && (Number(form.salaireBase) || 0) < minCategoriel;
+
   const print = async () => {
     if (!calc || exporting) return;
     setNotice('');
@@ -119,8 +124,35 @@ export default function Simulateur() {
             </Field>
             <div className="sm:col-span-2">
               <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
-                <input className={inputClass} value={form.categorie} onChange={(e) => set('categorie', e.target.value)} placeholder="ex. Catégorie 3B" />
+                <select className={inputClass} value={form.categorie} onChange={(e) => set('categorie', e.target.value)}>
+                  <option value="">{t('employees.categorieNonClassee')}</option>
+                  <optgroup label={t('employees.groupeAgentMaitrise')}>
+                    {BAREME_CATEGORIES.filter((c) => c.groupe === 'EMPLOYE_AGENT_MAITRISE').map((c) => (
+                      <option key={c.categorie} value={c.categorie}>
+                        {c.categorie}{c.definition ? ` (${c.definition})` : ''} — min. {formatFCFA(c.salaireMin)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label={t('employees.groupeCadre')}>
+                    {BAREME_CATEGORIES.filter((c) => c.groupe === 'CADRE').map((c) => (
+                      <option key={c.categorie} value={c.categorie}>
+                        {c.categorie} — min. {formatFCFA(c.salaireMin)}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </Field>
+              {salaireSousMinimum && (
+                <div className="mt-2">
+                  <ErrorNote>
+                    {t('employees.salaireSousMinimum', {
+                      categorie: form.categorie,
+                      min: formatFCFA(minCategoriel),
+                      salaire: formatFCFA(Number(form.salaireBase) || 0)
+                    })}
+                  </ErrorNote>
+                </div>
+              )}
             </div>
             <Field label={t('employees.situation')}>
               <select className={inputClass} value={form.situation} onChange={(e) => set('situation', e.target.value)}>
