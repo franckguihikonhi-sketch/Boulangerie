@@ -206,7 +206,7 @@ export default function Parametres() {
 
   const legalRates = [
     ['Retraite CNPS (salarié)', '6,3 %'],
-    ['CMU', '1 000 FCFA/mois (500 salarié + 500 employeur)'],
+    ['CMU', '1 000 FCFA/mois PAR PERSONNE couverte (500 salarié + 500 employeur) — salarié + enfants à charge'],
     ['Prestations familiales (patronal)', '5,75 %'],
     ['Accident du travail (patronal)', '2 à 5 %'],
     ['Retraite CNPS (patronal)', '7,7 %'],

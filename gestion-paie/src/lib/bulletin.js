@@ -365,7 +365,7 @@ function slipHtml(data, t, locale) {
         ${calc.expatrie ? row({ code: 511, lib: 'IMPÔT SUR SALAIRES (EXPATRIÉS)', base: calc.brutImposable, txPat: params.isExpatrie, retPat: calc.patronal.isExpatrie }) : ''}
         ${row({ code: 520, lib: 'TAXE D’APPRENTISSAGE', base: calc.brutImposable, txPat: params.taxeApprentissage, retPat: calc.patronal.taxeApprentissage })}
         ${row({ code: 530, lib: 'TAXE F.P.C', base: calc.brutImposable, txPat: params.fpc, retPat: calc.patronal.fpc })}
-        ${row({ code: 551, lib: 'C.M.U', nombre: 1, base: params.cmuSalarie + params.cmuPatronale, txSal: 0.5, retSal: calc.cmu, txPat: 0.5, retPat: calc.patronal.cmu })}
+        ${row({ code: 551, lib: `C.M.U (${calc.cmuPersonnes} pers.)`, nombre: calc.cmuPersonnes, base: params.cmuSalarie + params.cmuPatronale, txSal: 0.5, retSal: calc.cmu, txPat: 0.5, retPat: calc.patronal.cmu })}
         ${row({ lib: 'TOTAL COTISATIONS', retSal: totalRetSal, retPat: totalRetPat, cls: 'tot' })}
         ${calc.transport > 0 ? row({ code: 708, lib: 'PRIME DE TRANSPORT', nombre: 30, base: calc.transport, gain: calc.transport }) : ''}
       </tbody>

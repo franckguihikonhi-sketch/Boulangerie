@@ -7,7 +7,7 @@ import {
   joursCongeAnnuels, estMoisAnniversaire, congesEnCours,
   joursTravaillesMois, coefficientProrata,
   indemniteLicenciement, indemniteCongesNonPris, primePrecarite, indemnitePreavis,
-  moisEntre, listerMois, moisPrecedent, libelleMois
+  moisEntre, listerMois, moisPrecedent, libelleMois, cmuNombrePersonnes
 } from './payroll';
 
 // --------------------------- Ancienneté -------------------------------------
@@ -149,6 +149,30 @@ describe('calculerBulletin', () => {
   it('prime d\'ancienneté = salaireCategoriel × taux, hors assiette si < 2 ans', () => {
     const calc = calculerBulletin({ ...base, salaireCategoriel: 200000, anciennete: 10 });
     expect(calc.primeAnciennete).toBe(20000); // 200000 * 10%
+  });
+
+  // CMU : forfait de 1 000 FCFA (500 salarié + 500 employeur) PAR PERSONNE
+  // couverte (le salarié + ses enfants à charge), pas un montant fixe par
+  // salarié — voir référentiel CMU (loi n°2014-131).
+  it('CMU = 500/500 FCFA sans enfant (1 seule personne couverte : le salarié)', () => {
+    const calc = calculerBulletin({ ...base, enfants: 0 });
+    expect(calc.cmuPersonnes).toBe(1);
+    expect(calc.cmu).toBe(500);
+    expect(calc.patronal.cmu).toBe(500);
+  });
+
+  it('CMU scale avec le nombre d\'enfants (1 salarié + N enfants)', () => {
+    const calc = calculerBulletin({ ...base, enfants: 3 });
+    expect(calc.cmuPersonnes).toBe(4); // 1 (salarié) + 3 (enfants)
+    expect(calc.cmu).toBe(2000); // 4 × 500
+    expect(calc.patronal.cmu).toBe(2000); // 4 × 500
+  });
+
+  it('cmuNombrePersonnes ignore les valeurs négatives ou non entières', () => {
+    expect(cmuNombrePersonnes(0)).toBe(1);
+    expect(cmuNombrePersonnes(-1)).toBe(1);
+    expect(cmuNombrePersonnes(2.9)).toBe(3); // 1 + floor(2.9)
+    expect(cmuNombrePersonnes(undefined)).toBe(1);
   });
 });
 
