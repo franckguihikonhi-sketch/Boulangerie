@@ -324,6 +324,7 @@
   "simulateur.subtitle": "Estimez le coût salarial complet avant de recruter : renseignez le profil envisagé, le détail se met à jour automatiquement.",
   "simulateur.profil": "Profil envisagé",
   "simulateur.sursalaireTip": "Calculé automatiquement pour atteindre le salaire NET cible saisi ci-contre (comme pour un salarié réel — voir Salariés).",
+  "simulateur.categorieHelp": "Barème conventionnel 2023 (Convention Collective Interprofessionnelle). Le salaire de base se cale automatiquement sur le minimum de la catégorie choisie, et tous les montants du résultat se recalculent aussitôt.",
   "simulateur.netCibleHelp": "Le salaire net que vous comptez verser au salarié.",
   "simulateur.anciennete": "Ancienneté simulée (années)",
   "simulateur.ancienneteHelp": "Pour estimer la prime d'ancienneté si le profil recruté a déjà de l'expérience reconnue par l'entreprise.",
