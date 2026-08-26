@@ -13,7 +13,7 @@ import { formatFCFA } from '../lib/money';
 import { employeesFromCsv, employeesCsvTemplate } from '../lib/csvImport';
 import {
   Button, Card, PageTitle, Modal, Field, inputClass, ErrorNote, InfoNote,
-  Badge, TableWrap, th, td
+  Badge, TableWrap, th, td, EmployeeNav
 } from '../components/ui';
 
 // Déclenche le téléchargement d'un fichier texte (CSV) côté navigateur.
@@ -588,26 +588,13 @@ export default function Employees() {
         <Modal title={form.id ? t('employees.edit') : t('employees.add')} onClose={() => setForm(null)} wide>
           <form onSubmit={submit} className="space-y-4">
             {editIndex >= 0 && (
-              <div className="-mt-1 mb-1 flex items-center justify-between rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => goEdit(editIndex - 1)}
-                  disabled={editIndex <= 0}
-                  className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 4l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  {t('employees.navPrev')}
-                </button>
-                <span className="text-xs text-stone-500">{t('employees.navPosition', { n: editIndex + 1, total: enPeriode.length })}</span>
-                <button
-                  type="button"
-                  onClick={() => goEdit(editIndex + 1)}
-                  disabled={editIndex >= enPeriode.length - 1}
-                  className="flex items-center gap-1 text-sm font-medium text-stone-700 hover:text-brand-700 disabled:cursor-not-allowed disabled:text-stone-300 disabled:hover:text-stone-300"
-                >
-                  {t('employees.navNext')}
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 4l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </button>
+              <div className="-mt-1 mb-1">
+                <EmployeeNav
+                  index={editIndex}
+                  total={enPeriode.length}
+                  onPrev={() => goEdit(editIndex - 1)}
+                  onNext={() => goEdit(editIndex + 1)}
+                />
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
