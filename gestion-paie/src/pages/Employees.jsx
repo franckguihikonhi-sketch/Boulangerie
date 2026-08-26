@@ -279,11 +279,36 @@ export default function Employees() {
 
   const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
+  // Choix d'une catégorie du barème : positionne AUTOMATIQUEMENT le salaire
+  // de base sur le minimum conventionnel, pour chaque période dont le
+  // salaire actuel est vide ou déjà sous ce minimum (une période dont le
+  // salaire est déjà conforme, ou supérieur, reste inchangée). Cohérent avec
+  // le garde-fou strict de submit() ci-dessus : une fois la catégorie
+  // choisie, toutes les périodes sont automatiquement conformes.
+  const setCategorie = (categorie) => {
+    const min = salaireMinimumCategoriel(categorie);
+    setForm((f) => ({
+      ...f,
+      categorie,
+      periodes: min == null
+        ? f.periodes
+        : f.periodes.map((p) => ((Number(p.salaireBase) || 0) < min ? { ...p, salaireBase: min } : p))
+    }));
+  };
+
   const setPeriode = (i, patch) =>
     setForm((f) => ({ ...f, periodes: f.periodes.map((p, idx) => (idx === i ? { ...p, ...patch } : p)) }));
 
   const addPeriode = () =>
-    setForm((f) => ({ ...f, periodes: [...f.periodes, emptyPeriode(f.periodes.length ? 'cdd' : 'cdd')] }));
+    setForm((f) => {
+      const nouvelle = emptyPeriode('cdd');
+      // Si une catégorie du barème est déjà choisie, la nouvelle période
+      // démarre directement sur son salaire minimum — même principe que le
+      // choix de catégorie ci-dessus.
+      const min = salaireMinimumCategoriel(f.categorie);
+      if (min != null) nouvelle.salaireBase = min;
+      return { ...f, periodes: [...f.periodes, nouvelle] };
+    });
 
   const removePeriode = (i) =>
     setForm((f) => ({ ...f, periodes: f.periodes.filter((_, idx) => idx !== i) }));
@@ -636,7 +661,7 @@ export default function Employees() {
                 <input className={inputClass} value={form.emploi} onChange={(e) => setField('emploi', e.target.value)} />
               </Field>
               <Field label={t('employees.categorie')} help={t('employees.categorieHelp')}>
-                <select className={inputClass} value={form.categorie} onChange={(e) => setField('categorie', e.target.value)}>
+                <select className={inputClass} value={form.categorie} onChange={(e) => setCategorie(e.target.value)}>
                   <option value="">{t('employees.categorieNonClassee')}</option>
                   <optgroup label={t('employees.groupeAgentMaitrise')}>
                     {BAREME_CATEGORIES.filter((c) => c.groupe === 'EMPLOYE_AGENT_MAITRISE').map((c) => (
