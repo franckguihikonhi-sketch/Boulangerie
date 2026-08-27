@@ -203,6 +203,19 @@
   .hint{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:6;
     font-size:11px;color:var(--muted-2);letter-spacing:.1em;text-transform:uppercase;text-align:center}
 
+  /* ---------- Sous-titres (narration) ---------- */
+  .cap{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);z-index:6;
+    width:min(760px,88vw);text-align:center;opacity:0;transition:opacity .45s var(--ease);
+    font-size:clamp(14px,2vw,18px);font-weight:600;line-height:1.4;color:var(--text);
+    text-shadow:0 2px 14px rgba(0,0,0,.7);pointer-events:none}
+  .cap.show{opacity:1}
+  .cap::before{content:"";display:inline-block;vertical-align:middle;width:14px;height:14px;margin-right:9px;
+    background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2334d399'%3E%3Cpath d='M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 0 0-2-3.5v7A4 4 0 0 0 16 12z'/%3E%3C/svg%3E")}
+  .novoice{position:absolute;left:50%;bottom:114px;transform:translateX(-50%);z-index:6;
+    display:none;align-items:center;gap:8px;font-size:11.5px;color:var(--amber);
+    background:rgba(20,22,66,.85);border:1px solid var(--line);border-radius:999px;padding:7px 14px}
+  .novoice.show{display:inline-flex}
+
   /* ---------- Sound start overlay ---------- */
   .gate{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:26px;text-align:center;padding:24px;
@@ -353,6 +366,9 @@
 
   <div class="hint" id="hint">La lecture démarre automatiquement — espace pour mettre en pause</div>
 
+  <div class="novoice" id="novoice">🔇 La voix n'est pas disponible dans ce lecteur — ouvrez le fichier sur votre PC pour l'entendre (la musique et les sous-titres restent actifs).</div>
+  <div class="cap" id="cap" aria-live="polite"></div>
+
   <!-- Écran de démarrage (obligatoire pour autoriser le son) -->
   <div class="gate" id="gate">
     <span class="glabel">Publicité · Wave → SAGE</span>
@@ -391,9 +407,12 @@
   var playIcon=document.getElementById('playicon');
   var gate   = document.getElementById('gate');
   var soundBtn=document.getElementById('sound');
+  var capEl  = document.getElementById('cap');
+  var novoice= document.getElementById('novoice');
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var i = 0, paused = false, timer = null, lastSpoken = -1;
+  var started = false, voiceChecked = false;
 
   // build progress segments
   var segs = scenes.map(function(){
@@ -497,14 +516,31 @@
     window.speechSynthesis.onvoiceschanged = pickVoice;
   }
   function speak(text){
-    if (!soundOn || !('speechSynthesis' in window)) return;
+    if (!soundOn || !text || !('speechSynthesis' in window)) return;
     try{
-      window.speechSynthesis.cancel();
+      var ss = window.speechSynthesis;
+      ss.cancel();
       var u = new SpeechSynthesisUtterance(text);
       u.lang = 'fr-FR'; if (frVoice) u.voice = frVoice;
       u.rate = 1.0; u.pitch = 1.02; u.volume = 1;
-      window.speechSynthesis.speak(u);
+      u.onstart = function(){ voiceChecked = true; if (novoice) novoice.classList.remove('show'); };
+      ss.speak(u);
+      // Contournement bug Chrome : « poke » resume juste après speak.
+      setTimeout(function(){ try{ ss.resume(); }catch(e){} }, 60);
+      // Si rien ne démarre (lecteur qui bloque la voix), on le signale une fois.
+      setTimeout(function(){
+        if (!voiceChecked && soundOn && !ss.speaking && novoice){ novoice.classList.add('show'); }
+      }, 700);
     }catch(e){}
+  }
+
+  // Chrome met la synthèse en pause toute seule sur les longues phrases : on
+  // la relance périodiquement tant qu'elle parle.
+  if ('speechSynthesis' in window){
+    setInterval(function(){
+      var ss = window.speechSynthesis;
+      if (soundOn && !paused && ss.speaking && !ss.paused){ try{ ss.resume(); }catch(e){} }
+    }, 4000);
   }
 
   var PLAY  = '<rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect>';
@@ -527,11 +563,16 @@
     });
     counter.textContent = pad2(i+1)+' / '+pad2(scenes.length);
 
+    // Sous-titres (narration) — affichés dès que la lecture est lancée,
+    // avec ou sans son.
+    if (started && capEl){
+      capEl.textContent = LINES[i] || '';
+      capEl.classList.toggle('show', !!(LINES[i]));
+    }
+
     // Audio synchronisé au plan (une seule fois par entrée de plan).
-    if (soundOn && i !== lastSpoken){
-      whoosh();
-      if (i === 3) chime();
-      speak(LINES[i] || '');
+    if (i !== lastSpoken){
+      if (soundOn){ whoosh(); if (i === 3) chime(); speak(LINES[i] || ''); }
     }
     lastSpoken = i;
   }
@@ -556,10 +597,10 @@
       var w = getComputedStyle(f).width;
       f.style.transition='none'; f.style.width=w;
       clearTimeout(timer);
-      if ('speechSynthesis' in window) window.speechSynthesis.pause();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       fadeMaster(0.0001, 0.4);
     } else {
-      if (soundOn){ fadeMaster(0.9, 0.6); if ('speechSynthesis' in window) window.speechSynthesis.resume(); }
+      if (soundOn) fadeMaster(0.9, 0.6);
       lastSpoken = -1;        // autoriser la voix à reprendre le plan courant
       render(); schedule();
     }
@@ -586,10 +627,13 @@
 
   // Boutons de l'écran de démarrage.
   document.getElementById('startSound').addEventListener('click', function(){
-    gate.classList.add('gone'); enableSound(); setPaused(false); go(0);
+    gate.classList.add('gone'); started = true;
+    // Amorce la synthèse DANS le geste utilisateur (fiabilise Chrome/Safari).
+    if ('speechSynthesis' in window){ try{ window.speechSynthesis.resume(); window.speechSynthesis.cancel(); }catch(e){} }
+    enableSound(); setPaused(false); go(0);
   });
   document.getElementById('startMuted').addEventListener('click', function(){
-    gate.classList.add('gone');
+    gate.classList.add('gone'); started = true; lastSpoken = -1; render();
   });
 
   document.getElementById('next').addEventListener('click',function(){ setPaused(false); go(i+1); });
