@@ -203,6 +203,30 @@
   .hint{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:6;
     font-size:11px;color:var(--muted-2);letter-spacing:.1em;text-transform:uppercase;text-align:center}
 
+  /* ---------- Sound start overlay ---------- */
+  .gate{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;text-align:center;padding:24px;
+    background:rgba(8,9,30,.72);backdrop-filter:blur(10px);
+    transition:opacity .6s var(--ease),visibility .6s}
+  .gate.gone{opacity:0;visibility:hidden;pointer-events:none}
+  .gate .glabel{font-size:12px;letter-spacing:.28em;text-transform:uppercase;color:var(--indigo-glow);font-weight:700}
+  .gate .gtitle{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:clamp(26px,5vw,46px);
+    letter-spacing:-.02em;margin:0;max-width:18ch;text-wrap:balance}
+  .gate .gbtns{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:4px}
+  .gbtn{appearance:none;cursor:pointer;border-radius:999px;font-family:inherit;font-weight:700;
+    font-size:15px;padding:14px 26px;display:inline-flex;align-items:center;gap:10px;
+    border:1px solid transparent;transition:transform .15s,filter .2s,background .2s}
+  .gbtn.primary{background:linear-gradient(90deg,var(--indigo),var(--green));color:#0a0b24}
+  .gbtn.primary:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .gbtn.ghost{background:transparent;border-color:var(--line);color:var(--muted)}
+  .gbtn.ghost:hover{background:rgba(99,102,241,.15);color:var(--text)}
+  .gbtn:focus-visible{outline:2px solid var(--indigo-glow);outline-offset:3px}
+  .gbtn svg{width:20px;height:20px;fill:currentColor}
+
+  #sound.muted .son-on{display:none}
+  #sound .son-off{display:none}
+  #sound.muted .son-off{display:block}
+
   /* ---------- Reduced motion / static deck ---------- */
   @media (prefers-reduced-motion: reduce){
     body{overflow:auto}
@@ -329,12 +353,29 @@
 
   <div class="hint" id="hint">La lecture démarre automatiquement — espace pour mettre en pause</div>
 
+  <!-- Écran de démarrage (obligatoire pour autoriser le son) -->
+  <div class="gate" id="gate">
+    <span class="glabel">Publicité · Wave → SAGE</span>
+    <p class="gtitle">Votre relevé Wave, dans SAGE, en un clic.</p>
+    <div class="gbtns">
+      <button class="gbtn primary" id="startSound">
+        <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 0 0-2-3.5v7A4 4 0 0 0 16 12zm-2-7.7v2.1a6 6 0 0 1 0 11.2v2.1a8 8 0 0 0 0-15.4z"/></svg>
+        Lancer avec le son
+      </button>
+      <button class="gbtn ghost" id="startMuted">Continuer sans le son</button>
+    </div>
+  </div>
+
   <div class="controls" role="group" aria-label="Lecture de la publicité">
     <button id="prev" title="Plan précédent" aria-label="Plan précédent"><svg viewBox="0 0 24 24"><path d="M7 5h2v14H7zM19 5l-9 7 9 7z"/></svg></button>
     <button id="play" title="Lecture / Pause" aria-label="Lecture ou pause"><svg id="playicon" viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg></button>
     <button id="next" title="Plan suivant" aria-label="Plan suivant"><svg viewBox="0 0 24 24"><path d="M15 5h2v14h-2zM5 5l9 7-9 7z"/></svg></button>
     <span class="lbl" id="counter">01 / 06</span>
     <button id="replay" title="Revoir depuis le début" aria-label="Recommencer"><svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg></button>
+    <button id="sound" class="muted" title="Son activé / coupé" aria-label="Activer ou couper le son">
+      <svg class="son-on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13 3a4 4 0 0 0-2-3.5v7A4 4 0 0 0 16 12zm-2-7.7v2.1a6 6 0 0 1 0 11.2v2.1a8 8 0 0 0 0-15.4z"/></svg>
+      <svg class="son-off" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm18.3-1.3-1.4-1.4L17 9.2 14.1 6.3 12.7 7.7 15.6 10.6 12.7 13.5l1.4 1.4L17 12l2.9 2.9 1.4-1.4L18.4 10.6z"/></svg>
+    </button>
   </div>
 </div>
 
@@ -348,9 +389,11 @@
   var hint   = document.getElementById('hint');
   var playBtn= document.getElementById('play');
   var playIcon=document.getElementById('playicon');
+  var gate   = document.getElementById('gate');
+  var soundBtn=document.getElementById('sound');
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var i = 0, paused = false, timer = null;
+  var i = 0, paused = false, timer = null, lastSpoken = -1;
 
   // build progress segments
   var segs = scenes.map(function(){
@@ -359,12 +402,114 @@
     track.appendChild(s); return s;
   });
 
-  if (reduced){ reel.classList.add('reduced'); return; }
+  if (reduced){ reel.classList.add('reduced'); if(gate) gate.classList.add('gone'); return; }
+
+  // ---- Voix off (une réplique par plan) ----------------------------------
+  var LINES = [
+    "Votre relevé Wave, directement dans SAGE, en un seul clic.",
+    "Chaque mois, vous ressaisissez le relevé Wave dans SAGE, à la main. Des heures perdues, et des erreurs d'imputation.",
+    "Wave, vers SAGE. Un seul flux, sans aucune ressaisie.",
+    "Chaque transaction Wave devient une écriture SAGE : imputée automatiquement, et parfaitement équilibrée.",
+    "Mille quatre-vingt-treize comptes SYSCOHADA, imputation par le motif, et export SAGE cent conforme. Sur le web, comme sur Windows.",
+    "Wave vers SAGE. Conçu par Monsieur Franck KONHI. Zéro sept, soixante-dix-huit, zéro huit, quarante-quatre, zéro six."
+  ];
+
+  // =========================================================================
+  //  Audio : musique d'ambiance générée + effets, 100% Web Audio (aucun
+  //  fichier externe). Démarré uniquement après un geste utilisateur.
+  // =========================================================================
+  var soundOn = false, actx = null, master = null, pad = null, arpTimer = null;
+
+  function initAudio(){
+    if (actx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    actx = new AC();
+    master = actx.createGain();
+    master.gain.value = 0.0001;
+    master.connect(actx.destination);
+
+    // Nappe d'ambiance : accord Fa mineur 9 doux, filtré, avec léger battement.
+    pad = actx.createGain(); pad.gain.value = 0.16;
+    var lp = actx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 0.6;
+    pad.connect(lp); lp.connect(master);
+    [174.6, 220.0, 261.6, 349.2].forEach(function(f, idx){
+      var o = actx.createOscillator();
+      o.type = idx % 2 ? 'triangle' : 'sine';
+      o.frequency.value = f;
+      o.detune.value = (idx - 1.5) * 4;
+      var g = actx.createGain(); g.gain.value = idx === 3 ? 0.28 : 0.5;
+      o.connect(g); g.connect(pad); o.start();
+    });
+    // LFO qui fait respirer la nappe.
+    var lfo = actx.createOscillator(); lfo.frequency.value = 0.08;
+    var lfoG = actx.createGain(); lfoG.gain.value = 220;
+    lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
+  }
+
+  function note(freq, t0, dur, type, peak){
+    if (!actx) return;
+    var o = actx.createOscillator(); o.type = type || 'sine'; o.frequency.value = freq;
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak || 0.2, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+
+  // Transition douce entre les plans.
+  function whoosh(){
+    if (!actx || !soundOn) return;
+    var t = actx.currentTime;
+    note(392, t, 0.18, 'sine', 0.12);
+    note(523, t + 0.05, 0.16, 'triangle', 0.10);
+  }
+  // Petit carillon « équilibré » (plan 4).
+  function chime(){
+    if (!actx || !soundOn) return;
+    var t = actx.currentTime + 0.15;
+    [659.3, 784.0, 987.8, 1318.5].forEach(function(f, k){
+      note(f, t + k * 0.11, 0.5, 'sine', 0.18);
+    });
+  }
+
+  function fadeMaster(to, secs){
+    if (!actx || !master) return;
+    var now = actx.currentTime;
+    master.gain.cancelScheduledValues(now);
+    master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now);
+    master.gain.exponentialRampToValueAtTime(Math.max(to, 0.0001), now + (secs || 0.6));
+  }
+
+  // ---- Synthèse vocale ----------------------------------------------------
+  var frVoice = null;
+  function pickVoice(){
+    if (!('speechSynthesis' in window)) return;
+    var vs = window.speechSynthesis.getVoices() || [];
+    frVoice = vs.find(function(v){ return /^fr(-|_)?FR/i.test(v.lang) && /female|virginie|amelie|audrey|julie|google/i.test(v.name); })
+           || vs.find(function(v){ return /^fr/i.test(v.lang); })
+           || null;
+  }
+  if ('speechSynthesis' in window){
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+  function speak(text){
+    if (!soundOn || !('speechSynthesis' in window)) return;
+    try{
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'fr-FR'; if (frVoice) u.voice = frVoice;
+      u.rate = 1.0; u.pitch = 1.02; u.volume = 1;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
 
   var PLAY  = '<rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect>';
   var PAUSE = '<path d="M8 5v14l11-7z"></path>';
-
-  function pad(n){ return (n<10?'0':'')+n; }
+  function pad2(n){ return (n<10?'0':'')+n; }
 
   function render(){
     scenes.forEach(function(s,k){ s.classList.toggle('on', k===i); });
@@ -373,7 +518,6 @@
       s.classList.remove('active','done');
       if (k < i){ s.classList.add('done'); }
       else if (k === i){
-        // restart transition
         f.style.transition='none'; f.style.width='0';
         void f.offsetWidth;
         s.style.setProperty('--segdur', (scenes[i].dataset.dur||5000)+'ms');
@@ -381,7 +525,15 @@
         f.style.transition=''; f.style.width='';
       } else { f.style.transition='none'; f.style.width='0'; }
     });
-    counter.textContent = pad(i+1)+' / '+pad(scenes.length);
+    counter.textContent = pad2(i+1)+' / '+pad2(scenes.length);
+
+    // Audio synchronisé au plan (une seule fois par entrée de plan).
+    if (soundOn && i !== lastSpoken){
+      whoosh();
+      if (i === 3) chime();
+      speak(LINES[i] || '');
+    }
+    lastSpoken = i;
   }
 
   function schedule(){
@@ -399,16 +551,46 @@
   function setPaused(p){
     paused = p;
     playIcon.innerHTML = p ? PAUSE : PLAY;
-    if (p){ // freeze active bar
+    if (p){
       var f = segs[i].firstChild;
       var w = getComputedStyle(f).width;
       f.style.transition='none'; f.style.width=w;
       clearTimeout(timer);
+      if ('speechSynthesis' in window) window.speechSynthesis.pause();
+      fadeMaster(0.0001, 0.4);
     } else {
-      // resume: relaunch bar + timer for remaining (simplify: restart current)
+      if (soundOn){ fadeMaster(0.9, 0.6); if ('speechSynthesis' in window) window.speechSynthesis.resume(); }
+      lastSpoken = -1;        // autoriser la voix à reprendre le plan courant
       render(); schedule();
     }
   }
+
+  // ---- Activation / coupure du son ---------------------------------------
+  function enableSound(){
+    initAudio();
+    if (actx && actx.state === 'suspended') actx.resume();
+    soundOn = true;
+    soundBtn.classList.remove('muted');
+    fadeMaster(0.9, 0.8);
+    lastSpoken = -1;
+    render();               // relance voix + effets sur le plan courant
+  }
+  function disableSound(){
+    soundOn = false;
+    soundBtn.classList.add('muted');
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    fadeMaster(0.0001, 0.5);
+  }
+
+  soundBtn.addEventListener('click', function(){ soundOn ? disableSound() : enableSound(); });
+
+  // Boutons de l'écran de démarrage.
+  document.getElementById('startSound').addEventListener('click', function(){
+    gate.classList.add('gone'); enableSound(); setPaused(false); go(0);
+  });
+  document.getElementById('startMuted').addEventListener('click', function(){
+    gate.classList.add('gone');
+  });
 
   document.getElementById('next').addEventListener('click',function(){ setPaused(false); go(i+1); });
   document.getElementById('prev').addEventListener('click',function(){ setPaused(false); go(i-1); });
@@ -421,9 +603,9 @@
     else if (e.code==='ArrowLeft'){ setPaused(false); go(i-1); }
   });
 
-  // hide the hint after first cycle start
-  setTimeout(function(){ if(hint) hint.style.transition='opacity .8s'; if(hint) hint.style.opacity='0'; }, 4000);
+  setTimeout(function(){ if(hint){ hint.style.transition='opacity .8s'; hint.style.opacity='0'; } }, 4000);
 
+  // La partie visuelle démarre tout de suite (muette) derrière l'écran d'accueil.
   render(); schedule();
 })();
 </script>
